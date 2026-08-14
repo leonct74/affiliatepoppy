@@ -80,13 +80,26 @@ rationale, founder-locked decisions D1–D14, and phases P0–P6: `DESIGN.md`.
 - The founder decides product questions; implementation questions get decided here and
   recorded in DESIGN.md.
 
-## Commands (mirror traffic-poppy's package.json as scaffolded)
+## Commands
 
 `npm install` · `npm run typecheck` · `npm run test` · `npm run gen:backend` ·
-`npm run build:sidecar` · `npm run validate-manifest` · `npm run sync-feedback` /
-`check-feedback` · `npm run pack` · `npm run install-dev` · `npm run certify`
+`npm run build` (frontend + `backend/index.cjs`) · `npm run validate-manifest` ·
+`npm run sync-feedback` / `check-feedback` · `node scripts/make-icon.mjs` ·
+`npm run pack` · `npm run install-dev` · `npm run certify`
+
+The backend runs on the host's SHARED Node runtime (`backend.runtime: "node22"`), so there is
+no SEA sidecar to build — `backend/index.cjs` IS the artifact, and it embeds the template and
+both Lambda handlers.
 
 ## Status
 
-Nothing built. DESIGN.md is the approved implementation plan (2026-08-14); start at P0.
+**P0–P4 built, 131 tests green, manifest amber — but NEVER deployed.** See DESIGN.md §12 for
+the build log, the decisions taken while implementing (I1–I10), the one real bug the tests
+caught, and the live-only risks.
+
+The next step is the one that matters: **ask the founder to approve ONE real deploy** into the
+test account (675546221165 / eu-west-1), then `npm run certify`, then P5 (premium domain) and
+P6 (dogfood + listing). Nothing here is proven until that deploy happens — every sibling repo
+learned its worst lesson on the first live run, not on the bench.
+
 Open founder items: final name/id (blocks P6 only), the poppy's own pricing (blocks P6).

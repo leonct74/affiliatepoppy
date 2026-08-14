@@ -1,0 +1,134 @@
+// The Affiliates tab — approving someone, and retiring their code.
+//
+// Retiring is destructive in a way that is easy to underestimate: it is somebody's income
+// stream. So it takes the family's type-to-confirm ceremony AND says, in the dialog, that
+// what they have already earned is untouched — because that is the question a merchant is
+// actually asking themselves at that moment.
+
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Affiliates } from "./Affiliates";
+import { api } from "./api";
+import type { Affiliate, ProgramConfig } from "./types";
+
+const affiliate = (over: Partial<Affiliate> = {}): Affiliate => ({
+  affId: "aff-oliver",
+  email: "oliver@example.com",
+  displayName: "Oliver",
+  status: "active",
+  code: "OLIVER7K3M",
+  promotionCodeId: "promo_1",
+  createdDay: "2026-08-01",
+  totals: [{ currency: "eur", earnedCents: 5000, refundedCents: 0, paidCents: 0, owedCents: 5000 }],
+  ...over,
+});
+
+const config = {
+  settings: { discountPct: 5, commissionPct: 10, firstPaymentOnly: false, autoApprove: false, maxAffiliates: 1000 },
+} as ProgramConfig;
+
+beforeEach(() => vi.restoreAllMocks());
+
+const show = (list: Affiliate[]) =>
+  render(<Affiliates affiliates={list} config={config} loading={false} onChanged={vi.fn().mockResolvedValue(undefined)} />);
+
+describe("people waiting to be approved", () => {
+  it("are shown separately, with what approving actually does", async () => {
+    show([affiliate({ status: "pending", code: "", affId: "aff-new", displayName: "Maria" })]);
+    expect(screen.getByText(/waiting for you/i)).toBeInTheDocument();
+    expect(screen.getByText(/creates their code in stripe/i)).toBeInTheDocument();
+  });
+
+  it("get their code when approved", async () => {
+    const approve = vi.spyOn(api, "approve").mockResolvedValue({ affiliate: affiliate() });
+    show([affiliate({ status: "pending", code: "" })]);
+    await userEvent.click(screen.getByRole("button", { name: /approve/i }));
+    // No preferred code from this button: the merchant approving in one click gets the
+    // generated one. (Choosing a code by hand is the API's `code` argument, not this path.)
+    expect(approve).toHaveBeenCalledWith("aff-oliver");
+  });
+
+  it("surfaces a Stripe failure instead of leaving the button looking broken", async () => {
+    vi.spyOn(api, "approve").mockRejectedValue(new Error("Connect your Stripe account first."));
+    show([affiliate({ status: "pending", code: "" })]);
+    await userEvent.click(screen.getByRole("button", { name: /approve/i }));
+    expect(await screen.findByText(/connect your stripe account first/i)).toBeInTheDocument();
+  });
+});
+
+describe("retiring a code", () => {
+  const openDialog = async () => {
+    show([affiliate()]);
+    await userEvent.click(screen.getByRole("button", { name: /retire code/i }));
+    return screen.getByText(/retire oliver's code\?/i).closest(".modal") as HTMLElement;
+  };
+
+  it("never happens on a single click", async () => {
+    const retire = vi.spyOn(api, "retire");
+    await openDialog();
+    expect(retire).not.toHaveBeenCalled();
+  });
+
+  it("names the code, and promises their earnings are kept", async () => {
+    const modal = await openDialog();
+    expect(modal).toHaveTextContent("OLIVER7K3M");
+    expect(modal).toHaveTextContent(/stop working at your checkout/i);
+    expect(modal).toHaveTextContent(/everything they've already earned stays/i);
+  });
+
+  it("stays disarmed until the code is typed", async () => {
+    const modal = await openDialog();
+    const confirm = within(modal).getByRole("button", { name: /retire this code/i });
+    expect(confirm).toBeDisabled();
+
+    await userEvent.type(within(modal).getByRole("textbox"), "OLIVER");
+    expect(confirm).toBeDisabled();
+
+    await userEvent.type(within(modal).getByRole("textbox"), "7K3M");
+    expect(confirm).toBeEnabled();
+  });
+
+  it("retires once the code matches", async () => {
+    const retire = vi.spyOn(api, "retire").mockResolvedValue({ affiliate: affiliate({ status: "retired" }) });
+    const modal = await openDialog();
+    await userEvent.type(within(modal).getByRole("textbox"), "oliver7k3m"); // case-insensitive
+    await userEvent.click(within(modal).getByRole("button", { name: /retire this code/i }));
+    expect(retire).toHaveBeenCalledWith("aff-oliver");
+  });
+});
+
+describe("one affiliate's own rate (D9)", () => {
+  it("shows the programme rate when they have no override of their own", () => {
+    show([affiliate()]);
+    expect(screen.getByText(/commission: 10%/i)).toBeInTheDocument();
+  });
+
+  it("marks an override as theirs alone, so it isn't mistaken for the programme's", () => {
+    show([affiliate({ pctOverride: 25 })]);
+    expect(screen.getByText(/commission: 25% \(just for them\)/i)).toBeInTheDocument();
+  });
+
+  it("saves a new rate, and can hand them back to the programme rate", async () => {
+    const setRate = vi.spyOn(api, "setRate").mockResolvedValue({ affiliate: affiliate() });
+    show([affiliate({ pctOverride: 25 })]);
+    await userEvent.click(screen.getByRole("button", { name: /change/i }));
+
+    const box = screen.getByDisplayValue("25");
+    await userEvent.clear(box);
+    await userEvent.type(box, "30");
+    await userEvent.click(screen.getByRole("button", { name: /save rate/i }));
+    expect(setRate).toHaveBeenCalledWith("aff-oliver", 30);
+
+    await userEvent.click(screen.getByRole("button", { name: /change/i }));
+    await userEvent.click(screen.getByRole("button", { name: /use the programme rate/i }));
+    expect(setRate).toHaveBeenLastCalledWith("aff-oliver", null);
+  });
+});
+
+describe("an empty programme", () => {
+  it("points at the one thing that fixes it", () => {
+    show([]);
+    expect(screen.getByText(/share the link from the setup tab/i)).toBeInTheDocument();
+  });
+});

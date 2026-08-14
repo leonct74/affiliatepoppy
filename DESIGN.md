@@ -1,10 +1,15 @@
 # AffiliatePoppy — DESIGN.md (source of truth)
 
-> **Status: implementation plan, approved by the founder 2026-08-14. Nothing is built yet.**
-> This document is written to be handed to the implementing agent cold: every product
-> decision is recorded here with its reason, and every architectural choice points at the
-> sibling repo that already shipped the pattern. Read this file fully before writing any
-> code. When a decision changes, update this file in the same change.
+> **Status (2026-08-14): P0–P4 built and green on the bench; NOT yet deployed to a real
+> account.** 131 tests pass, the manifest rates amber with no beyond-own findings, and the
+> backend bundle embeds the template + both Lambdas. What remains before this is real:
+> **one founder-approved live deploy → certify → the P6 dogfood**. See §12 for exactly
+> what is built, what is deliberately not, and the open live-only risks.
+>
+> This document is the source of truth: every product decision is recorded here with its
+> reason, and every architectural choice points at the sibling repo that already shipped the
+> pattern. Read this file fully before writing any code. When a decision changes, update this
+> file in the same change.
 >
 > Working name and id are `AffiliatePoppy` / `com.affiliatepoppy.desktop`. The founder may
 > still rename — renaming is trivial BEFORE the first catalogue listing and impossible
@@ -430,3 +435,79 @@ listing + the poppy's own price decided.*
 2. **The poppy's own price** (free-while-proving vs paid day one; premium tier price) —
    blocks P6.
 3. Affiliate terms text default (template provided; his words before listing).
+
+---
+
+## 12. Build log — what exists, and what it cost to learn (2026-08-14)
+
+P0–P4 were built in one pass. This section is the honest state of the code, so the next
+session (or the founder) can tell built-and-tested from built-and-unproven.
+
+### 12.1 Implementation decisions taken here (they refine §3–§5, and win where they differ)
+
+| # | Decision | Why |
+|---|---|---|
+| I1 | Attribution maps BOTH the human code (`code#`) and Stripe's promotion-code **id** (`promo#`) to the affiliate. | A webhook payload is never expanded: `session.discounts[].promotion_code` is `promo_1234`, not `OLIVER7K3M`. Mapping only the human code would have silently attributed **nothing** in production. |
+| I2 | Running totals live in their OWN partition (`pk=tot`, `sk=aff#<id>#<cur>`), not under each affiliate. | The admin's Ledger tab needs everyone's totals at once: one Query instead of one per affiliate. An affiliate reading their own total is still a single GetItem. |
+| I3 | Every credit is a **DynamoDB transaction**: the ledger row (conditional put) + the totals update, together. Refunds re-read and move by the difference under an optimistic condition. | Two separate writes would drift the moment a Lambda died between them — the kind of drift nobody notices until an affiliate disputes a payout. The conditional put inside the transaction is also what makes a webhook redelivery a no-op. |
+| I4 | Payouts are recorded under `pk=payouts` with a caller-supplied `batchId`, conditional put. | Same one-Query reason as I2, and the batch id (generated once when the dialog opens) makes a double-click or a retried request record ONE payment. |
+| I5 | Each credit also writes `ref#<id>` rows for the payment intent, invoice and session. | `charge.refunded` names a charge — never the checkout session the sale was keyed on. Without these, refunds would find nothing to reverse. |
+| I6 | The Stripe REST calls are hand-written over `fetch` (no `stripe` SDK); the webhook signature is verified with `node:crypto`. | Three endpoints. The SDK would be a megabyte inside a Lambda zip and a supply-chain surface on the path that holds the merchant's API key. |
+| I7 | Secrets live in SSM **outside** the stack, tagged by hand, deleted first by teardown. | A CloudFormation parameter is kept in stack history and readable via DescribeStacks forever. Tagging is what makes them visible to the host's leaves-no-trace sweep. |
+| I8 | The receiver's role can read ONLY the signing secret; the portal's role ONLY the API key. | The receiver is reachable by the whole internet and has no business creating promotion codes. |
+| I9 | Enrolment is idempotent and self-healing: the portal calls it on every sign-in, and a record with no code gets one. | A signup that half-finished (verified email, code issuance failed) would otherwise dead-end with no way for the affiliate to ask and nothing for the merchant to see. |
+| I10 | Commerce is NOT declared in the manifest yet. | The premium tier (D13) isn't built; AGENTS.md requires `capabilities` to list only what the frontend actually calls. It gets declared in the same change that adds the buy button. |
+
+### 12.2 A real bug this pass caught (kept as a test)
+
+`JSON.stringify` does **not** escape `</script>`. The portal page embeds merchant-controlled
+text (name, offer, terms) into JS string literals, so a merchant whose terms contained that
+sequence would have ended the page's own script early and served whatever followed to their
+partners. Fixed by escaping `<` as `<`; `portal.test.ts` proves the page renders exactly
+one script element and that a hostile merchant name stays *text*. Reverting the escape fails
+the test.
+
+### 12.3 What is built
+
+- **P0** — repo, workspaces, embedded-template deploy pipeline (content-addressed template +
+  one zip for both handlers), stack lifecycle with the RECREATE / UPDATE_ROLLBACK_FAILED
+  paths, teardown that sweeps the secrets, the deploy bucket and the stack. Manifest: **70
+  actions, 10 grants, amber, no beyond-own findings.**
+- **P1** — the money path: signature verification, the three events, idempotent transactional
+  ledger, `sub#` renewal mapping, proportional refunds. 49 tests, verified by mutation
+  (breaking tax-exclusion fails 9; breaking the unpaid-checkout mapping fails 1).
+- **P2** — the poppy: Setup (deploy → two secrets with a live Stripe check → the shareable
+  link), Affiliates (approve, per-affiliate rate, type-to-confirm retire), Ledger (owed per
+  currency, mark-paid guarded against a stale screen, backend-written CSV), Settings, Remove,
+  Feedback last.
+- **P3/P4** — the hosted portal: Cognito self-signup, verification, sign-in, password reset,
+  enrolment, an affiliate's own dashboard, and white-label branding with a live preview.
+
+### 12.4 What is deliberately NOT built
+
+- **P5 (premium: portal on the merchant's own domain).** Needs `edge.ts` ported from
+  TrafficPoppy plus `acm`/`cloudfront` grants and `commerce:purchase`.
+- **P6 (dogfood + listing)**, including the one-line `allow_promotion_codes` change in
+  agentspoppy-web (§7) — that is the founder's own repo and his Stripe.
+- **Part-payments.** "Mark as paid" takes the full amount owed; the UI says so.
+- **A unit test for `backend/src/program.ts`.** Its rules are covered from both sides — the
+  Ledger tab's tests prove the UI refuses a mismatched amount, and `ledger-store` is exercised
+  through the money path — but the backend's own re-check (the authoritative one, which
+  re-reads live totals so a stale screen cannot record a wrong payout) has no direct test yet.
+  Worth adding with a fake DynamoDB client before P6.
+
+### 12.5 Live-only risks — what the first real deploy is actually testing
+
+Every one of these is a class of failure the family has hit before, and none of them can be
+proven on a laptop:
+
+1. **The deploy itself** — a grant we didn't know CloudFormation needed (the TTL calls, the
+   tag reads, `GetUserPoolMfaConfig`) fails the create and rolls it back.
+2. **The public Function URLs** — both permission statements are declared, but only a real
+   anonymous request proves Stripe can reach the receiver.
+3. **Cognito self-signup + COGNITO_DEFAULT email** — that a verification email actually
+   arrives, and that the ~50/day ceiling behaves as documented.
+4. **A real Stripe test-mode checkout** — that a redeemed code credits exactly once, and that
+   a renewal (which carries no discount at all) still finds its affiliate.
+5. **`npm run certify`** — leaves-no-trace, including the SSM parameters, which no other
+   poppy in the family has had to sweep before.

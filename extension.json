@@ -1,0 +1,169 @@
+{
+  "id": "com.affiliatepoppy.desktop",
+  "name": "AffiliatePoppy",
+  "version": "0.1.0",
+  "description": "Run an affiliate program from your own AWS — coupon-code attribution straight from your Stripe, no cookies on anyone's website, and a hosted signup page for your partners.",
+  "icon": "frontend/affiliatepoppy-icon.png",
+  "bugsUrl": "https://github.com/leonct74/affiliatepoppy/issues",
+  "permissionSet": {
+    "id": "affiliatepoppy-backend",
+    "name": "AffiliatePoppy backend",
+    "description": "Deploys and removes its own CloudFormation stack (named AffiliatePoppyStack): a DynamoDB table for your affiliates and commissions, two Lambdas behind their own web addresses (one that listens to your Stripe, one that serves your affiliates' signup page), a sign-in directory for those affiliates, and a least-privilege execution role for each Lambda. It also keeps your two Stripe secrets in your account's own encrypted parameter store. Every change and delete is limited to things named AffiliatePoppy* (and an affiliatepoppy-deploy-* code bucket, and parameters under /affiliatepoppy) — it cannot touch anything else in your account. No account or organisation access.",
+    "requiredTags": [
+      "agentspoppy:account",
+      "agentspoppy:app",
+      "agentspoppy:connection"
+    ],
+    "grants": [
+      {
+        "service": "cloudformation",
+        "actions": [
+          "CreateStack",
+          "UpdateStack",
+          "ContinueUpdateRollback",
+          "DeleteStack",
+          "DescribeStacks",
+          "DescribeStackEvents",
+          "DescribeStackResources"
+        ],
+        "resourceScope": "arn:aws:cloudformation:*:*:stack/AffiliatePoppy*"
+      },
+      {
+        "service": "dynamodb",
+        "actions": [
+          "CreateTable",
+          "DeleteTable",
+          "DescribeTable",
+          "UpdateTimeToLive",
+          "DescribeTimeToLive",
+          "TagResource",
+          "ListTagsOfResource",
+          "Query",
+          "GetItem",
+          "PutItem",
+          "UpdateItem",
+          "DeleteItem"
+        ],
+        "resourceScope": "arn:aws:dynamodb:*:*:table/AffiliatePoppy*"
+      },
+      {
+        "service": "lambda",
+        "actions": [
+          "CreateFunction",
+          "DeleteFunction",
+          "GetFunction",
+          "UpdateFunctionCode",
+          "UpdateFunctionConfiguration",
+          "CreateFunctionUrlConfig",
+          "DeleteFunctionUrlConfig",
+          "GetFunctionUrlConfig",
+          "AddPermission",
+          "RemovePermission",
+          "GetPolicy",
+          "TagResource",
+          "ListTags"
+        ],
+        "resourceScope": "arn:aws:lambda:*:*:function:AffiliatePoppy*"
+      },
+      {
+        "service": "iam",
+        "actions": [
+          "CreateRole",
+          "DeleteRole",
+          "GetRole",
+          "PassRole",
+          "PutRolePolicy",
+          "DeleteRolePolicy",
+          "GetRolePolicy",
+          "TagRole",
+          "ListRoleTags"
+        ],
+        "resourceScope": "arn:aws:iam::*:role/AffiliatePoppy*"
+      },
+      {
+        "service": "logs",
+        "actions": [
+          "CreateLogGroup",
+          "DeleteLogGroup",
+          "PutRetentionPolicy",
+          "TagResource",
+          "ListTagsForResource"
+        ],
+        "resourceScope": "arn:aws:logs:*:*:log-group:/aws/lambda/AffiliatePoppy*"
+      },
+      {
+        "service": "s3",
+        "actions": [
+          "CreateBucket",
+          "DeleteBucket",
+          "ListBucket",
+          "PutBucketTagging",
+          "GetBucketLocation"
+        ],
+        "resourceScope": "arn:aws:s3:::affiliatepoppy-deploy-*"
+      },
+      {
+        "service": "s3",
+        "actions": [
+          "PutObject",
+          "GetObject",
+          "DeleteObject"
+        ],
+        "resourceScope": "arn:aws:s3:::affiliatepoppy-deploy-*/*"
+      },
+      {
+        "service": "ssm",
+        "actions": [
+          "GetParameter",
+          "PutParameter",
+          "DeleteParameter",
+          "AddTagsToResource",
+          "ListTagsForResource"
+        ],
+        "resourceScope": "arn:aws:ssm:*:*:parameter/affiliatepoppy/*"
+      },
+      {
+        "service": "cognito-idp",
+        "actions": [
+          "CreateUserPool",
+          "DeleteUserPool",
+          "UpdateUserPool",
+          "DescribeUserPool",
+          "GetUserPoolMfaConfig",
+          "DeleteUserPoolClient",
+          "UpdateUserPoolClient",
+          "DescribeUserPoolClient",
+          "TagResource",
+          "ListTagsForResource"
+        ],
+        "resourceScope": "tagged-as-self"
+      },
+      {
+        "service": "cognito-idp",
+        "actions": [
+          "CreateUserPoolClient"
+        ],
+        "resourceScope": "arn:aws:cognito-idp:*:*:userpool/*",
+        "reason": "A user-pool client is a child resource with no tags of its own — it can only be created against the pool it belongs to, which we tag as ours."
+      }
+    ],
+    "limits": null
+  },
+  "frontend": {
+    "entry": "frontend/index.html"
+  },
+  "backend": {
+    "entry": "backend/index.cjs",
+    "transport": "http",
+    "runtime": "node22"
+  },
+  "teardown": {
+    "endpoint": "/teardown"
+  },
+  "capabilities": [
+    "aws:credentials",
+    "connection:read",
+    "backend:invoke",
+    "host:openExternal"
+  ]
+}

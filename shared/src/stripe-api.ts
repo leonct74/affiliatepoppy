@@ -1,0 +1,155 @@
+// The small slice of the Stripe REST API this poppy calls: create the program's coupon,
+// issue an affiliate their promotion code, and retire a code.
+//
+// WHY NO SDK: three endpoints, form-encoded, over fetch. The `stripe` package would be a
+// megabyte of dependency inside a Lambda zip and a supply-chain surface on a path that holds
+// the merchant's API key. Node 20 has fetch; the whole client is below.
+//
+// THE KEY: a RESTRICTED key with write access to promotion codes and nothing else (D11). It
+// lives in the merchant's own SSM parameter store, is read only by the Lambda that needs it,
+// and is never returned to any UI. If this file ever needs a broader permission, that is a
+// design change to argue in DESIGN.md — not a scope to widen quietly.
+
+const API_BASE = "https://api.stripe.com/v1";
+
+export class StripeApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code: string,
+  ) {
+    super(message);
+  }
+}
+
+export interface StripeClientOptions {
+  apiKey: string;
+  /** Injected so every call is testable without touching Stripe. */
+  fetchImpl?: typeof fetch;
+}
+
+/** Stripe's form encoding: nested objects as `a[b]`, arrays as `a[0]`. We only need scalars. */
+function encodeForm(params: Record<string, string | number | boolean | undefined>): string {
+  const body = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined) continue;
+    body.set(k, String(v));
+  }
+  return body.toString();
+}
+
+export interface Coupon {
+  id: string;
+  percent_off?: number | null;
+  duration?: string;
+  valid?: boolean;
+}
+
+export interface PromotionCode {
+  id: string;
+  code: string;
+  active: boolean;
+  coupon?: { id: string };
+}
+
+export class StripeClient {
+  private readonly fetchImpl: typeof fetch;
+
+  constructor(private readonly opts: StripeClientOptions) {
+    this.fetchImpl = opts.fetchImpl ?? fetch;
+  }
+
+  private async call<T>(
+    method: "GET" | "POST",
+    path: string,
+    params?: Record<string, string | number | boolean | undefined>,
+    idempotencyKey?: string,
+  ): Promise<T> {
+    const headers: Record<string, string> = {
+      authorization: `Bearer ${this.opts.apiKey}`,
+      "content-type": "application/x-www-form-urlencoded",
+    };
+    // A retried create must never mint a second code for the same affiliate. Stripe replays
+    // the original response for 24h against the same key.
+    if (idempotencyKey) headers["idempotency-key"] = idempotencyKey;
+
+    const query = method === "GET" && params ? `?${encodeForm(params)}` : "";
+    let res: Response;
+    try {
+      res = await this.fetchImpl(`${API_BASE}${path}${query}`, {
+        method,
+        headers,
+        body: method === "POST" ? encodeForm(params ?? {}) : undefined,
+      });
+    } catch (e) {
+      // Never let a raw transport error reach a merchant or an affiliate.
+      throw new StripeApiError(`Stripe could not be reached (${(e as Error).message})`, 0, "network");
+    }
+
+    const text = await res.text();
+    let body: unknown;
+    try {
+      body = text ? JSON.parse(text) : {};
+    } catch {
+      throw new StripeApiError("Stripe sent a response we could not read.", res.status, "malformed");
+    }
+    if (!res.ok) {
+      const err = (body as { error?: { message?: string; code?: string; type?: string } }).error;
+      throw new StripeApiError(
+        err?.message ?? `Stripe refused the request (${res.status}).`,
+        res.status,
+        err?.code ?? err?.type ?? "error",
+      );
+    }
+    return body as T;
+  }
+
+  /** The program's ONE coupon; every affiliate's promotion code points at it. */
+  createCoupon(percentOff: number, name: string, idempotencyKey?: string): Promise<Coupon> {
+    return this.call<Coupon>(
+      "POST",
+      "/coupons",
+      {
+        percent_off: percentOff,
+        // `once` — the discount applies to the first payment. Renewals bill full price, and
+        // the commission on them is our ledger's job, not the coupon's (DESIGN.md §4.3).
+        duration: "once",
+        name,
+      },
+      idempotencyKey,
+    );
+  }
+
+  getCoupon(couponId: string): Promise<Coupon> {
+    return this.call<Coupon>("GET", `/coupons/${encodeURIComponent(couponId)}`);
+  }
+
+  /** One affiliate's code. `code` is what their audience types. */
+  createPromotionCode(couponId: string, code: string, idempotencyKey?: string): Promise<PromotionCode> {
+    return this.call<PromotionCode>(
+      "POST",
+      "/promotion_codes",
+      { coupon: couponId, code },
+      idempotencyKey,
+    );
+  }
+
+  /** Retire a code: it stops working at checkout; the ledger it already earned is untouched. */
+  deactivatePromotionCode(promotionCodeId: string): Promise<PromotionCode> {
+    return this.call<PromotionCode>("POST", `/promotion_codes/${encodeURIComponent(promotionCodeId)}`, {
+      active: false,
+    });
+  }
+
+  /** Is this code already taken? (Stripe rejects duplicates; we check before suggesting one.) */
+  async findPromotionCode(code: string): Promise<PromotionCode | undefined> {
+    const list = await this.call<{ data?: PromotionCode[] }>("GET", "/promotion_codes", { code, limit: 1 });
+    return list.data?.[0];
+  }
+
+  /** A cheap authenticated call — used to tell a merchant their key works before they rely on it. */
+  async check(): Promise<{ livemode: boolean }> {
+    const list = await this.call<{ data?: { livemode?: boolean }[] }>("GET", "/promotion_codes", { limit: 1 });
+    return { livemode: !!list.data?.[0]?.livemode };
+  }
+}

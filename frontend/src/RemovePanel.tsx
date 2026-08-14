@@ -1,0 +1,130 @@
+import { useEffect, useRef, useState } from "react";
+import { Button } from "./Button";
+
+/**
+ * The scoped destructive control (AGENTS.md §4). Removing AffiliatePoppy wipes its whole
+ * footprint, so it earns the full ceremony:
+ *
+ *  - two distinct steps — the button opens a dialog, a second action destroys;
+ *  - the blast radius is named in plain language, not "Are you sure?";
+ *  - type-to-confirm arms the button, so it can't happen on autopilot;
+ *  - Cancel is focused and the danger button is not the easy default, so a stray
+ *    Enter or double-click can't destroy anything.
+ */
+const CONFIRM_WORD = "AffiliatePoppy";
+
+export function RemovePanel(props: { disabled?: boolean; onRemove: () => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  // Tolerate stray whitespace (e.g. an autocorrect trailing space) but require the exact word.
+  const matches = typed.trim() === CONFIRM_WORD;
+
+  useEffect(() => {
+    if (open) cancelRef.current?.focus();
+  }, [open]);
+
+  const close = () => {
+    setOpen(false);
+    setTyped("");
+    setErr(null);
+  };
+
+  const remove = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await props.onRemove();
+      close();
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card card-2">
+      <h2 className="section-title">Remove AffiliatePoppy</h2>
+      <div className="spread">
+        <p className="muted" style={{ margin: 0, maxWidth: "46ch" }}>
+          Deletes everything AffiliatePoppy made in your AWS account, including your affiliate list and
+          their commission history, and removes your Stripe secrets. Your AWS account, your Stripe account and
+          your sales are not touched.
+        </p>
+        <button className="btn btn-danger" disabled={props.disabled} onClick={() => setOpen(true)}>
+          Remove…
+        </button>
+      </div>
+
+      {open && (
+        <div className="scrim" role="dialog" aria-modal="true" aria-labelledby="remove-title">
+          <div className="modal stack">
+            <h3 id="remove-title" style={{ margin: 0 }}>
+              Remove AffiliatePoppy from your AWS account?
+            </h3>
+            <p style={{ margin: 0 }}>This deletes, permanently:</p>
+            <ul className="muted" style={{ margin: 0, paddingLeft: 18 }}>
+              <li>your affiliates, their codes and every commission recorded for them</li>
+              <li>everything else AffiliatePoppy created to run</li>
+            </ul>
+            <p style={{ margin: 0 }}>
+              <strong>This can't be undone.</strong> You can set AffiliatePoppy up again later, but the commission
+              history will be gone — export it from the Ledger tab first if you need it.
+            </p>
+            <label className="field" style={{ margin: 0 }}>
+              <span>
+                To switch on the button below, type <strong>{CONFIRM_WORD}</strong> here:
+              </span>
+              <input
+                className="input"
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                placeholder={CONFIRM_WORD}
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                aria-label={`Type ${CONFIRM_WORD} to confirm`}
+              />
+              {typed.length > 0 &&
+                (matches ? (
+                  <small style={{ color: "var(--poppy-ok)", fontSize: 12 }}>Match — the button is now on.</small>
+                ) : (
+                  <small className="muted" style={{ fontSize: 12 }}>
+                    Doesn't match yet — type <strong>{CONFIRM_WORD}</strong> exactly (capital A and P).
+                  </small>
+                ))}
+            </label>
+            {err && <div className="banner err">{err}</div>}
+            <div className="row" style={{ justifyContent: "flex-end" }}>
+              <button className="btn" ref={cancelRef} onClick={close} disabled={busy}>
+                Cancel
+              </button>
+              <Button
+                className="btn btn-danger"
+                disabled={!matches}
+                busyLabel="Removing…"
+                title={matches ? undefined : `Type ${CONFIRM_WORD} above to switch this on`}
+                onClick={remove}
+              >
+                Remove everything
+              </Button>
+            </div>
+            {!matches && !busy && (
+              <p className="muted" style={{ margin: 0, fontSize: 12, textAlign: "right" }}>
+                The button turns on once the name matches.
+              </p>
+            )}
+            {busy && (
+              <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+                This can take a couple of minutes. It keeps going even if you leave this tab.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

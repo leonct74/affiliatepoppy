@@ -1,0 +1,58 @@
+// The ledger's vocabulary — the types the Lambdas, the backend and the poppy UI all speak.
+//
+// They live in shared/ rather than in either half because the SAME rows are written by the
+// receiver (a webhook credits a sale) and read by the poppy (the merchant's Ledger tab), and
+// a second, drifting definition of "what a ledger entry is" is exactly how the two halves of
+// a money feature come to disagree.
+
+/** One row of earnings. The Stripe id is the key, which is what makes redelivery a no-op. */
+export interface LedgerEntry {
+  affId: string;
+  /** The sk suffix — `cs_…`, `in_…`, or `rf#ch_…`. */
+  ledgerId: string;
+  kind: "sale" | "renewal" | "refund";
+  /** The commission, in minor units. Negative for a reversal. */
+  amountCents: number;
+  /** What it was a percentage OF — kept so any figure can be explained years later. */
+  baseCents: number;
+  currency: string;
+  pct: number;
+  /** The Stripe object this came from — meaningful only inside the merchant's own account. */
+  orderRef: string;
+  day: string;
+}
+
+/** An affiliate as the money path needs them. */
+export interface AffiliateRecord {
+  affId: string;
+  status: "pending" | "active" | "retired";
+  /** This affiliate's own commission rate, when the merchant set one (D9). */
+  pctOverride?: number;
+}
+
+/** An affiliate as the admin and the portal read them. */
+export interface AffiliateProfile extends AffiliateRecord {
+  email: string;
+  displayName: string;
+  code: string;
+  promotionCodeId: string;
+  createdDay: string;
+}
+
+/** An affiliate's running totals, per currency. */
+export interface Totals {
+  currency: string;
+  earnedCents: number;
+  refundedCents: number;
+  paidCents: number;
+}
+
+/** A recorded payout — money the merchant says they have actually sent (D12). */
+export interface Payout {
+  batchId: string;
+  affId: string;
+  currency: string;
+  amountCents: number;
+  day: string;
+  note: string;
+}

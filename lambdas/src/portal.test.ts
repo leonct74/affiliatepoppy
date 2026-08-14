@@ -1,0 +1,311 @@
+// The affiliate portal: what a signed-out visitor may see, what a signed-in affiliate may
+// see, and the one rule that must never bend — an affiliate sees THEIR numbers and nobody
+// else's, decided from the verified token rather than from anything the browser sent.
+//
+// The page assertions run the real served HTML through jsdom rather than matching strings,
+// because what matters is what a partner's browser actually renders (and, for the escaping
+// test, what it does NOT execute).
+
+import { JSDOM } from "jsdom";
+import { beforeEach, describe, expect, it } from "vitest";
+import type { AffiliateProfile, LedgerEntry, Totals } from "../../shared/src/ledger";
+import { CodeIssueError } from "../../shared/src/issue";
+import { DEFAULT_BRANDING, DEFAULT_SETTINGS, type PortalBranding, type ProgramSettings } from "../../shared/src/settings";
+import type { AffiliateClaims } from "./auth";
+import { route, type HttpRequest, type PortalDeps } from "./portal";
+
+const OLIVER: AffiliateClaims = { sub: "aff-oliver", email: "oliver@example.com", name: "Oliver", exp: 0, tokenUse: "id" };
+const MARIA: AffiliateClaims = { sub: "aff-maria", email: "maria@example.com", name: "Maria", exp: 0, tokenUse: "id" };
+
+class FakeDeps implements PortalDeps {
+  region = "eu-west-1";
+  clientId = "client-123";
+  settingsValue: ProgramSettings = { ...DEFAULT_SETTINGS };
+  brandingValue: PortalBranding = { ...DEFAULT_BRANDING, merchantName: "Olly Digital" };
+  coupon = "co_5off";
+  affiliates = new Map<string, AffiliateProfile>();
+  totals = new Map<string, Totals[]>();
+  entries = new Map<string, LedgerEntry[]>();
+  caller: AffiliateClaims | undefined = OLIVER;
+  rateLimited = false;
+  issueFails: Error | undefined;
+  /** Every Stripe-touching issuance we attempted — a manual-approval programme makes none. */
+  issued: string[] = [];
+
+  async authenticate() {
+    return this.caller;
+  }
+  async branding() {
+    return this.brandingValue;
+  }
+  async settings() {
+    return this.settingsValue;
+  }
+  async couponId() {
+    return this.coupon;
+  }
+  async affiliate(affId: string) {
+    return this.affiliates.get(affId);
+  }
+  async countAffiliates() {
+    return this.affiliates.size;
+  }
+  async createAffiliate(profile: AffiliateProfile) {
+    if (this.affiliates.has(profile.affId)) throw new Error("already exists");
+    this.affiliates.set(profile.affId, profile);
+  }
+  async issueCode({ affId }: { affId: string; displayName: string; couponId: string }) {
+    if (this.issueFails) throw this.issueFails;
+    this.issued.push(affId);
+    const profile = this.affiliates.get(affId)!;
+    this.affiliates.set(affId, { ...profile, code: "OLIVER7K3M", promotionCodeId: "promo_1", status: "active" });
+  }
+  async totalsFor(affId: string) {
+    return this.totals.get(affId) ?? [];
+  }
+  async ledgerFor(affId: string) {
+    return this.entries.get(affId) ?? [];
+  }
+  async allowEnrolment() {
+    return !this.rateLimited;
+  }
+  today() {
+    return "2026-08-14";
+  }
+}
+
+let deps: FakeDeps;
+beforeEach(() => {
+  deps = new FakeDeps();
+});
+
+const request = (over: Partial<HttpRequest> = {}): HttpRequest => ({
+  method: "GET",
+  path: "/",
+  headers: { authorization: "Bearer token" },
+  body: "",
+  sourceIp: "203.0.113.7",
+  ...over,
+});
+
+const body = (res: { body: string }) => JSON.parse(res.body) as Record<string, any>;
+
+describe("the public page", () => {
+  it("wears the merchant's name and offer — never ours (D10)", async () => {
+    deps.brandingValue = { ...deps.brandingValue, offerCopy: "Earn 10% forever", accentColor: "#ff6600" };
+    const res = await route(request(), deps);
+    const doc = new JSDOM(res.body).window.document;
+    expect(res.statusCode).toBe(200);
+    expect(doc.querySelector("h1")?.textContent).toBe("Olly Digital");
+    expect(doc.getElementById("offer")).toBeTruthy();
+    expect(res.body).toContain("Earn 10% forever");
+    expect(res.body).toContain("#ff6600");
+    expect(res.body).not.toMatch(/AffiliatePoppy|AgentsPoppy/);
+  });
+
+  it("carries no affiliate's data at all, signed out or not", async () => {
+    deps.affiliates.set("aff-oliver", profileFor("aff-oliver"));
+    deps.totals.set("aff-oliver", [{ currency: "eur", earnedCents: 12345, refundedCents: 0, paidCents: 0 }]);
+    const res = await route(request(), deps);
+    expect(res.body).not.toContain("oliver@example.com");
+    expect(res.body).not.toContain("12345");
+    expect(res.body).not.toContain("OLIVER7K3M");
+  });
+
+  it("renders the logo inline when there is one, and no broken image when there isn't", async () => {
+    const withoutLogo = new JSDOM((await route(request(), deps)).body).window.document;
+    expect(withoutLogo.querySelector("img.logo")).toBeNull();
+
+    deps.brandingValue = { ...deps.brandingValue, logoDataUri: "data:image/png;base64,AAAA" };
+    const withLogo = new JSDOM((await route(request(), deps)).body).window.document;
+    expect(withLogo.querySelector("img.logo")?.getAttribute("src")).toBe("data:image/png;base64,AAAA");
+  });
+
+  it("never lets branding text become markup", async () => {
+    // The merchant types this. Careless (a stray quote in their terms) or hostile, it must
+    // stay TEXT: their partners are the people who would be served whatever it turned into.
+    //
+    // The two escapes being proved are different: `merchantName` lands in HTML, `termsText`
+    // lands in a JS string literal — where JSON.stringify alone would leave `</script>` intact
+    // and end the page's own script early.
+    deps.brandingValue = {
+      ...deps.brandingValue,
+      merchantName: `</h1><script>window.pwned=1</script><h1 class="x" data-x="`,
+      termsText: "</script><script>alert(1)</script>",
+    };
+    const res = await route(request(), deps);
+    const doc = new JSDOM(res.body).window.document;
+
+    // Exactly one script — the page's own. Anything else means we served theirs.
+    expect(doc.querySelectorAll("script")).toHaveLength(1);
+    // And the hostile name survived as the heading's TEXT, tags and all.
+    expect(doc.querySelector("h1")?.textContent).toBe(deps.brandingValue.merchantName);
+  });
+
+  it("tells a visitor honestly when the programme isn't open for business yet", async () => {
+    deps.coupon = "";
+    const res = await route(request(), deps);
+    expect(res.body).toContain("still being set up");
+  });
+
+  it("is never framed and never cached — it is a sign-in surface", async () => {
+    const res = await route(request(), deps);
+    expect(res.headers["x-frame-options"]).toBe("DENY");
+    expect(res.headers["cache-control"]).toBe("no-store");
+  });
+});
+
+describe("who may read what", () => {
+  beforeEach(() => {
+    deps.affiliates.set("aff-oliver", profileFor("aff-oliver"));
+    deps.affiliates.set("aff-maria", { ...profileFor("aff-maria"), code: "MARIA88" });
+    deps.totals.set("aff-oliver", [{ currency: "eur", earnedCents: 1000, refundedCents: 0, paidCents: 0 }]);
+    deps.totals.set("aff-maria", [{ currency: "eur", earnedCents: 999_999, refundedCents: 0, paidCents: 0 }]);
+    deps.entries.set("aff-maria", [entry("aff-maria", "cs_maria", 999_999)]);
+  });
+
+  it("refuses every API call without a verified token", async () => {
+    deps.caller = undefined;
+    for (const req of [request({ path: "/api/me" }), request({ method: "POST", path: "/api/enroll" })]) {
+      expect((await route(req, deps)).statusCode).toBe(401);
+    }
+  });
+
+  it("shows an affiliate only their OWN numbers", async () => {
+    // The isolation rule. Note there is no affiliate id in the request at all — the only
+    // identity in play is the token's subject, which is why this cannot be tampered with.
+    deps.caller = OLIVER;
+    const mine = body(await route(request({ path: "/api/me" }), deps));
+    expect(mine.totals[0].earnedCents).toBe(1000);
+    expect(JSON.stringify(mine)).not.toContain("999999");
+    expect(JSON.stringify(mine)).not.toContain("MARIA88");
+
+    deps.caller = MARIA;
+    const hers = body(await route(request({ path: "/api/me" }), deps));
+    expect(hers.totals[0].earnedCents).toBe(999_999);
+    expect(hers.affiliate.code).toBe("MARIA88");
+  });
+
+  it("reports what they are owed, not just what they earned", async () => {
+    deps.totals.set("aff-oliver", [{ currency: "eur", earnedCents: 1000, refundedCents: 200, paidCents: 300 }]);
+    const mine = body(await route(request({ path: "/api/me" }), deps));
+    expect(mine.totals[0].owedCents).toBe(500);
+  });
+
+  it("says plainly that someone hasn't joined yet, rather than 500-ing", async () => {
+    deps.affiliates.delete("aff-oliver");
+    const res = await route(request({ path: "/api/me" }), deps);
+    expect(res.statusCode).toBe(404);
+    expect(body(res).error).toMatch(/haven't joined/);
+  });
+
+  it("shows the newest history first", async () => {
+    deps.entries.set("aff-oliver", [
+      { ...entry("aff-oliver", "cs_old", 100), day: "2026-01-01" },
+      { ...entry("aff-oliver", "cs_new", 200), day: "2026-08-01" },
+    ]);
+    const mine = body(await route(request({ path: "/api/me" }), deps));
+    expect(mine.entries.map((e: { day: string }) => e.day)).toEqual(["2026-08-01", "2026-01-01"]);
+  });
+});
+
+describe("joining", () => {
+  const enrol = () => route(request({ method: "POST", path: "/api/enroll" }), deps);
+
+  it("issues the code immediately when the merchant chose auto-approve (D8)", async () => {
+    deps.settingsValue = { ...deps.settingsValue, autoApprove: true };
+    const res = body(await enrol());
+    expect(res.affiliate).toMatchObject({ status: "active", code: "OLIVER7K3M" });
+    expect(deps.issued).toEqual(["aff-oliver"]);
+  });
+
+  it("parks them for review — and touches Stripe not at all — when approval is manual", async () => {
+    deps.settingsValue = { ...deps.settingsValue, autoApprove: false };
+    const res = body(await enrol());
+    expect(res.affiliate).toMatchObject({ status: "pending", code: "" });
+    expect(deps.issued).toEqual([]);
+  });
+
+  it("is idempotent — the portal calls it on every sign-in", async () => {
+    deps.settingsValue = { ...deps.settingsValue, autoApprove: true };
+    await enrol();
+    await enrol();
+    expect(deps.affiliates.size).toBe(1);
+    expect(deps.issued).toEqual(["aff-oliver"]); // and no second code was minted
+  });
+
+  it("heals a half-finished signup instead of dead-ending it", async () => {
+    // Verified their email, but the code failed to issue that day. Their next visit fixes it
+    // — there is no other way for them to ask, and no merchant action involved.
+    deps.affiliates.set("aff-oliver", { ...profileFor("aff-oliver"), code: "", status: "active" });
+    const res = body(await enrol());
+    expect(res.affiliate.code).toBe("OLIVER7K3M");
+  });
+
+  it("keeps a retired affiliate retired — rejoining is the merchant's call, not theirs", async () => {
+    deps.settingsValue = { ...deps.settingsValue, autoApprove: true };
+    deps.affiliates.set("aff-oliver", { ...profileFor("aff-oliver"), code: "", status: "retired" });
+    const res = body(await enrol());
+    expect(res.affiliate.status).toBe("retired");
+    expect(deps.issued).toEqual([]);
+  });
+
+  it("still confirms the signup worked when only the CODE failed", async () => {
+    // Their account exists; telling them the whole thing failed would send them round again.
+    deps.settingsValue = { ...deps.settingsValue, autoApprove: true };
+    deps.issueFails = new CodeIssueError("This programme's discount isn't set up in Stripe yet.");
+    const res = await enrol();
+    expect(res.statusCode).toBe(200);
+    expect(body(res).warning).toMatch(/isn't set up in Stripe/);
+    expect(body(res).affiliate).toMatchObject({ status: "pending" });
+  });
+
+  it("closes the door politely when the programme is full", async () => {
+    deps.settingsValue = { ...deps.settingsValue, maxAffiliates: 1 };
+    deps.affiliates.set("someone-else", profileFor("someone-else"));
+    const res = await enrol();
+    expect(res.statusCode).toBe(409);
+    expect(body(res).error).toMatch(/number of affiliates it can take/);
+  });
+
+  it("rate-limits a flood from one address without blaming the person reading it", async () => {
+    deps.rateLimited = true;
+    const res = await enrol();
+    expect(res.statusCode).toBe(429);
+    expect(body(res).error).toMatch(/try again in a little while/i);
+  });
+
+  it("does not re-check the cap for someone who has already joined", async () => {
+    // Otherwise a full programme locks out its own existing affiliates at sign-in.
+    deps.settingsValue = { ...deps.settingsValue, maxAffiliates: 1, autoApprove: true };
+    await enrol();
+    deps.affiliates.set("someone-else", profileFor("someone-else"));
+    expect((await enrol()).statusCode).toBe(200);
+  });
+});
+
+function profileFor(affId: string): AffiliateProfile {
+  return {
+    affId,
+    email: `${affId}@example.com`,
+    displayName: affId,
+    status: "pending",
+    code: "",
+    promotionCodeId: "",
+    createdDay: "2026-08-01",
+  };
+}
+
+function entry(affId: string, ledgerId: string, amountCents: number): LedgerEntry {
+  return {
+    affId,
+    ledgerId,
+    kind: "sale",
+    amountCents,
+    baseCents: amountCents * 10,
+    currency: "eur",
+    pct: 10,
+    orderRef: ledgerId,
+    day: "2026-08-01",
+  };
+}
