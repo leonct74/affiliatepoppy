@@ -3,6 +3,7 @@ import { Affiliates } from "./Affiliates";
 import { api } from "./api";
 import { Button } from "./Button";
 import { Feedback } from "./Feedback";
+import { GettingStarted } from "./GettingStarted";
 import { host, type AccessState } from "./host";
 import { Ledger } from "./Ledger";
 import { RemovePanel } from "./RemovePanel";
@@ -23,8 +24,10 @@ type Phase = "loading" | "gate" | "ready";
  * (AGENTS.md §9a), and feedback is not a paid feature.
  */
 const SECTIONS = [
-  { key: "setup", label: "Setup" },
+  // Affiliates FIRST (founder, 2026-08-14): the destination, not the plumbing. When there is
+  // nothing there yet it explains the four steps and points at Setup/Settings.
   { key: "affiliates", label: "Affiliates" },
+  { key: "setup", label: "Setup" },
   { key: "ledger", label: "Ledger" },
   { key: "settings", label: "Settings" },
   { key: "remove", label: "Remove" },
@@ -42,7 +45,7 @@ export function App() {
   const [loadingAffiliates, setLoadingAffiliates] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [section, setSection] = useState<SectionKey>("setup");
+  const [section, setSection] = useState<SectionKey>("affiliates");
   const pollRef = useRef<number | null>(null);
 
   /**
@@ -273,15 +276,18 @@ export function App() {
           Setup has run there is nothing to query, and DynamoDB's "resource not found" is
           not a message a merchant should ever be shown for something they haven't done yet. */}
       <div hidden={section !== "affiliates"}>
-        {stackReady ? (
+        {/* Until the programme is open (storage + Stripe) and someone has joined, the first
+            tab is the guide: four steps, live state, a button to the right place. After that
+            it's the list. */}
+        {!stackReady || !config?.stripe.couponId || (affiliates.length === 0 && !loadingAffiliates) ? (
+          <GettingStarted status={status} config={config} onGo={(tab) => setSection(tab)} />
+        ) : (
           <Affiliates
             affiliates={affiliates}
             config={config}
             loading={loadingAffiliates && affiliates.length === 0}
             onChanged={loadAffiliates}
           />
-        ) : (
-          <NotYet what="Your affiliates appear here" />
         )}
       </div>
       <div hidden={section !== "ledger"}>

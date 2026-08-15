@@ -283,7 +283,15 @@ the approach wholesale (auth flow from `auth.ts`, page-serving, the test harness
 
 Tabs, in order (family conventions apply: icon top-left beside the name,
 `poppyAccent("com.affiliatepoppy.desktop")`, plain language everywhere, instant spinner on
-every async control, background+resume — never a dead spinner after app restart):
+every async control, background+resume — never a dead spinner after app restart).
+
+**Order decided by the founder on the first live run (2026-08-14): Affiliates FIRST.** The
+first tab is the destination, not the plumbing. Until the programme is open (storage + Stripe)
+and someone has joined, it shows a four-step guide read from live state — 1) storage, 2)
+Stripe, 3) your deal, 4) share the link — each a button to the right tab. Why not "Settings
+first": settings live in the merchant's own table, which only exists after Setup step 1, so
+the honest order is fixed and the guide says it. The list below keeps the numbering the
+implementation used; only the tab position changed.
 
 1. **Setup** — the guided path: deploy the stack (reuse the shared setup-stepper pattern);
    connect Stripe (paste the two secrets, §3.2, with dashboard walk-through); create/verify
