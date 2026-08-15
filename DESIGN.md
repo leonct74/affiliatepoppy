@@ -778,6 +778,48 @@ when the attestation feed is on and not otherwise.
 genuinely good rather than a crippled free tier; premium = `partners.yourbrand.com` with the
 merchant's branding dominant. The assurance mark rides along either way.
 
+### 12.6b Who else can use this, and what do they have to configure? (founder, 2026-08-14)
+
+The founder's concern: first-party poppy sales run on his own Stripe, but what about **a poppy
+developer**, or **someone using AffiliatePoppy for sales somewhere else entirely** — do they
+need more setup?
+
+**Checked against `agentspoppy-web/src/app/api/checkout/route.ts`, not assumed.** AgentsPoppy
+commerce is **Standard Connect direct charges**: the platform creates the Checkout Session with
+`{ stripeAccount: listing.stripeAccountId }`, so the charge lives on the DEVELOPER'S own Stripe
+account and the platform takes an application fee. (First-party products charge on the platform
+account instead.)
+
+That is the good news, and it falls out for free:
+
+| Who | Works today? | What they configure |
+|---|---|---|
+| **AgentsPoppy itself** (first-party) | yes | the two secrets, on the platform account |
+| **A poppy developer**, on their poppy's sales | **yes — same two secrets, on their OWN Stripe** | Their sales are direct charges on their connected account, so `checkout.session.completed` / `invoice.paid` / `charge.refunded` fire there, their own webhook endpoint receives them, and the coupon AffiliatePoppy creates lives on their account too. Nothing extra. |
+| **Anyone selling through Stripe anywhere else** (own site, Checkout, Payment Links, Billing) | yes | the same two secrets. Payment Links have their own "allow promotion codes" switch. |
+| **Paddle / Lemon Squeezy / Gumroad / Shopify / App Store** | **no** | Not Stripe. See below. |
+
+**⚠ The one blocker, and it is bigger than §7 said.** The platform's session creation sets no
+`allow_promotion_codes`, so **the Stripe Checkout page shows no code field at all** — for
+first-party products AND for every developer's products. Until that one line ships, no poppy
+sale can carry an affiliate code, by anyone. §7 framed it as "for AgentsPoppy as first
+customer"; it is actually **the change that makes AffiliatePoppy usable by the whole developer
+base**, and it should be argued that way. (It must stay subscription-only, so D6's
+"never on donations" keeps holding structurally.)
+
+**A practical note for anyone setting their commission on poppy sales:** AffiliatePoppy's base
+is what the customer paid minus tax — the gross. On a poppy sale the developer also pays
+Stripe's processing fee and AgentsPoppy's application fee out of that same gross, so a 10%
+commission is more than 10% of what they actually keep. Not a bug (every merchant has
+processing fees) but worth saying plainly where a developer picks their number.
+
+**Non-Stripe platforms.** Not supported, and the honest reason is that attribution here is a
+Stripe-signed webhook. The architecture does put the seam in the right place, though: only
+`shared/src/stripe-events.ts` (parsing) and `shared/src/stripe-api.ts` (code issuance) know
+what Stripe is. `attribute.ts`, the ledger, the portal and the poppy are all
+platform-agnostic — so a Paddle or Lemon Squeezy receiver is a parallel parser plus a
+code-issuer, not a rewrite. Worth doing only when a real merchant asks.
+
 ### 12.7 Live-only risks — what the first real deploy is actually testing
 
 Every one of these is a class of failure the family has hit before, and none of them can be
