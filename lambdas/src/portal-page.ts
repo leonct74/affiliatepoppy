@@ -466,7 +466,7 @@ function render(data){
 // it is small (capped server-side), and "the list you see is the list that's stored" is a
 // simpler promise than reconciling adds and removes.
 var places=[];
-function host(u){try{return new URL(u).hostname.replace(/^www\./,"")}catch(e){return ""}}
+function host(u){try{var h=new URL(u).hostname;return h.indexOf("www.")===0?h.slice(4):h}catch(e){return ""}}
 function renderPlaces(list){
   places=list.slice();
   if(!places.length){$("placesList").innerHTML="";return}
@@ -490,7 +490,11 @@ $("placesForm").addEventListener("submit",function(ev){
   ev.preventDefault();
   var url=$("plUrl").value.trim(),note=$("plNote").value.trim();
   if(!url)return;
-  if(!/^https?:\/\//i.test(url))url="https://"+url;
+  // No regex here on purpose: this JS lives inside a TS template literal, where a
+  // backslash-slash escape is silently eaten and the regex swallows the rest of the line
+  // (live lesson, first deploy: the whole page rendered blank).
+  var lower=url.toLowerCase();
+  if(lower.indexOf("http://")!==0&&lower.indexOf("https://")!==0)url="https://"+url;
   var next=places.concat([{url:url,note:note}]);
   savePlaces(next,$("plAdd")).then(function(){$("plUrl").value="";$("plNote").value=""});
 });

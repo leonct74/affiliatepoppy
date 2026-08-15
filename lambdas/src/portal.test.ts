@@ -6,7 +6,7 @@
 // because what matters is what a partner's browser actually renders (and, for the escaping
 // test, what it does NOT execute).
 
-import { JSDOM } from "jsdom";
+import { JSDOM, VirtualConsole } from "jsdom";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { AffiliateProfile, LedgerEntry, Totals } from "../../shared/src/ledger";
 import { CodeIssueError } from "../../shared/src/issue";
@@ -96,6 +96,36 @@ const request = (over: Partial<HttpRequest> = {}): HttpRequest => ({
 });
 
 const body = (res: { body: string }) => JSON.parse(res.body) as Record<string, any>;
+
+describe("the page's own script", () => {
+  it("RUNS without a syntax error, and shows the signup form", async () => {
+    // First live deploy, 2026-08-14: the page rendered BLANK. Every string-level test passed —
+    // the HTML was fine — but a `\/` inside a regex inside a TS template literal had been
+    // eaten, the regex swallowed the rest of the line, and the whole script died before it
+    // could un-hide the form. Only EXECUTING the served script can catch that class of bug,
+    // so this test does: real DOM, scripts on, and the assertion is "the form is visible".
+    const res = await route(request(), deps);
+    const errors: string[] = [];
+    const vc = new VirtualConsole();
+    vc.on("jsdomError", (e) => errors.push(e.message));
+    const dom = new JSDOM(res.body, {
+      runScripts: "dangerously",
+      url: "https://portal.test/",
+      virtualConsole: vc,
+      beforeParse(w) {
+        // No network in a test: the page's refresh-token attempt must just fail quietly.
+        (w as unknown as { fetch: unknown }).fetch = async () => ({ ok: false, json: async () => ({}) });
+      },
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(errors, errors.join("\n")).toEqual([]);
+    const doc = dom.window.document;
+    expect(doc.getElementById("public")?.classList.contains("hide")).toBe(false);
+    expect(doc.getElementById("joinCard")?.classList.contains("hide")).toBe(false);
+    // And the boot actually ran: the offer sentence was written into the page by the script.
+    expect(doc.getElementById("offer")?.textContent).toContain("Earn 10%");
+  });
+});
 
 describe("the public page", () => {
   it("wears the merchant's name and offer — never ours (D10)", async () => {
