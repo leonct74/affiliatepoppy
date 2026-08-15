@@ -11,9 +11,12 @@
 > pattern. Read this file fully before writing any code. When a decision changes, update this
 > file in the same change.
 >
-> Working name and id are `AffiliatePoppy` / `com.affiliatepoppy.desktop`. The founder may
-> still rename — renaming is trivial BEFORE the first catalogue listing and impossible
-> after (the id is the identity of every install). Confirm the name before P6.
+> **Name and id are FINAL (founder, 2026-08-14): `AffiliatePoppy` /
+> `com.affiliatepoppy.desktop`.** The id is the identity of every install and of the
+> catalogue entry, so from here it never changes — a rename after listing would orphan
+> every installed copy. Everything already carries it: the manifest, the resource prefix
+> (`AffiliatePoppy*`), the deploy bucket (`affiliatepoppy-deploy-*`), the parameter path
+> (`/affiliatepoppy/*`) and the accent the host paints us with.
 
 ---
 
@@ -431,7 +434,8 @@ listing + the poppy's own price decided.*
 
 ## 11. Open items for the founder (blocking only where marked)
 
-1. **Name + id** — blocks P6 (listing), not development. Working: AffiliatePoppy.
+1. ~~Name + id~~ — **decided 2026-08-14: AffiliatePoppy / `com.affiliatepoppy.desktop`,
+   final.** See the header note.
 2. **The poppy's own price** (free-while-proving vs paid day one; premium tier price) —
    blocks P6.
 3. Affiliate terms text default (template provided; his words before listing).

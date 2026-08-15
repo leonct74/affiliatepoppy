@@ -102,4 +102,6 @@ test account (675546221165 / eu-west-1), then `npm run certify`, then P5 (premiu
 P6 (dogfood + listing). Nothing here is proven until that deploy happens — every sibling repo
 learned its worst lesson on the first live run, not on the bench.
 
-Open founder items: final name/id (blocks P6 only), the poppy's own pricing (blocks P6).
+Name and id are FINAL: **AffiliatePoppy / `com.affiliatepoppy.desktop`** (founder,
+2026-08-14) — never rename, the id is every install's identity. Remaining founder item: the
+poppy's own pricing (blocks P6 only).
