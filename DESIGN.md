@@ -645,23 +645,51 @@ the code, not a hope. Honest limit unchanged: it says where the code was posted,
 post drove which sale — the stronger version (**one affiliate, several codes, one per
 placement**) would give real per-content attribution and stays on the list.
 
-**Payouts.** The affiliate does NOT connect Stripe today (D12: compute and report, merchant
-pays as they already pay people). When payouts are executed, it is with **Stripe Connect
-Standard accounts, not Express** (founder question, 2026-08-14 — Express was named first by
-reflex, because the incumbents use it, and that is the wrong reason):
+**Payouts — the design, and why it is the real trust feature (founder, 2026-08-14).**
 
-- *Standard* = the affiliate's own full Stripe account, onboarded and KYC'd by Stripe directly,
-  liable for itself. A content creator with real revenue already has one — connecting it is one
-  authorisation. No per-account platform fee.
-- *Express* = an account the platform creates and largely operates for them: the platform is
-  responsible for identity gaps, disputes, negative balances and the support that follows, and
-  pays Stripe monthly per active account. That is exactly the liability D12 exists to avoid.
+Today: nothing. D12 stands — the ledger computes, the merchant pays however they already pay,
+and presses "Mark as paid". The affiliate does not connect Stripe at all.
 
-Flow of funds, when built: **merchant → affiliate directly** — the merchant's own Stripe
-(also Standard) originates the transfer and we only trigger it. AgentsPoppy never holds the
-money; the "your money never touches us" story survives intact. The alternative (merchant →
-AgentsPoppy → affiliate, separate charges and transfers) puts us in the flow of funds and is
-rejected. Still the heaviest row in §12.5's table. Later, deliberately.
+The founder's argument for changing that, which is the strongest trust argument anyone has
+made in this project: *"a publisher would feel more comfortable joining a programme where
+they're sure they're earning what's expected, because the Stripe balance updates in
+realtime"* — and, decisively, **"they don't want to chase the merchants for getting paid"**.
+
+That reframes the whole feature. The affiliate's real pain is not latency, it is **having to
+ask**: the "any news on last month's commission?" email, sent to someone who owes you money
+and controls the record of what they owe. §12.5a's neutral witness makes the merchant's record
+*credible*; money already in the affiliate's own Stripe balance makes it *moot* — there is
+nothing left to trust, and nobody to chase. **The unlock is not speed. It is that paying stops
+being a decision the merchant makes.**
+
+Four constraints, all real, none fatal:
+
+1. **The merchant must be a Stripe Connect platform.** A balance can only be credited by a
+   transfer from a platform to a connected account. AgentsPoppy already is one (it pays poppy
+   developers). A typical merchant is not, and applying to become one turns "paste two
+   secrets" into "apply to be a payments platform". ⇒ this is a **path, not the default**, and
+   a natural premium tier.
+2. **The key stops being harmless.** Transfers need `Transfers: Write`, which kills the
+   current honest line — *"that key cannot move money, read customers, or refund anything"*.
+   ⇒ a SECOND, separate, opt-in key, with the trade-off stated in as many words. Never a
+   silent widening of the existing one.
+3. **Refunds are why the industry holds commissions.** Once money is in the affiliate's
+   balance — and especially once they have paid it out to their bank — a refund needs a
+   transfer reversal, which can fail or push them negative. Every incumbent holds 30–60 days
+   for exactly this. Instant transfer buys trust and sells clawback risk.
+4. **Available balance.** Card money is not available on day 0; a transfer then can simply
+   fail for lack of funds.
+
+**The shape that keeps the insight and survives the constraints:** commissions **accrue
+visibly** the moment the webhook lands, and transfers fire **automatically on a rule the
+merchant sets once** (after N days clear, above €X minimum). The affiliate's portal shows all
+three states — *earned · clearing until <date> · sent to your Stripe* — and their real Stripe
+balance grows without anyone deciding to pay them. Standard connected accounts, not Express
+(see the reasoning above); the transfer originates from the merchant's own Stripe balance;
+AgentsPoppy is never in the flow of funds.
+
+Sequencing unchanged: after the ledger has been right in the wild. A wrong number that is
+displayed is a support email; a wrong number that has been transferred is a clawback.
 
 ### 12.7 Live-only risks — what the first real deploy is actually testing
 
