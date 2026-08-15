@@ -1,7 +1,7 @@
 # AffiliatePoppy — DESIGN.md (source of truth)
 
 > **Status (2026-08-14): P0–P4 built and green on the bench; NOT yet deployed to a real
-> account.** 131 tests pass, the manifest rates amber with no beyond-own findings, and the
+> account.** 188 tests pass, the manifest rates amber with no beyond-own findings, and the
 > backend bundle embeds the template + both Lambdas. What remains before this is real:
 > **one founder-approved live deploy → certify → the P6 dogfood**. See §12 for exactly
 > what is built, what is deliberately not, and the open live-only risks.
@@ -500,7 +500,39 @@ the test.
   re-reads live totals so a stale screen cannot record a wrong payout) has no direct test yet.
   Worth adding with a fake DynamoDB client before P6.
 
-### 12.5 Live-only risks — what the first real deploy is actually testing
+### 12.5 Pricing — options under evaluation (founder, 2026-08-14, NOT decided)
+
+The founder's framing: a free tier, then a paid one, and *"what part could we externalise out
+of the user infrastructure to better justify the price"*.
+
+**The trap to avoid first.** Externalising is not what justifies a price — and for this
+family it actively costs something. "Runs entirely in your own AWS, we never see your sales"
+is the reason a merchant trusts this over Rewardful or Tapfiliate. Every piece moved onto our
+servers spends that argument AND adds a running cost to us. TrafficPoppy already proves the
+alternative: it charges for a feature (`stats.your-site.com`) that runs 100% in the user's own
+account. **Price the work saved, not the hosting.**
+
+Where AffiliatePoppy has more room than its siblings: there is no visitor data here at all.
+The sensitive things are affiliate emails (partner data, volunteered) and the commission
+ledger. So *some* externalisation is defensible in a way it never was for TrafficPoppy.
+
+Candidates, ranked by value-to-merchant ÷ (effort + trust cost):
+
+| Candidate | What it buys the merchant | Verdict |
+|---|---|---|
+| **Affiliate emails from the platform** ("you earned £12", monthly statements, "you've been approved") | Today the portal only sends Cognito's verification mail, capped ~50/day, and a merchant wanting more must verify an SES domain and leave the sandbox — a genuine chore most will never do. | **Best first paid feature.** High value, low effort, and only affiliate emails leave the account — never a buyer's. |
+| **Watchdog + alerts** ("Stripe stopped reaching your webhook 3 days ago") | Something OUTSIDE their AWS has to notice when their AWS breaks. By definition this cannot live in the thing being watched. | **Strong, cheap, and honest** — the clearest argument for a service rather than a tool. |
+| **Affiliate discovery / marketplace across programmes** | Affiliates find merchants; merchants get partners they'd never have recruited. Impossible inside one merchant's account. | **The strategic one.** Turns the poppy into a network with a moat. Biggest build; consider only after P6. |
+| **Executed payouts** (Stripe Connect transfers) | Removes the monthly manual chore entirely — the single biggest time saver. | **Highest value, highest load.** Money movement, KYC, disputes. Contradicts D12; revisit only once the ledger has been trusted in the wild for a while. |
+| **Self-billing invoices / VAT documents for affiliates** | Real compliance relief in the EU. | Medium value, country-specific. Later. |
+| **The ledger or the webhook receiver** | — | **Never.** They are the trust core; moving them makes this an ordinary SaaS competing on someone else's terms. |
+
+A shape that fits without breaking the promise: **free** = everything built today, capped at a
+handful of affiliates; **paid** = cap removed + portal on the merchant's own domain (D13,
+already the plan) + platform-sent affiliate emails + the watchdog. Two of those three run in
+the merchant's own account; the price is justified by what they no longer have to do.
+
+### 12.6 Live-only risks — what the first real deploy is actually testing
 
 Every one of these is a class of failure the family has hit before, and none of them can be
 proven on a laptop:

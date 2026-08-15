@@ -58,11 +58,15 @@ rationale, founder-locked decisions D1–D14, and phases P0–P6: `DESIGN.md`.
 
 ## Gotchas inherited from the poppy family (each cost real debugging time)
 
-1. **🪤 Stale SEA sidecar masks Lambda/template changes.** After ANY backend/infra/lambda
-   change: rebuild the sidecar and fully restart AgentsPoppy, or deploys silently report
-   NO_CHANGE with old code.
-2. **Never `git add -A` after building binaries** — `.gitignore` build artifacts FIRST
-   (sidecar binaries, `release/`, `dist/`, `backend/src/generated/`).
+1. **🪤 A stale `backend/index.cjs` masks Lambda/template changes.** It EMBEDS the generated
+   template and both Lambda handlers, so after ANY change under `infra/` or `lambdas/` you
+   must `npm run build` AND fully restart AgentsPoppy — otherwise the deploy silently reports
+   NO_CHANGE against old code. (No SEA sidecar here: we run on the host's shared node22
+   runtime, so `backend/index.cjs` is the whole artifact.) To check what actually shipped,
+   decode `lambdaZipBase64` out of it and read the zip members — plain grep won't see inside.
+2. **Never `git add -A` after building** — `.gitignore` build artifacts FIRST (`release/`,
+   `dist/`, `backend/index.cjs`, `backend/src/generated/`). An 86 MB binary once landed in
+   vm-poppy's history.
 3. Some template errors only fail on a REAL deploy (Fn::GetAtt class) — P0's gate is a
    real deploy + certify, not a template review.
 4. Renewal invoices carry no discount when the coupon is `duration=once` — renewals are
@@ -93,7 +97,7 @@ both Lambda handlers.
 
 ## Status
 
-**P0–P4 built, 131 tests green, manifest amber — but NEVER deployed.** See DESIGN.md §12 for
+**P0–P4 built, 188 tests green, manifest amber — but NEVER deployed.** See DESIGN.md §12 for
 the build log, the decisions taken while implementing (I1–I10), the one real bug the tests
 caught, and the live-only risks.
 
