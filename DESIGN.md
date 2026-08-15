@@ -752,12 +752,31 @@ it.
 mechanism for C — but do not market A as trust. C is the version that earns the word
 "third party", and B falls out of it.
 
-**Tension to resolve before either:** this collides with **D13** (premium = the portal on the
-merchant's OWN domain, `partners.merchant.com`). White-label and neutral-third-party pull in
-opposite directions: a merchant marketing to their own customers wants their brand; a merchant
-recruiting publishers may prefer the neutral one that says "somebody independent is watching".
-Most likely both, as a choice — which changes what the premium tier is, and needs a founder
-decision before P5 is built.
+**The D13 tension, RESOLVED by the founder (2026-08-14): co-brand, don't choose.** *"Even if
+the page is hosted by a third party, the merchant branding should be there. It's a bit like
+Stripe Checkout, where the checkout is visibly by Stripe, but the merchant also customises it
+with his own logo and brand."*
+
+That is the right model and it dissolves the either/or. Stripe Checkout proves the commercial
+point: the merchant's logo and colours are front and centre, and a small "powered by Stripe"
+tells the buyer who stands behind the transaction. Merchants do not tolerate that mark — they
+WANT it, because it raises the counterparty's willingness to go through with the transaction.
+Identical dynamic here: "verified by AgentsPoppy" makes a publisher likelier to join, so the
+mark works FOR the merchant, not against them. So: merchant's logo, name, colour, offer and
+terms exactly as today (D10 survives intact), on a neutral address, with a small assurance
+mark.
+
+**The rule that follows, and it decides the premium tier: an assurance mark that can be bought
+off is worth nothing.** If a merchant can pay to remove it, then its absence says something
+about everyone who didn't pay, and its presence stops meaning anything at all. So premium may
+buy *your own domain and your branding dominant* — it may never buy *our mark removed*. (Same
+as Stripe: a custom Checkout domain does not buy anonymity.) This also keeps the mark honest:
+it is only worth showing where we actually hold the independent record (§12.5a), so it appears
+when the attestation feed is on and not otherwise.
+
+**D13 restated:** default = co-branded portal on the neutral AgentsPoppy address, which is
+genuinely good rather than a crippled free tier; premium = `partners.yourbrand.com` with the
+merchant's branding dominant. The assurance mark rides along either way.
 
 ### 12.7 Live-only risks — what the first real deploy is actually testing
 
