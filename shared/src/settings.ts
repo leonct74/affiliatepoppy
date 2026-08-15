@@ -117,3 +117,42 @@ export function defaultOfferCopy(s: ProgramSettings): string {
     (s.firstPaymentOnly ? "." : ", and you keep earning on renewals.")
   );
 }
+
+/**
+ * A starting point for the programme's terms — plain English, built from the live settings so
+ * the numbers in it can never contradict the ones on the page. The merchant edits it into
+ * their own words; nothing here is legal advice, and the text says which parts they must fill.
+ *
+ * Why offer one at all: an empty box labelled "terms" is where people freeze. The things an
+ * affiliate wants to know before promoting anyone — how and when they're paid, what counts,
+ * what's not allowed, how it ends — are the same for almost every programme.
+ */
+export function defaultTermsText(s: ProgramSettings, merchantName: string): string {
+  const who = merchantName || "the merchant";
+  const renewals = s.firstPaymentOnly
+    ? "Commission is paid on the first payment of each new customer only."
+    : "Commission is paid on the first payment and on every renewal, for as long as the customer stays.";
+  return [
+    `Affiliate programme terms — ${who}`,
+    "",
+    "What you earn",
+    `You earn ${s.commissionPct}% of what a customer pays (after their discount, before tax) when they buy using your personal code. ${renewals} Your audience gets ${s.discountPct}% off with your code.`,
+    "",
+    "Refunds",
+    "If a sale is refunded, the commission on it is taken back — in full for a full refund, in proportion for a partial one.",
+    "",
+    "How and when you're paid",
+    "[Fill in: e.g. by bank transfer, once a month, once you're owed at least €25. Say what details you'll need from them.]",
+    "",
+    "What's not allowed",
+    "Buying with your own code. Bidding on our brand name in paid ads. Spam, or promoting us anywhere misleading. [Add anything else you care about — for example, whether posting the code on coupon sites is fine.]",
+    "",
+    "Ending the partnership",
+    "Either of us can end it at any time. If we retire your code, anything you've already earned is still paid.",
+    "",
+    "Taxes",
+    "You're responsible for declaring and paying tax on what you earn.",
+    "",
+    `Questions: [your contact email].`,
+  ].join("\n");
+}

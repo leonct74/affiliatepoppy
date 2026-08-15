@@ -446,7 +446,10 @@ listing + the poppy's own price decided.*
    final.** See the header note.
 2. **The poppy's own price** (free-while-proving vs paid day one; premium tier price) —
    blocks P6.
-3. Affiliate terms text default (template provided; his words before listing).
+3. ~~Affiliate terms text default~~ — **done 2026-08-14**: Settings offers "Give me a starting
+   point", generated from the live numbers (commission, discount, renewals) with the
+   merchant-only parts marked `[Fill in: …]`. His words before listing still apply — for
+   AgentsPoppy's own programme he edits that text.
 
 ---
 

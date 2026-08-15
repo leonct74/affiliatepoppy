@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import { Button } from "./Button";
+import { defaultTermsText } from "../../shared/src/settings";
 import type { PortalBranding, ProgramConfig, ProgramSettings } from "./types";
 
 const LOGO_MAX_BYTES = 100_000;
@@ -177,15 +178,32 @@ export function Settings(props: { config: ProgramConfig | null; onSaved: () => P
           />
         </label>
         <label className="field">
-          <span>Your terms (shown in full on the page — never a link to nowhere)</span>
+          <span>
+            Your terms — the rules of the deal, shown in full on the page. Typically: how and when they're paid, what
+            counts as a sale, what's not allowed, how it ends.
+          </span>
           <textarea
             className="input"
-            style={{ minHeight: 120 }}
+            style={{ minHeight: 160 }}
             value={branding.termsText}
             maxLength={4000}
+            placeholder={"e.g. You earn 10% of every sale made with your code, paid monthly by bank transfer once you're owed at least €25. Refunds are deducted. Don't buy with your own code or bid on our brand name in ads. Either of us can end this at any time…"}
             onChange={(e) => setBranding({ ...branding, termsText: e.target.value })}
           />
         </label>
+        {!branding.termsText && (
+          <div>
+            <button
+              className="btn btn-sm"
+              onClick={() => setBranding({ ...branding, termsText: defaultTermsText(settings, branding.merchantName) })}
+            >
+              Give me a starting point
+            </button>
+            <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>
+              Plain-English terms built from your numbers above — edit them into your own words. Not legal advice.
+            </span>
+          </div>
+        )}
 
         <Preview branding={branding} settings={settings} fallbackOffer={props.config?.offer ?? ""} />
       </div>

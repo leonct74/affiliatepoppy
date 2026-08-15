@@ -211,6 +211,23 @@ describe("the settings the founder insisted on owning", () => {
     expect(await screen.findByText(/a new discount was created in stripe/i)).toBeInTheDocument();
   });
 
+  it("offers a plain-English starting point for the terms, built from the live numbers", async () => {
+    // Founder: "what would a user even write in there?" An empty box labelled "terms" is where
+    // people freeze. The starting point names the things every affiliate wants to know, uses
+    // the programme's own numbers (so it can never contradict the page), and marks the parts
+    // only the merchant can fill.
+    showSettings();
+    await userEvent.click(await screen.findByRole("button", { name: /give me a starting point/i }));
+    const box = screen.getByRole("textbox", { name: /your terms/i }) as HTMLTextAreaElement;
+    expect(box.value).toContain("You earn 10% of what a customer pays");
+    expect(box.value).toContain("5% off");
+    expect(box.value).toContain("Refunds");
+    expect(box.value).toContain("[Fill in:");
+    expect(box.value).toContain("Olly Digital");
+    // Once there's text, the button steps out of the way — it's a starting point, not a reset.
+    expect(screen.queryByRole("button", { name: /give me a starting point/i })).not.toBeInTheDocument();
+  });
+
   it("previews the affiliate's first screen, so the merchant isn't guessing", async () => {
     showSettings(config({ branding: { ...config().branding, offerCopy: "Earn 20% forever" } }));
     const preview = (await screen.findByLabelText(/preview of your affiliate page/i)) as HTMLElement;
