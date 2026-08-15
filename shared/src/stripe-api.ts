@@ -147,9 +147,34 @@ export class StripeClient {
     return list.data?.[0];
   }
 
-  /** A cheap authenticated call — used to tell a merchant their key works before they rely on it. */
+  /**
+   * Is this a usable key, and which mode is it in? Deliberately a READ: a check must never
+   * write to a merchant's Stripe account. The real proof that the key can do the ONE thing we
+   * need — write promotion codes — is the coupon create that follows in connectStripe(), which
+   * needs the same scope and is a write we have to make anyway. `permissionProblem()` below
+   * turns Stripe's refusal of THAT into the sentence the merchant needs.
+   */
   async check(): Promise<{ livemode: boolean }> {
     const list = await this.call<{ data?: { livemode?: boolean }[] }>("GET", "/promotion_codes", { limit: 1 });
     return { livemode: !!list.data?.[0]?.livemode };
   }
+}
+
+/**
+ * When Stripe refuses a write because the restricted key lacks the scope, say so in words the
+ * merchant can act on — including which permission, and that keys can't be edited after the
+ * fact (live lesson, first run: a merchant created a key with no permission and had no way to
+ * know until an affiliate needed a code).
+ */
+export function permissionProblem(e: unknown): string | undefined {
+  const err = e as StripeApiError;
+  if (!(err instanceof StripeApiError)) return undefined;
+  if (err.status === 401) return "Stripe doesn't recognise that key. Check you copied the whole thing.";
+  if (err.status === 403 || /permission/i.test(err.message)) {
+    return (
+      'That key can\'t create discount codes. Stripe keys can\'t be edited afterwards, so make a NEW ' +
+      'restricted key with "Promotion codes" set to Write (everything else None) and paste that one.'
+    );
+  }
+  return undefined;
 }

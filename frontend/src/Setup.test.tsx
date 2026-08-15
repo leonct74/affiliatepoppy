@@ -83,9 +83,12 @@ describe("the guided path", () => {
     // The merchant is being asked for API access to their own payment processor. The honest
     // framing — one permission, cannot move money — is what makes that reasonable.
     setup();
-    // Stripe's create-key flow now opens with "how will you use it?" — a merchant stalled
-    // there on the first run. Name the right answer.
+    // Stripe's create-key flow is three screens, and a merchant stalled on the first run:
+    // made the key, pasted it, and only then discovered there had been a permissions step. So
+    // the tab walks all three, and says the permission is the one that can't be fixed later.
     expect(screen.getByText(/providing this key to a third-party application/i)).toBeInTheDocument();
+    expect(screen.getByText(/each with none \/ read \/ write/i)).toBeInTheDocument();
+    expect(screen.getByText(/can't be edited/i)).toBeInTheDocument();
     expect(screen.getByText("Promotion codes — Write")).toBeInTheDocument();
     expect(screen.getByText(/cannot move money, read customers, or refund anything/i)).toBeInTheDocument();
   });
@@ -119,6 +122,26 @@ describe("handing over a secret", () => {
 
     expect(save).toHaveBeenCalledWith("apiKey", "rk_test_abc9zx8");
     expect(await screen.findByText(/your key works \(test mode\)/i)).toBeInTheDocument();
+  });
+
+  it("tells the merchant a key WITHOUT the write permission is the wrong key — never 'works'", async () => {
+    // The old check was a read, which a permission-less key could pass; the merchant was told
+    // "your key works" and would have found out otherwise only when an affiliate needed a code.
+    vi.spyOn(api, "saveSecret").mockResolvedValue({
+      stored: true,
+      hint: "…9zx8",
+      connection: {
+        ok: false,
+        livemode: false,
+        message:
+          'That key can\'t create discount codes. Stripe keys can\'t be edited afterwards, so make a NEW restricted key with "Promotion codes" set to Write (everything else None) and paste that one.',
+      },
+    });
+    setup();
+    await userEvent.type(screen.getByPlaceholderText("rk_…"), "rk_test_noperms");
+    await userEvent.click(screen.getByRole("button", { name: /save key/i }));
+    expect(await screen.findByText(/make a new restricted key with "promotion codes" set to write/i)).toBeInTheDocument();
+    expect(screen.queryByText(/your key works/i)).not.toBeInTheDocument();
   });
 
   it("says plainly when Stripe rejects the key, rather than reporting success", async () => {

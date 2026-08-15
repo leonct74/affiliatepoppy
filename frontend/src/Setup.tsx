@@ -233,12 +233,27 @@ function StripeConnect(props: {
           </span>
         </div>
         <p className="muted" style={{ margin: 0 }}>
-          In Stripe, open <strong>Developers → API keys → Create restricted key</strong>. Stripe first asks how
-          you'll use it — pick <strong>"Providing this key to a third-party application"</strong>, and when it asks
-          for the third party's details, enter <span className="chip">AffiliatePoppy</span> and{" "}
-          <span className="chip">https://github.com/leonct74/affiliatepoppy</span> (that's only for Stripe's own
-          records). Then in the permissions list, give it <strong>one</strong> permission and leave everything else
-          set to "None":
+          In Stripe, open <strong>Developers → API keys → Create restricted key</strong>. Stripe walks you
+          through three screens:
+        </p>
+        <ol className="muted" style={{ margin: 0, paddingLeft: 18 }}>
+          <li>
+            <strong>How will you use it?</strong> — pick <em>"Providing this key to a third-party application"</em>.
+          </li>
+          <li>
+            <strong>Website details</strong> — enter <span className="chip">AffiliatePoppy</span> and{" "}
+            <span className="chip">https://github.com/leonct74/affiliatepoppy</span>. That's only for Stripe's
+            own records.
+          </li>
+          <li>
+            <strong>Permissions</strong> — a long list of resources, each with None / Read / Write. Find{" "}
+            <strong>Promotion codes</strong> and set it to <strong>Write</strong>. Leave every other line at "None".
+            This is the step that matters — a key created without it can't be fixed afterwards (Stripe keys
+            can't be edited), you'd make a new one.
+          </li>
+        </ol>
+        <p className="muted" style={{ margin: 0 }}>
+          The one permission, spelled the way Stripe spells it:
         </p>
         <div className="row">
           <span className="chip">{KEY_PERMISSION}</span>

@@ -19,7 +19,7 @@ import {
   type PortalBranding,
   type ProgramSettings,
 } from "../../shared/src/settings";
-import { StripeClient } from "../../shared/src/stripe-api";
+import { StripeClient, permissionProblem } from "../../shared/src/stripe-api";
 import { readSecret } from "./secrets";
 
 /** One affiliate, as the poppy's Affiliates and Ledger tabs show them. */
@@ -108,8 +108,16 @@ export class Program {
   async connectStripe(): Promise<{ ok: boolean; livemode: boolean; couponId: string; message?: string }> {
     const stripe = await this.stripe();
     if (!stripe) return { ok: false, livemode: false, couponId: "", message: "No Stripe key saved yet." };
+    let livemode = false;
     try {
-      const { livemode } = await stripe.check();
+      ({ livemode } = await stripe.check());
+    } catch (e) {
+      return { ok: false, livemode: false, couponId: "", message: permissionProblem(e) ?? (e as Error).message };
+    }
+    // The coupon create is the REAL proof the key can do its one job: it needs exactly the
+    // "Promotion codes: Write" scope. A key that passes the read above but fails here is the
+    // wrong key, and the merchant is told so in words — never "ok".
+    try {
       const { settings, branding } = await this.ledger.config();
       const state = await this.ledger.stripeState();
       let couponId = state.couponId;
@@ -123,7 +131,7 @@ export class Program {
       }
       return { ok: true, livemode, couponId };
     } catch (e) {
-      return { ok: false, livemode: false, couponId: "", message: (e as Error).message };
+      return { ok: false, livemode, couponId: "", message: permissionProblem(e) ?? (e as Error).message };
     }
   }
 
