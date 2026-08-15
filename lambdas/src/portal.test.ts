@@ -307,7 +307,9 @@ describe("where they share their code (optional, theirs to declare)", () => {
     const doc = new JSDOM((await route(request(), deps)).body).window.document;
     const card = doc.getElementById("placesCard")!;
     expect(card.textContent).toMatch(/optional — you don't need to fill this in/i);
-    expect(card.textContent).toMatch(/nice for Olly Digital to know/i);
+    // Founder (2026-08-14): generic — "the merchant", not the merchant's own name.
+    expect(card.textContent).toMatch(/nice for the merchant to know/i);
+    expect(card.textContent).not.toMatch(/Olly Digital/);
     // …and there is no `required` anywhere in that form.
     expect(card.querySelectorAll("[required]")).toHaveLength(0);
   });

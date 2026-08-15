@@ -201,7 +201,7 @@ td:last-child,th:last-child{text-align:right}
     <div class="card" id="placesCard">
       <h2>Where you share your code</h2>
       <p class="mut" style="margin:0 0 4px"><strong>Optional — you don't need to fill this in.</strong>
-        It's just nice for ${esc(cfg.branding.merchantName || "the programme owner")} to know where their code is out there,
+        It's just nice for the merchant to know where their code is out there,
         so they can go and see your video, post or page.</p>
       <div id="placesMsg"></div>
       <div id="placesList"></div>
