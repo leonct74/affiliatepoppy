@@ -116,9 +116,11 @@ export function Settings(props: { config: ProgramConfig | null; onSaved: () => P
             onChange={(e) => setSettings({ ...settings, autoApprove: e.target.checked })}
           />
           <span>
-            Give everyone a code the moment they sign up
+            Approve sign-ups automatically
             <div className="muted" style={{ fontSize: 12 }}>
-              Off means you approve each person in the Affiliates tab first.
+              On: anyone who signs up and confirms their email gets a working code straight away, without you doing
+              anything. Off: they wait in the Affiliates tab as "Waiting for you" until you press Approve — then their
+              code is created. Same code, same commission either way; the only difference is whether you look first.
             </div>
           </span>
         </label>
