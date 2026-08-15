@@ -192,9 +192,10 @@ function StripeConnect(props: {
           </span>
         </div>
         <p className="muted" style={{ margin: 0 }}>
-          In Stripe, go to <strong>Developers → Webhooks → Add endpoint</strong> and paste this address. Choose the
-          events <span className="chip">checkout.session.completed</span>, <span className="chip">invoice.paid</span>{" "}
-          and <span className="chip">charge.refunded</span>. Stripe then shows you a signing secret starting with{" "}
+          In Stripe, open <strong>Developers</strong> (bottom-left of the sidebar, or press <span className="chip">⌘/</span> and
+          type it) → <strong>Webhooks</strong> → <strong>Add destination</strong>, and paste this address. Choose the events{" "}
+          <span className="chip">checkout.session.completed</span>, <span className="chip">invoice.paid</span> and{" "}
+          <span className="chip">charge.refunded</span>. Stripe then shows you a signing secret starting with{" "}
           <span className="chip">whsec_</span> — paste that below.
         </p>
         {status?.receiverUrl && (
@@ -232,7 +233,7 @@ function StripeConnect(props: {
           </span>
         </div>
         <p className="muted" style={{ margin: 0 }}>
-          In Stripe, go to <strong>Developers → API keys → Create restricted key</strong>. Give it{" "}
+          In Stripe, open <strong>Developers → API keys → Create restricted key</strong>. Give it{" "}
           <strong>one</strong> permission and leave everything else set to "None":
         </p>
         <div className="row">
