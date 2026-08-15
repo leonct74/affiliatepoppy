@@ -820,6 +820,54 @@ what Stripe is. `attribute.ts`, the ledger, the portal and the poppy are all
 platform-agnostic — so a Paddle or Lemon Squeezy receiver is a parallel parser plus a
 code-issuer, not a rewrite. Worth doing only when a real merchant asks.
 
+### 12.6c Affiliate commission on poppy sales — the platform economics (founder, 2026-08-14)
+
+The founder, on the note that a developer pays Stripe's fee AND AgentsPoppy's 5% out of the
+same gross the commission is computed on: *"not a problem — we can plan to modify our terms
+with the poppy developers, where affiliate sales are paid on top of the 5%. We can even warn
+the developer to calculate their pricing accounting for the affiliate cut. Developers will
+actually be happy to know they can benefit from AgentsPoppy-arranged affiliate campaigns."*
+
+Sound, and standard: app-store fees and affiliate commissions have coexisted this way for
+years (Apple's cut, then the affiliate's, both out of the developer's gross). The terms change
+is also unusually clean — **no existing sale changes economics**, because affiliate codes do
+not exist yet. A new, optional channel appears carrying its own cut; nobody is worse off than
+they were yesterday, which is the easiest kind of terms update to make.
+
+**The decision this needs first: who RUNS the programme?** The founder's phrase
+"AgentsPoppy-arranged campaigns" implies the second option, which is a different product.
+
+| | Developer-run | **AgentsPoppy-run (central campaigns)** |
+|---|---|---|
+| Whose affiliates | The developer's own, recruited by them | One publisher signs up ONCE and gets a code that works across participating poppies; AgentsPoppy recruits |
+| Whose Stripe | Theirs (direct charges already land there) | Still theirs — the sale is unchanged |
+| What it is | AffiliatePoppy exactly as built | A **network** — §12.5's marketplace, arrived at from the economics side |
+| Terms say | "Affiliate commission is yours to pay, on top of the 5%" | Plus: what AgentsPoppy charges for running the campaign, and how it settles |
+| Effort | ~zero, it exists | Large. Central identity, cross-poppy codes, settlement |
+
+**⚠ The constraint that shapes the second option — verified against the checkout route.** The
+platform's `application_fee_amount` / `application_fee_percent` is fixed **when the Checkout
+Session is created**, and under D1 the affiliate's code is typed *afterwards*, on Stripe's own
+page. So **AgentsPoppy cannot charge a different fee on an affiliate-driven sale** — at session
+time we cannot know whether a code will be used. "15% on affiliate sales instead of 5%" is not
+achievable as a Stripe application fee.
+
+Central campaigns therefore need **out-of-band settlement**: either the developer's own ledger
+pays their affiliates (and terms simply require it), or AgentsPoppy pays the publisher and
+invoices the developer monthly for what it advanced. Both work; the second is the one that
+makes "one publisher, many poppies" possible, and it is the point at which AgentsPoppy is
+holding money on someone's behalf — with everything §12.5a says about that.
+
+**One guard, because D7 does NOT transfer to third parties.** The founder welcomes code
+leakage to coupon sites because his own margin absorbs it and he counts it as advertising. A
+developer on a thinner margin may not want a publicly-posted code eating sales they would have
+made at full price — the classic cannibalisation problem. So: **participation is opt-in per
+developer, and the leakage tolerance is theirs to set**, never inherited from the platform's.
+
+**Practical guidance to give developers** (mirrors the founder's own D3 move): price with the
+affiliate cut in mind before the campaign, not after — he raised AgentsPoppy's prices 15% so
+that a 5% customer discount and a 10% commission fit inside the margin rather than eating it.
+
 ### 12.7 Live-only risks — what the first real deploy is actually testing
 
 Every one of these is a class of failure the family has hit before, and none of them can be
