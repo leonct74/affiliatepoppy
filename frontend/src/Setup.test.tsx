@@ -83,6 +83,9 @@ describe("the guided path", () => {
     // The merchant is being asked for API access to their own payment processor. The honest
     // framing — one permission, cannot move money — is what makes that reasonable.
     setup();
+    // Stripe's create-key flow now opens with "how will you use it?" — a merchant stalled
+    // there on the first run. Name the right answer.
+    expect(screen.getByText(/providing this key to a third-party application/i)).toBeInTheDocument();
     expect(screen.getByText("Promotion codes — Write")).toBeInTheDocument();
     expect(screen.getByText(/cannot move money, read customers, or refund anything/i)).toBeInTheDocument();
   });

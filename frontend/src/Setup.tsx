@@ -233,8 +233,9 @@ function StripeConnect(props: {
           </span>
         </div>
         <p className="muted" style={{ margin: 0 }}>
-          In Stripe, open <strong>Developers → API keys → Create restricted key</strong>. Give it{" "}
-          <strong>one</strong> permission and leave everything else set to "None":
+          In Stripe, open <strong>Developers → API keys → Create restricted key</strong>. Stripe first asks how
+          you'll use it — pick <strong>"Providing this key to a third-party application"</strong>. Then in the
+          permissions list, give it <strong>one</strong> permission and leave everything else set to "None":
         </p>
         <div className="row">
           <span className="chip">{KEY_PERMISSION}</span>
