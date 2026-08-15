@@ -624,9 +624,22 @@ version fits D1 exactly: **one affiliate, several codes, each tagged with a plac
 which gives real per-content attribution, the thing cookie platforms only approximate.
 
 **Payouts.** The affiliate does NOT connect Stripe today (D12: compute and report, merchant
-pays as they already pay people). Executing payouts means Stripe Connect Express accounts
-for affiliates and AgentsPoppy as the platform of record — the heaviest row in §12.5's
-table, with KYC and disputes attached. Later, deliberately.
+pays as they already pay people). When payouts are executed, it is with **Stripe Connect
+Standard accounts, not Express** (founder question, 2026-08-14 — Express was named first by
+reflex, because the incumbents use it, and that is the wrong reason):
+
+- *Standard* = the affiliate's own full Stripe account, onboarded and KYC'd by Stripe directly,
+  liable for itself. A content creator with real revenue already has one — connecting it is one
+  authorisation. No per-account platform fee.
+- *Express* = an account the platform creates and largely operates for them: the platform is
+  responsible for identity gaps, disputes, negative balances and the support that follows, and
+  pays Stripe monthly per active account. That is exactly the liability D12 exists to avoid.
+
+Flow of funds, when built: **merchant → affiliate directly** — the merchant's own Stripe
+(also Standard) originates the transfer and we only trigger it. AgentsPoppy never holds the
+money; the "your money never touches us" story survives intact. The alternative (merchant →
+AgentsPoppy → affiliate, separate charges and transfers) puts us in the flow of funds and is
+rejected. Still the heaviest row in §12.5's table. Later, deliberately.
 
 ### 12.7 Live-only risks — what the first real deploy is actually testing
 
