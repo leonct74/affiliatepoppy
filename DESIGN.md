@@ -715,6 +715,50 @@ described above, and the reason this is a premium path rather than the default.
 Sequencing unchanged: after the ledger has been right in the wild. A wrong number that is
 displayed is a support email; a wrong number that has been transferred is a clawback.
 
+### 12.6a Hosting the affiliate portal on AgentsPoppy (founder, 2026-08-14 — NOT decided)
+
+The founder's proposal: serve the affiliate portal from AgentsPoppy App Hosting rather than
+the merchant's Lambda — *"so it also works as a trustworthy third party in the workflow"* and
+so there is something in AgentsPoppy to justify a subscription — while noting *"we don't need
+AgentsPoppy to actually save users or data, it could be just that we host the portal"*.
+
+**The distinction that decides this: hosting the page is not the same as vouching for the
+numbers.** If we serve the HTML but every figure still comes from the merchant's Lambda
+reading the merchant's own table, we are supplying the frame, not the content. A merchant who
+edited their ledger would have the edited numbers rendered faithfully — under OUR name, which
+is arguably worse than today. Hosting alone is trust theatre; say so plainly rather than sell
+it.
+
+**What hosting DOES buy, and one of these is underrated:**
+
+1. **A credible address.** The live portal URL from the first deploy is
+   `shlds7algriyngvxnwwfjcwfaa0dxnjz.lambda-url.eu-west-1.on.aws` — it looks like phishing,
+   and no publisher will happily type their email into it. `partners.agentspoppy.com/<merchant>`
+   is a different conversation. This may justify the work on its own.
+2. **One affiliate account across every programme** — but only with hosted IDENTITY, which
+   means Cognito leaves the merchant's stack and we hold affiliate emails. That contradicts
+   "we don't save users or data", so it is a separate decision, not a consequence of hosting.
+3. **An honest subscription line: we run something for them.**
+
+**Three options, in increasing order of what they actually promise:**
+
+| | What we host | What we can honestly claim | Cost to us |
+|---|---|---|---|
+| **A. Page only** (the founder's version) | HTML/JS; identity stays in the merchant's Cognito; all data stays in their AWS | "A proper address, and a page we keep working" | Small. A route in agentspoppy-web + CORS. No new data duties. |
+| **B. Page + identity** | Also affiliate sign-in | Everything in A, plus "one account for every programme you join" — the marketplace foundation | We become a data controller for affiliate emails; a real auth build |
+| **C. Page + identity + attestation** (§12.5a) | Also a minimal independent copy of each credit (affiliate, amount, currency, day, hash) | **"Verified by AgentsPoppy"** — our record shown beside the merchant's, and a disagreement is visible to the affiliate | DPA, retention, a dispute role. The real one. |
+
+**Recommendation:** A is worth doing for the address alone, and it is the natural delivery
+mechanism for C — but do not market A as trust. C is the version that earns the word
+"third party", and B falls out of it.
+
+**Tension to resolve before either:** this collides with **D13** (premium = the portal on the
+merchant's OWN domain, `partners.merchant.com`). White-label and neutral-third-party pull in
+opposite directions: a merchant marketing to their own customers wants their brand; a merchant
+recruiting publishers may prefer the neutral one that says "somebody independent is watching".
+Most likely both, as a choice — which changes what the premium tier is, and needs a founder
+decision before P5 is built.
+
 ### 12.7 Live-only risks — what the first real deploy is actually testing
 
 Every one of these is a class of failure the family has hit before, and none of them can be
