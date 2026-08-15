@@ -688,6 +688,30 @@ balance grows without anyone deciding to pay them. Standard connected accounts, 
 (see the reasoning above); the transfer originates from the merchant's own Stripe balance;
 AgentsPoppy is never in the flow of funds.
 
+**What the incumbents actually do about paying (verified 2026-08-14, not recalled).** Two
+distinct tiers, and the gap between them is where this feature would sit:
+
+| Who | How affiliates get paid | Custody of the money |
+|---|---|---|
+| **Rewardful** (closest comparator) | The merchant downloads a CSV of payment details and uploads it to their OWN PayPal or Wise. Enterprise plans can pay from a connected PayPal Business account. No Stripe-balance option at all. | **None — trust.** "All you need to do is download the list of payment details from your Rewardful dashboard and upload it to PayPal or Wise dashboard." |
+| **FirstPromoter** | "Pay all partners in one action via Stripe, PayPal, Wise or bank transfer" — one click, from the merchant's own accounts. | None — but the *rail* is already there, including Stripe. |
+| **Tapfiliate** | PayPal / bulk export. | None. |
+| **PartnerStack** | The merchant is INVOICED monthly (card or ACH); once it clears, partners withdraw via PayPal or Stripe. | **Yes — escrow.** The network is in the flow of funds. |
+| **Impact, ShareASale/Awin/CJ** | Merchant funds a deposit/balance; the network pays affiliates. | **Yes — deposit + reserve.** |
+
+So: **the self-serve tier our product competes with runs on exactly the same trust model we do
+today** — the tool tracks, the merchant pays by hand, the affiliate takes the dashboard's word
+for it and chases when it is late. The tier that removes the chasing does it by becoming a
+middleman that holds the money, which is why it is expensive and why the merchant loses
+control of their own funds.
+
+**The consequence for our positioning:** "we pay via Stripe" is NOT the differentiator —
+FirstPromoter advertises exactly that. The differentiator is **automatic and rule-based with
+nobody in the middle**: the merchant sets the rule once, the transfer fires from their own
+Stripe balance into the affiliate's own Stripe balance, and no human decides. Nobody occupies
+that square, because reaching it requires the merchant to be a Connect platform — the barrier
+described above, and the reason this is a premium path rather than the default.
+
 Sequencing unchanged: after the ledger has been right in the wild. A wrong number that is
 displayed is a support email; a wrong number that has been transferred is a clawback.
 
