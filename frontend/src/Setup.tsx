@@ -174,6 +174,16 @@ function StripeConnect(props: {
       {error && <div className="banner err">{error}</div>}
       {message && <div className="banner info">{message}</div>}
 
+      {/* Stripe keeps test and live completely separate — a fact people discover the hard
+          way. Say it once, up front, so the merchant picks a mode on purpose. */}
+      <div className="banner info">
+        <strong>Test mode or live mode — pick one and stay in it.</strong> Stripe keeps them completely
+        separate: a webhook, a secret and a key made in test mode only work with test-mode payments, and vice
+        versa. To try things out safely, switch the Stripe dashboard to <strong>Test mode</strong> first (top
+        right) and create both items there. Going live later means creating both again in live mode — codes
+        issued in test mode don't carry over.
+      </div>
+
       <div className="card card-2 stack">
         <div className="spread">
           <strong style={{ fontSize: 13 }}>a. The webhook address</strong>

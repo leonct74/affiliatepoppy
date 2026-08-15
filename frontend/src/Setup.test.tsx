@@ -70,6 +70,15 @@ describe("the guided path", () => {
     expect(screen.getByText("charge.refunded")).toBeInTheDocument();
   });
 
+  it("says up front that test and live are separate worlds", () => {
+    // Founder question, first test run: "I need to create a testing webhook, don't I?" Yes —
+    // and nobody should have to ask. Stripe keeps the two modes entirely apart, so a merchant
+    // must pick one deliberately, and know that going live is a redo, not a switch.
+    setup();
+    expect(screen.getByText(/test mode or live mode — pick one and stay in it/i)).toBeInTheDocument();
+    expect(screen.getByText(/codes issued in test mode don't carry over/i)).toBeInTheDocument();
+  });
+
   it("asks for a key that can do ONE thing, and says so", () => {
     // The merchant is being asked for API access to their own payment processor. The honest
     // framing — one permission, cannot move money — is what makes that reasonable.
