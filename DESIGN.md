@@ -505,22 +505,35 @@ the test.
 The founder's framing: a free tier, then a paid one, and *"what part could we externalise out
 of the user infrastructure to better justify the price"*.
 
-**The trap to avoid first.** Externalising is not what justifies a price — and for this
-family it actively costs something. "Runs entirely in your own AWS, we never see your sales"
-is the reason a merchant trusts this over Rewardful or Tapfiliate. Every piece moved onto our
-servers spends that argument AND adds a running cost to us. TrafficPoppy already proves the
-alternative: it charges for a feature (`stats.your-site.com`) that runs 100% in the user's own
-account. **Price the work saved, not the hosting.**
+**First instinct, and why it is only half right.** Externalising normally costs this family
+something: "runs entirely in your own AWS, we never see your sales" is why a merchant picks
+this over Rewardful or Tapfiliate, and every piece moved onto our servers spends that argument
+AND adds a running bill. TrafficPoppy charges for a feature that runs 100% in the user's own
+account — price the work saved, not the hosting.
 
-Where AffiliatePoppy has more room than its siblings: there is no visitor data here at all.
-The sensitive things are affiliate emails (partner data, volunteered) and the commission
-ledger. So *some* externalisation is defensible in a way it never was for TrafficPoppy.
+**But affiliate programmes have TWO parties, and they want opposite things** (founder,
+2026-08-14 — the insight that reframes this whole section):
 
-Candidates, ranked by value-to-merchant ÷ (effort + trust cost):
+- the **merchant** wants nobody in the data path → keep it in their own AWS;
+- the **affiliate** is being asked to trust a ledger kept by *the person who owes them money*.
+  Nothing in their own AWS can fix that, because the conflict of interest IS the merchant's
+  sole custody of the record.
 
-| Candidate | What it buys the merchant | Verdict |
+That is a real barrier to recruiting good affiliates, and it is a problem only a neutral third
+party can solve. So the case for externalising here is not cost or convenience — it is
+**removing the merchant's conflict of interest**, which makes their programme more attractive
+to exactly the people they are trying to sign up. AgentsPoppy is well placed for it: it is
+already a party both sides deal with, and it has no stake in either's numbers.
+
+Where AffiliatePoppy has room its siblings never had: there is no visitor data here at all.
+The sensitive things are affiliate emails (volunteered partner data) and the commission ledger.
+
+Candidates, ranked by value ÷ (effort + trust cost):
+
+| Candidate | What it buys | Verdict |
 |---|---|---|
-| **Affiliate emails from the platform** ("you earned £12", monthly statements, "you've been approved") | Today the portal only sends Cognito's verification mail, capped ~50/day, and a merchant wanting more must verify an SES domain and leave the sandbox — a genuine chore most will never do. | **Best first paid feature.** High value, low effort, and only affiliate emails leave the account — never a buyer's. |
+| **Neutral witness — an independent, append-only record of what was attributed** (detail below) | The affiliate stops having to take the merchant's word for it; the merchant gets a credible programme without surrendering their sales data. | **The strongest case for charging, and impossible to self-host.** See §12.5a. |
+| **Affiliate emails from the platform** ("you earned £12", monthly statements, "you've been approved") | Today the portal only sends Cognito's verification mail, capped ~50/day, and a merchant wanting more must verify an SES domain and leave the sandbox — a genuine chore most will never do. | **Best cheap win.** High value, low effort, and only affiliate emails leave the account — never a buyer's. Pairs naturally with the witness. |
 | **Watchdog + alerts** ("Stripe stopped reaching your webhook 3 days ago") | Something OUTSIDE their AWS has to notice when their AWS breaks. By definition this cannot live in the thing being watched. | **Strong, cheap, and honest** — the clearest argument for a service rather than a tool. |
 | **Affiliate discovery / marketplace across programmes** | Affiliates find merchants; merchants get partners they'd never have recruited. Impossible inside one merchant's account. | **The strategic one.** Turns the poppy into a network with a moat. Biggest build; consider only after P6. |
 | **Executed payouts** (Stripe Connect transfers) | Removes the monthly manual chore entirely — the single biggest time saver. | **Highest value, highest load.** Money movement, KYC, disputes. Contradicts D12; revisit only once the ledger has been trusted in the wild for a while. |
@@ -529,8 +542,41 @@ Candidates, ranked by value-to-merchant ÷ (effort + trust cost):
 
 A shape that fits without breaking the promise: **free** = everything built today, capped at a
 handful of affiliates; **paid** = cap removed + portal on the merchant's own domain (D13,
-already the plan) + platform-sent affiliate emails + the watchdog. Two of those three run in
-the merchant's own account; the price is justified by what they no longer have to do.
+already the plan) + platform-sent affiliate emails + the watchdog + the neutral witness.
+
+### 12.5a The neutral-witness model (sketch — nothing built, nothing decided)
+
+**What the affiliate actually needs, split honestly into three, because they are not equally
+solvable — and promising all three would be a lie we would eventually be caught in:**
+
+| The affiliate's worry | Can a witness answer it? |
+|---|---|
+| *"Will they quietly edit or delete what I earned?"* — **integrity** | **Yes, completely.** An append-only, timestamped copy held by someone with no stake settles it. |
+| *"Will they pay what the record says?"* — **settlement** | **Yes.** Payouts are recorded against the same witnessed entries, so "paid" is checkable, not asserted. |
+| *"Will they record every sale my code brought in?"* — **completeness** | **No, not fully.** The merchant's own receiver decides what to report. A witness makes suppression *permanent and visible* rather than deniable, and gives an affiliate holding a receipt something concrete to dispute against — but it cannot prove a negative. **Say exactly this in the marketing; do not imply more.** |
+
+**How it could work, keeping the merchant's promise intact.** When the receiver credits an
+entry, it also POSTs a *minimal* attestation to AgentsPoppy: affiliate id, amount, currency,
+day, and a hash of the full entry. Append-only, our timestamp, never editable by the merchant.
+What that deliberately does NOT carry: the buyer, the product, the order value, the merchant's
+revenue — the platform learns what one affiliate earned, never what the merchant sold.
+
+Consequences to accept before building it:
+
+- **Opt-in per merchant, always.** Turning it on for existing installs would break the exact
+  promise they were sold. It is a feature a merchant *chooses* to display: "verified by
+  AgentsPoppy" is a recruiting badge, and its value comes from being voluntary.
+- **We become a data controller** for affiliate emails and commission amounts: a DPA, a
+  retention policy, a deletion path, and a named lawful basis. Today this poppy has none of
+  that burden precisely because nothing leaves.
+- **We become a party to disputes.** Terms must state plainly what we attest (what we were
+  told, and when) and what we do not (that we were told everything).
+- **The affiliate-side product this unlocks** is the real prize: one account showing every
+  programme someone has joined, across merchants — which is also §12.5's marketplace, arrived
+  at from the trust direction instead of the discovery direction.
+
+Sequencing: this is a P7+ idea. It needs the ledger to have been right in the wild first —
+a witness to numbers nobody has yet checked is worth nothing.
 
 ### 12.6 Live-only risks — what the first real deploy is actually testing
 
