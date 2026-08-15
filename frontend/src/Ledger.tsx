@@ -13,7 +13,18 @@ import { Button } from "./Button";
 import { money, parseAmount } from "./money";
 import type { Affiliate, Payout } from "./types";
 
-export function Ledger(props: { affiliates: Affiliate[]; loading: boolean; onChanged: () => Promise<void> }) {
+export function Ledger(props: {
+  affiliates: Affiliate[];
+  loading: boolean;
+  /**
+   * True only once the stack is up. Before that there is no table, and asking DynamoDB for
+   * payouts answers "resource not found" — which is not an error the merchant did anything to
+   * cause, so it must never reach them as one. (Live lesson, first dev-install: the tab showed
+   * a raw 500 before Setup had even been pressed.)
+   */
+  ready: boolean;
+  onChanged: () => Promise<void>;
+}) {
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [exported, setExported] = useState<{ path: string; rows: number } | null>(null);
@@ -26,9 +37,20 @@ export function Ledger(props: { affiliates: Affiliate[]; loading: boolean; onCha
       setError((e as Error).message);
     }
   };
+  // Load when the table exists, and again whenever the ledger changes underneath us.
   useEffect(() => {
-    void load();
-  }, []);
+    if (props.ready) void load();
+  }, [props.ready, props.affiliates]);
+
+  if (!props.ready) {
+    return (
+      <div className="card">
+        <p className="muted" style={{ margin: 0 }}>
+          The ledger appears here once AffiliatePoppy is set up — finish the Setup tab first.
+        </p>
+      </div>
+    );
+  }
 
   /** Everything owed, per currency — the number a merchant actually plans around. */
   const owedByCurrency = new Map<string, number>();

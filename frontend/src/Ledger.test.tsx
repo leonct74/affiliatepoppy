@@ -29,14 +29,27 @@ beforeEach(() => {
 });
 
 const open = async () => {
-  render(<Ledger affiliates={[oliver]} loading={false} onChanged={vi.fn().mockResolvedValue(undefined)} />);
+  render(<Ledger affiliates={[oliver]} loading={false} ready onChanged={vi.fn().mockResolvedValue(undefined)} />);
   await userEvent.click(await screen.findByRole("button", { name: /mark as paid/i }));
   return screen.getByText(/record a payment to oliver/i).closest(".modal") as HTMLElement;
 };
 
+describe("before Setup has run", () => {
+  it("asks for nothing from a table that doesn't exist yet, and says so plainly", () => {
+    // First dev-install, 2026-08-14: the tab queried payouts on mount, DynamoDB answered
+    // "Requested resource not found", and the merchant saw a raw 500 before they had pressed
+    // a single button. Not an error they caused → never an error they should read.
+    const payouts = vi.spyOn(api, "payouts");
+    render(<Ledger affiliates={[]} loading={false} ready={false} onChanged={vi.fn()} />);
+    expect(screen.getByText(/finish the setup tab first/i)).toBeInTheDocument();
+    expect(payouts).not.toHaveBeenCalled();
+    expect(screen.queryByText(/resource not found/i)).not.toBeInTheDocument();
+  });
+});
+
 describe("what the merchant sees they owe", () => {
   it("shows owed, not just earned — the number they actually plan around", async () => {
-    render(<Ledger affiliates={[oliver]} loading={false} onChanged={vi.fn()} />);
+    render(<Ledger affiliates={[oliver]} loading={false} ready onChanged={vi.fn()} />);
     // Owed appears both as the programme-wide total and on Oliver's own row: €50 earned,
     // less €5 refunded, less €10 already paid.
     expect(await screen.findAllByText("€35.00")).toHaveLength(2);
@@ -44,7 +57,7 @@ describe("what the merchant sees they owe", () => {
   });
 
   it("says plainly when there is nothing to pay, instead of showing an empty table", async () => {
-    render(<Ledger affiliates={[]} loading={false} onChanged={vi.fn()} />);
+    render(<Ledger affiliates={[]} loading={false} ready onChanged={vi.fn()} />);
     expect(await screen.findByText(/nobody is waiting to be paid/i)).toBeInTheDocument();
   });
 });
@@ -101,7 +114,7 @@ describe("the export", () => {
       path: "/Users/x/Documents/AffiliatePoppy-commissions-2026-08-14.csv",
       rows: 42,
     });
-    render(<Ledger affiliates={[oliver]} loading={false} onChanged={vi.fn()} />);
+    render(<Ledger affiliates={[oliver]} loading={false} ready onChanged={vi.fn()} />);
     await userEvent.click(await screen.findByRole("button", { name: /export everything/i }));
 
     expect(await screen.findByText(/AffiliatePoppy-commissions-2026-08-14\.csv/)).toBeInTheDocument();
@@ -110,7 +123,7 @@ describe("the export", () => {
 
   it("shows the failure rather than looking like nothing happened", async () => {
     vi.spyOn(api, "exportCsv").mockRejectedValue(new Error("Couldn't write the file."));
-    render(<Ledger affiliates={[oliver]} loading={false} onChanged={vi.fn()} />);
+    render(<Ledger affiliates={[oliver]} loading={false} ready onChanged={vi.fn()} />);
     await userEvent.click(await screen.findByRole("button", { name: /export everything/i }));
     expect(await screen.findByText(/couldn't write the file/i)).toBeInTheDocument();
   });

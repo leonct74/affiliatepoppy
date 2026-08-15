@@ -57,7 +57,13 @@ async function readBody(req: IncomingMessage): Promise<Record<string, unknown> |
 
 /** One calm sentence for the UI — never a raw stack trace (AGENTS.md §9). */
 function errorMessage(e: unknown): string {
-  const m = (e as Error)?.message ?? String(e);
+  const err = e as { name?: string; message?: string };
+  // DynamoDB's "Requested resource not found" means ONE thing here: the table isn't deployed
+  // yet. Say that, in the merchant's terms — the raw wording reads like something broke.
+  if (err?.name === "ResourceNotFoundException") {
+    return "AffiliatePoppy isn't set up in your AWS account yet — finish the Setup tab first.";
+  }
+  const m = err?.message ?? String(e);
   return m.length > 400 ? `${m.slice(0, 400)}…` : m;
 }
 

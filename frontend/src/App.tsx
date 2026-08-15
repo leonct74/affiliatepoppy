@@ -190,6 +190,8 @@ export function App() {
   }
 
   const phaseKey = status?.phase ?? "none";
+  /** The table exists and can be read. Everything that queries it hangs off this. */
+  const stackReady = phaseKey === "ready";
 
   return (
     <div className="app">
@@ -267,23 +269,31 @@ export function App() {
           }}
         />
       </div>
+      {/* The three tabs that read the merchant's table only render once it EXISTS. Before
+          Setup has run there is nothing to query, and DynamoDB's "resource not found" is
+          not a message a merchant should ever be shown for something they haven't done yet. */}
       <div hidden={section !== "affiliates"}>
-        <Affiliates
-          affiliates={affiliates}
-          config={config}
-          loading={loadingAffiliates && affiliates.length === 0}
-          onChanged={loadAffiliates}
-        />
+        {stackReady ? (
+          <Affiliates
+            affiliates={affiliates}
+            config={config}
+            loading={loadingAffiliates && affiliates.length === 0}
+            onChanged={loadAffiliates}
+          />
+        ) : (
+          <NotYet what="Your affiliates appear here" />
+        )}
       </div>
       <div hidden={section !== "ledger"}>
         <Ledger
           affiliates={affiliates}
           loading={loadingAffiliates && affiliates.length === 0}
+          ready={stackReady}
           onChanged={loadAffiliates}
         />
       </div>
       <div hidden={section !== "settings"}>
-        <Settings config={config} onSaved={loadConfig} />
+        {stackReady ? <Settings config={config} onSaved={loadConfig} /> : <NotYet what="Settings appear here" />}
       </div>
       <div hidden={section !== "remove"}>
         {status && status.phase !== "none" && (
@@ -329,6 +339,17 @@ export function App() {
           </dl>
         </div>
       )}
+    </div>
+  );
+}
+
+/** What a data tab says before there is any data to show. */
+function NotYet(props: { what: string }) {
+  return (
+    <div className="card">
+      <p className="muted" style={{ margin: 0 }}>
+        {props.what} once AffiliatePoppy is set up — finish the Setup tab first.
+      </p>
     </div>
   );
 }
