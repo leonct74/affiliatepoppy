@@ -50,5 +50,5 @@ Source-available under the **[PolyForm Shield License 1.0.0](https://polyformpro
 purpose *except* building a product that competes with AffiliatePoppy or with any other
 product we provide using it. The AffiliatePoppy name and brand are not licensed with the code.
 
-(`frontend/src/poppy.css` is the AgentsPoppy design kit, vendored in under its own MIT
-header — that file keeps its MIT terms.)
+(`frontend/src/poppy.css` and `frontend/src/vendor/agentspoppy-feedback-tab.ts` are vendored
+from the AgentsPoppy SDK and keep their own headers and terms.)
