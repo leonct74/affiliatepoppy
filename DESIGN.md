@@ -578,7 +578,57 @@ Consequences to accept before building it:
 Sequencing: this is a P7+ idea. It needs the ledger to have been right in the wild first —
 a witness to numbers nobody has yet checked is worth nothing.
 
-### 12.6 Live-only risks — what the first real deploy is actually testing
+### 12.6 Feature scope — what the founder asked about, and what D1 permits (2026-08-14)
+
+The founder, before the first deploy: *what data can this collect? I'd like a journey of
+events, each with its own compensation. Merchants should see where an affiliate posted
+(a YouTube video, an Instagram post). Does the affiliate connect Stripe to be paid?*
+
+**What v1 collects: exactly one signal** — *a Stripe payment happened and carried this
+affiliate's code* — from which sales, renewals and refunds are derived. No clicks, no visits,
+no signups. That is the direct consequence of D1 (nothing on the merchant's website), not an
+oversight; every extension below is judged against it.
+
+**What the incumbents do** (Rewardful, Tapfiliate, FirstPromoter, PartnerStack, Impact — read,
+not run): a tracking link + a cookie-setting script, and on top of it multi-event journeys
+with a payout per step (click / signup / trial / first payment / renewal / upgrade — fixed,
+percentage or nothing per step), attribution windows, first-vs-last click, tiered rates,
+multi-tier recruiting, an assets library, fraud checks, and payouts via PayPal / Stripe
+Connect / Wise (often merchant-executed, platform-reported). Two gaps worth owning: **none
+tracks where an affiliate posted** as first-class data, and none is honest about what the
+cookie loses.
+
+**Journeys under D1 — the rule is simple: we can reward any event Stripe emits.**
+
+| Event | Visible? | Source |
+|---|---|---|
+| Trial started | yes | `customer.subscription.created` (`status=trialing`) with the code |
+| First payment | yes (built) | `checkout.session.completed` |
+| Renewal | yes (built) | `invoice.paid` via the `sub#` mapping |
+| Upgrade / plan change | yes | `customer.subscription.updated` (price change) |
+| One-off purchase | yes | `checkout.session.completed`, `mode=payment` |
+| Refund / churn | yes (built) / yes | `charge.refunded` / `customer.subscription.deleted` |
+| Free signup, click, visit | **no** | Stripe never sees them. Only a signed server-to-server call from the merchant's OWN backend could report them (the S2S postback idea) — cookie-free, but an integration step on the merchant. A separate decision. |
+
+Recommended shape (not decided): a per-programme list of *rewarded events*, each with a
+fixed amount and/or a percentage, replacing the single `commissionPct`. Trial → paid →
+renewal → upgrade covers what most subscription businesses actually pay for, and it stays
+100% webhook-driven. Build the Stripe-shaped journey first; the S2S upstream events only if a
+real merchant needs them.
+
+**Placements — "where did they post it?"** Cheap and differentiating: the portal gains a
+*"Where I share my code"* list (URLs the affiliate pastes — YouTube, Instagram, blog); the
+merchant sees them per affiliate and can open them. Honest limits: *declared*, not detected,
+and it says where the code was posted, never which post drove which sale. The stronger
+version fits D1 exactly: **one affiliate, several codes, each tagged with a placement** —
+which gives real per-content attribution, the thing cookie platforms only approximate.
+
+**Payouts.** The affiliate does NOT connect Stripe today (D12: compute and report, merchant
+pays as they already pay people). Executing payouts means Stripe Connect Express accounts
+for affiliates and AgentsPoppy as the platform of record — the heaviest row in §12.5's
+table, with KYC and disputes attached. Later, deliberately.
+
+### 12.7 Live-only risks — what the first real deploy is actually testing
 
 Every one of these is a class of failure the family has hit before, and none of them can be
 proven on a laptop:
