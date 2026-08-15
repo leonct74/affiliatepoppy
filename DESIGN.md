@@ -1,7 +1,7 @@
 # AffiliatePoppy — DESIGN.md (source of truth)
 
 > **Status (2026-08-14): P0–P4 built and green on the bench; NOT yet deployed to a real
-> account.** 188 tests pass, the manifest rates amber with no beyond-own findings, and the
+> account.** 198 tests pass, the manifest rates amber with no beyond-own findings, and the
 > backend bundle embeds the template + both Lambdas. What remains before this is real:
 > **one founder-approved live deploy → certify → the P6 dogfood**. See §12 for exactly
 > what is built, what is deliberately not, and the open live-only risks.
@@ -616,12 +616,23 @@ renewal → upgrade covers what most subscription businesses actually pay for, a
 100% webhook-driven. Build the Stripe-shaped journey first; the S2S upstream events only if a
 real merchant needs them.
 
-**Placements — "where did they post it?"** Cheap and differentiating: the portal gains a
-*"Where I share my code"* list (URLs the affiliate pastes — YouTube, Instagram, blog); the
-merchant sees them per affiliate and can open them. Honest limits: *declared*, not detected,
-and it says where the code was posted, never which post drove which sale. The stronger
-version fits D1 exactly: **one affiliate, several codes, each tagged with a placement** —
-which gives real per-content attribution, the thing cookie platforms only approximate.
+**Placements — "where did they post it?" — BUILT (2026-08-14, founder-shaped).** The portal
+has a *"Where you share your code"* card; the affiliate pastes links (YouTube, Instagram,
+blog) with an optional note; the merchant sees them per affiliate in the poppy and opens them
+in the system browser; they ride along in the export as a second CSV.
+
+The founder's rule, and the reason it works: **optional, and it says so** — the card's first
+words are *"Optional — you don't need to fill this in. It's just nice for ⟨merchant⟩ to know
+where their code is out there."* Some partners will make the effort because it strengthens the
+partnership; the rest lose nothing and feel no pressure. Onboarding stays one form.
+
+Rules baked in: declared, never detected (nothing crawls anyone's channel); http(s) only, so a
+pasted `javascript:` link can never run in the merchant's frame when they click it; capped at
+20, de-duplicated; the ONLY field an affiliate may change about themselves, written through
+its own store method so "the portal can write placements and nothing else" is a property of
+the code, not a hope. Honest limit unchanged: it says where the code was posted, never which
+post drove which sale — the stronger version (**one affiliate, several codes, one per
+placement**) would give real per-content attribution and stays on the list.
 
 **Payouts.** The affiliate does NOT connect Stripe today (D12: compute and report, merchant
 pays as they already pay people). When payouts are executed, it is with **Stripe Connect

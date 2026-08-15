@@ -16,6 +16,7 @@ const affiliate = (over: Partial<AffiliateProfile> = {}): AffiliateProfile => ({
   code: "OLIVER7K3M",
   promotionCodeId: "promo_1",
   createdDay: "2026-08-01",
+  placements: [],
   ...over,
 });
 

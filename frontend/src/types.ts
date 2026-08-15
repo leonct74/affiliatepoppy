@@ -73,6 +73,8 @@ export interface Affiliate {
   promotionCodeId: string;
   createdDay: string;
   pctOverride?: number;
+  /** Where they say they share their code — optional, declared by them, opened by you. */
+  placements: { url: string; note: string }[];
   totals: Totals[];
 }
 

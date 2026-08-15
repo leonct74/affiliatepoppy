@@ -66,6 +66,13 @@ class FakeDeps implements PortalDeps {
   async ledgerFor(affId: string) {
     return this.entries.get(affId) ?? [];
   }
+  /** Which affiliate's list was written — the isolation test reads this back. */
+  placementsWritten: { affId: string; placements: { url: string; note: string }[] }[] = [];
+  async setPlacements(affId: string, placements: { url: string; note: string }[]) {
+    this.placementsWritten.push({ affId, placements });
+    const profile = this.affiliates.get(affId);
+    if (profile) this.affiliates.set(affId, { ...profile, placements });
+  }
   async allowEnrolment() {
     return !this.rateLimited;
   }
@@ -284,6 +291,75 @@ describe("joining", () => {
   });
 });
 
+describe("where they share their code (optional, theirs to declare)", () => {
+  const put = (placements: unknown) =>
+    route(request({ method: "PUT", path: "/api/placements", body: JSON.stringify({ placements }) }), deps);
+
+  beforeEach(() => {
+    deps.affiliates.set("aff-oliver", profileFor("aff-oliver"));
+    deps.affiliates.set("aff-maria", profileFor("aff-maria"));
+  });
+
+  it("is presented as OPTIONAL on the page — a favour to the merchant, never a requirement", async () => {
+    // Founder's rule (2026-08-14): some partners will make the effort because it strengthens
+    // the partnership; those who don't must lose nothing and feel no pressure. So the label
+    // says so before the form does anything.
+    const doc = new JSDOM((await route(request(), deps)).body).window.document;
+    const card = doc.getElementById("placesCard")!;
+    expect(card.textContent).toMatch(/optional — you don't need to fill this in/i);
+    expect(card.textContent).toMatch(/nice for Olly Digital to know/i);
+    // …and there is no `required` anywhere in that form.
+    expect(card.querySelectorAll("[required]")).toHaveLength(0);
+  });
+
+  it("writes ONLY the caller's own list — the affiliate id comes from the token, never the body", async () => {
+    deps.caller = OLIVER;
+    await put([{ url: "https://youtube.com/watch?v=abc", note: "my review" }]);
+    expect(deps.placementsWritten).toEqual([
+      { affId: "aff-oliver", placements: [{ url: "https://youtube.com/watch?v=abc", note: "my review" }] },
+    ]);
+    // Maria's row is untouched, whatever Oliver sent.
+    expect(deps.affiliates.get("aff-maria")!.placements).toEqual([]);
+  });
+
+  it("comes back on /api/me, so the affiliate sees what they declared", async () => {
+    await put([{ url: "https://instagram.com/p/xyz", note: "" }]);
+    const me = body(await route(request({ path: "/api/me" }), deps));
+    expect(me.affiliate.placements).toEqual([{ url: "https://instagram.com/p/xyz", note: "" }]);
+  });
+
+  it("keeps only real web links — the MERCHANT is the one who will click these", async () => {
+    // A `javascript:` href opened from the poppy would run in the merchant's own frame.
+    const res = body(
+      await put([
+        { url: "javascript:alert(1)", note: "x" },
+        { url: "not a url", note: "" },
+        { url: "https://blog.example.com/post", note: "blog" },
+        { url: "ftp://files.example.com", note: "" },
+      ]),
+    );
+    expect(res.placements).toEqual([{ url: "https://blog.example.com/post", note: "blog" }]);
+  });
+
+  it("drops duplicates and caps the list, so a paste-happy affiliate can't bloat their row", async () => {
+    const many = Array.from({ length: 30 }, (_, i) => ({ url: `https://example.com/p/${i}`, note: "" }));
+    const res = body(await put([...many, { url: "https://example.com/p/0/", note: "again" }]));
+    expect(res.placements).toHaveLength(20);
+    expect(res.placements.filter((p: { url: string }) => p.url.startsWith("https://example.com/p/0"))).toHaveLength(1);
+  });
+
+  it("clears the list when they send an empty one — declaring nothing is always allowed", async () => {
+    await put([{ url: "https://youtube.com/@oliver", note: "" }]);
+    const res = body(await put([]));
+    expect(res.placements).toEqual([]);
+  });
+
+  it("refuses without a token, like everything else under /api", async () => {
+    deps.caller = undefined;
+    expect((await put([])).statusCode).toBe(401);
+  });
+});
+
 function profileFor(affId: string): AffiliateProfile {
   return {
     affId,
@@ -293,6 +369,7 @@ function profileFor(affId: string): AffiliateProfile {
     code: "",
     promotionCodeId: "",
     createdDay: "2026-08-01",
+    placements: [],
   };
 }
 

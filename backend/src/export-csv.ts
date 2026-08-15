@@ -45,6 +45,8 @@ export function toCsv(
 ): string {
   const byId = new Map(affiliates.map((a) => [a.affId, a]));
   const header = ["date", "affiliate", "email", "code", "kind", "commission", "currency", "rate_pct", "base", "stripe_ref"];
+  // Placements are per affiliate, not per entry — they get their own small file-section
+  // rather than being repeated on every row. See placementsCsv().
   const rows = [...entries]
     .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0))
     .map((e) => {
@@ -73,5 +75,27 @@ export async function writeCsv(
 ): Promise<ExportSummary> {
   const path = exportPath(dir, today);
   await writeFile(path, toCsv(affiliates, entries), "utf8");
+  // The declared placements ride alongside, only when there are any — an empty second file
+  // would be one more thing to explain.
+  const withLinks = affiliates.filter((a) => a.placements?.length);
+  if (withLinks.length) {
+    await writeFile(join(dir, `AffiliatePoppy-placements-${today}.csv`), placementsCsv(withLinks), "utf8");
+  }
   return { path, rows: entries.length };
+}
+
+/**
+ * A second, small CSV: where each affiliate says they share their code. Kept separate from
+ * the commissions file on purpose — one row per link is the shape a person can filter, and
+ * repeating twenty URLs on every commission row would make the main file unreadable.
+ */
+export function placementsCsv(affiliates: AffiliateProfile[]): string {
+  const header = ["affiliate", "email", "code", "url", "note"];
+  const rows: string[] = [];
+  for (const a of affiliates) {
+    for (const p of a.placements ?? []) {
+      rows.push([a.displayName, a.email, a.code, p.url, p.note].map(cell).join(","));
+    }
+  }
+  return [header.join(","), ...rows].join("\n") + "\n";
 }

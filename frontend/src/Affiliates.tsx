@@ -9,6 +9,7 @@ import { useState } from "react";
 import { api } from "./api";
 import { Button } from "./Button";
 import { CopyButton } from "./CopyButton";
+import { host } from "./host";
 import { money } from "./money";
 import type { Affiliate, ProgramConfig } from "./types";
 
@@ -115,6 +116,15 @@ export function Affiliates(props: {
   );
 }
 
+/** "youtube.com" from a link — what a merchant recognises at a glance. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
 function Row(props: {
   affiliate: Affiliate;
   defaultPct: number;
@@ -160,6 +170,31 @@ function Row(props: {
           ))
         )}
       </div>
+
+      {a.placements?.length > 0 && (
+        <div className="stack" style={{ marginTop: 8, gap: 2 }}>
+          <span className="muted" style={{ fontSize: 12 }}>
+            Where they share it:
+          </span>
+          {a.placements.map((p) => (
+            <div key={p.url} className="row" style={{ gap: 6 }}>
+              <button
+                className="btn btn-sm btn-ghost"
+                style={{ padding: "1px 6px" }}
+                title={p.url}
+                onClick={() => void host.openExternal(p.url)}
+              >
+                {p.note || hostOf(p.url)} ↗
+              </button>
+              {p.note && (
+                <span className="muted" style={{ fontSize: 11 }}>
+                  {hostOf(p.url)}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="row" style={{ marginTop: 8 }}>
         {editingRate ? (

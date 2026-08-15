@@ -5,6 +5,8 @@
 // a second, drifting definition of "what a ledger entry is" is exactly how the two halves of
 // a money feature come to disagree.
 
+import type { Placement } from "./placements";
+
 /** One row of earnings. The Stripe id is the key, which is what makes redelivery a no-op. */
 export interface LedgerEntry {
   affId: string;
@@ -37,6 +39,11 @@ export interface AffiliateProfile extends AffiliateRecord {
   code: string;
   promotionCodeId: string;
   createdDay: string;
+  /**
+   * Where they say they share their code — optional, declared by them, a favour to the
+   * merchant (shared/src/placements.ts). Empty for most affiliates, and that is fine.
+   */
+  placements: Placement[];
 }
 
 /** An affiliate's running totals, per currency. */

@@ -97,7 +97,7 @@ both Lambda handlers.
 
 ## Status
 
-**P0–P4 built, 188 tests green, manifest amber — but NEVER deployed.** See DESIGN.md §12 for
+**P0–P4 built, 198 tests green, manifest amber — but NEVER deployed.** See DESIGN.md §12 for
 the build log, the decisions taken while implementing (I1–I10), the one real bug the tests
 caught, and the live-only risks.
 

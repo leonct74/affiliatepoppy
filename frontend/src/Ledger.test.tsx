@@ -20,6 +20,7 @@ const oliver: Affiliate = {
   code: "OLIVER7K3M",
   promotionCodeId: "promo_1",
   createdDay: "2026-08-01",
+  placements: [],
   totals: [{ currency: "eur", earnedCents: 5000, refundedCents: 500, paidCents: 1000, owedCents: 3500 }],
 };
 

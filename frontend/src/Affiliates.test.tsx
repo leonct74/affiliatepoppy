@@ -10,6 +10,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Affiliates } from "./Affiliates";
 import { api } from "./api";
+import { host } from "./host";
 import type { Affiliate, ProgramConfig } from "./types";
 
 const affiliate = (over: Partial<Affiliate> = {}): Affiliate => ({
@@ -20,6 +21,7 @@ const affiliate = (over: Partial<Affiliate> = {}): Affiliate => ({
   code: "OLIVER7K3M",
   promotionCodeId: "promo_1",
   createdDay: "2026-08-01",
+  placements: [],
   totals: [{ currency: "eur", earnedCents: 5000, refundedCents: 0, paidCents: 0, owedCents: 5000 }],
   ...over,
 });
@@ -123,6 +125,31 @@ describe("one affiliate's own rate (D9)", () => {
     await userEvent.click(screen.getByRole("button", { name: /change/i }));
     await userEvent.click(screen.getByRole("button", { name: /use the programme rate/i }));
     expect(setRate).toHaveBeenLastCalledWith("aff-oliver", null);
+  });
+});
+
+describe("where they share their code", () => {
+  it("shows the links an affiliate declared, opened in the system browser", async () => {
+    // A poppy frame can't open a window itself; the host bridge does it.
+    const open = vi.spyOn(host, "openExternal").mockResolvedValue(undefined);
+    show([
+      affiliate({
+        placements: [
+          { url: "https://www.youtube.com/watch?v=abc", note: "My review" },
+          { url: "https://instagram.com/p/xyz", note: "" },
+        ],
+      }),
+    ]);
+    expect(screen.getByText(/where they share it/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /my review/i }));
+    expect(open).toHaveBeenCalledWith("https://www.youtube.com/watch?v=abc");
+    // No note → the host name stands in, so the merchant still knows where it goes.
+    expect(screen.getByRole("button", { name: /instagram\.com/i })).toBeInTheDocument();
+  });
+
+  it("says nothing at all when they declared nothing — it was optional", () => {
+    show([affiliate({ placements: [] })]);
+    expect(screen.queryByText(/where they share it/i)).not.toBeInTheDocument();
   });
 });
 

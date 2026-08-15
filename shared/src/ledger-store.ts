@@ -53,6 +53,7 @@ import {
   type ProgramSettings,
 } from "./settings";
 import type { AffiliateProfile, LedgerEntry, Payout, Totals } from "./ledger";
+import { sanitizePlacements, type Placement } from "./placements";
 
 const CONDITION_FAILED = "ConditionalCheckFailedException";
 const TRANSACTION_CANCELED = "TransactionCanceledException";
@@ -431,6 +432,24 @@ export class DynamoLedger {
     );
   }
 
+  /**
+   * The affiliate's OWN write: where they share their code. Its own method rather than a case
+   * of updateAffiliate, because it is the only field an affiliate may change about themselves
+   * — keeping it apart is what makes "the portal can write placements and nothing else" a
+   * property you can read off the code, not a hope.
+   */
+  async setPlacements(affId: string, placements: Placement[]): Promise<void> {
+    await this.db.send(
+      new UpdateItemCommand({
+        TableName: this.tableName,
+        Key: { pk: S(affPk(affId)), sk: S(AFF_SK_PROFILE) },
+        UpdateExpression: "SET placements = :p",
+        ExpressionAttributeValues: { ":p": S(JSON.stringify(sanitizePlacements(placements))) },
+        ConditionExpression: "attribute_exists(sk)",
+      }),
+    );
+  }
+
   /** Patch a profile's mutable fields (status, code, override) without touching the rest. */
   async updateAffiliate(
     affId: string,
@@ -499,8 +518,19 @@ function readAffiliate(affId: string, item: Record<string, AttributeValue>): Aff
     code: item.code?.S ?? "",
     promotionCodeId: item.promotionCodeId?.S ?? "",
     createdDay: item.createdDay?.S ?? "",
+    // Stored as JSON and re-sanitised on read, so a row written by an older build (no field)
+    // or a hand-edited one still yields a clean list.
+    placements: sanitizePlacements(item.placements?.S ? safeParse(item.placements.S) : []),
     ...(item.pctOverride?.N ? { pctOverride: Number(item.pctOverride.N) } : {}),
   };
+}
+
+function safeParse(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return [];
+  }
 }
 
 function readTotals(item: Record<string, AttributeValue>): Totals | null {

@@ -101,6 +101,11 @@ td:last-child,th:last-child{text-align:right}
 .badge{display:inline-block;font-size:12px;padding:2px 10px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
 .badge.on{color:var(--ok);border-color:#2b5c39}
 .badge.wait{color:var(--warn);border-color:#5c4a1a}
+.pl{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.pl:last-child{border-bottom:0}
+.pl a{color:var(--fg);text-decoration:none;overflow-wrap:anywhere}
+.pl a:hover{text-decoration:underline}
+.pl .host{color:var(--mut);font-size:12px}
 </style>
 </head>
 <body>
@@ -192,6 +197,19 @@ td:last-child,th:last-child{text-align:right}
     <div class="card" id="historyCard">
       <h2>History</h2>
       <div id="history"></div>
+    </div>
+    <div class="card" id="placesCard">
+      <h2>Where you share your code</h2>
+      <p class="mut" style="margin:0 0 4px"><strong>Optional — you don't need to fill this in.</strong>
+        It's just nice for ${esc(cfg.branding.merchantName || "the programme owner")} to know where their code is out there,
+        so they can go and see your video, post or page.</p>
+      <div id="placesMsg"></div>
+      <div id="placesList"></div>
+      <form id="placesForm" class="row" style="margin-top:10px;align-items:flex-end">
+        <label style="flex:2;min-width:180px;margin:0">Link<input id="plUrl" type="url" placeholder="https://" inputmode="url"></label>
+        <label style="flex:1;min-width:120px;margin:0">What it is (optional)<input id="plNote" placeholder="e.g. YouTube review" maxlength="80"></label>
+        <button id="plAdd" type="submit">Add</button>
+      </form>
     </div>
     <div class="card" id="termsCard">
       <h2>Programme terms</h2>
@@ -437,9 +455,51 @@ function render(data){
     $("history").innerHTML='<table><thead><tr><th>Date</th><th>What</th><th>Commission</th></tr></thead><tbody>'+rows+"</tbody></table>";
   }
 
+  renderPlaces(a.placements||[]);
+
   if(TERMS){$("terms").textContent=TERMS}
   else{show($("termsCard"),false)}
 }
+
+// ── where you share your code ────────────────────────────────────────────────────────
+// Optional, and the page says so above the form. The whole list is sent on every change:
+// it is small (capped server-side), and "the list you see is the list that's stored" is a
+// simpler promise than reconciling adds and removes.
+var places=[];
+function host(u){try{return new URL(u).hostname.replace(/^www\./,"")}catch(e){return ""}}
+function renderPlaces(list){
+  places=list.slice();
+  if(!places.length){$("placesList").innerHTML="";return}
+  var html="";
+  for(var i=0;i<places.length;i++){
+    var p=places[i];
+    html+='<div class="pl"><div><a href="'+esc(p.url)+'" target="_blank" rel="noopener noreferrer">'+esc(p.note||p.url)+"</a>"+
+      (p.note?' <span class="host">'+esc(host(p.url))+"</span>":"")+"</div>"+
+      '<button class="link" data-rm="'+i+'">Remove</button></div>';
+  }
+  $("placesList").innerHTML=html;
+}
+function savePlaces(next,btn){
+  msg("placesMsg","");
+  if(btn)busy(btn,true,"Saving…");
+  return api("/api/placements","PUT",{placements:next}).then(function(d){
+    renderPlaces(d.placements||[]);
+  }).catch(function(e){msg("placesMsg",e.message)}).then(function(){if(btn)busy(btn,false)});
+}
+$("placesForm").addEventListener("submit",function(ev){
+  ev.preventDefault();
+  var url=$("plUrl").value.trim(),note=$("plNote").value.trim();
+  if(!url)return;
+  if(!/^https?:\/\//i.test(url))url="https://"+url;
+  var next=places.concat([{url:url,note:note}]);
+  savePlaces(next,$("plAdd")).then(function(){$("plUrl").value="";$("plNote").value=""});
+});
+$("placesList").addEventListener("click",function(ev){
+  var t=ev.target;
+  if(!(t&&t.dataset&&t.dataset.rm!==undefined))return;
+  var idx=parseInt(t.dataset.rm,10);
+  savePlaces(places.filter(function(_,i){return i!==idx}),t);
+});
 
 // ── boot ─────────────────────────────────────────────────────────────────────────────
 $("offer").textContent=OFFER;

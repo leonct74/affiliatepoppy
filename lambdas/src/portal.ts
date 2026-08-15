@@ -26,6 +26,7 @@ import {
 } from "../../shared/src/settings";
 import { StripeClient } from "../../shared/src/stripe-api";
 import { CodeIssueError, issueCodeFor } from "../../shared/src/issue";
+import { sanitizePlacements, type Placement } from "../../shared/src/placements";
 import { bearerToken, verifyJwt, type AffiliateClaims, type Jwk } from "./auth";
 import { portalHtml } from "./portal-page";
 import { DynamoLedger } from "../../shared/src/ledger-store";
@@ -67,6 +68,8 @@ export interface PortalDeps {
   issueCode(params: { affId: string; displayName: string; couponId: string }): Promise<void>;
   totalsFor(affId: string): Promise<Totals[]>;
   ledgerFor(affId: string): Promise<LedgerEntry[]>;
+  /** The ONE thing an affiliate may change about themselves: where they share their code. */
+  setPlacements(affId: string, placements: Placement[]): Promise<void>;
   /** false when this address has enrolled too often in the last hour. */
   allowEnrolment(sourceIp: string): Promise<boolean>;
   today(): string;
@@ -121,6 +124,22 @@ export async function route(req: HttpRequest, deps: PortalDeps): Promise<HttpRes
     return enroll(claims, req, deps);
   }
 
+  // The affiliate's own, optional list of where they share their code. Their id is the token's
+  // subject; there is no way to write anybody else's list.
+  if (req.method === "PUT" && path === "/api/placements") {
+    const profile = await deps.affiliate(claims.sub);
+    if (!profile) return json(404, { error: "you haven't joined this programme yet" });
+    let body: unknown;
+    try {
+      body = req.body ? JSON.parse(req.body) : {};
+    } catch {
+      return json(400, { error: "That didn't look right — try again." });
+    }
+    const placements = sanitizePlacements((body as { placements?: unknown })?.placements);
+    await deps.setPlacements(claims.sub, placements);
+    return json(200, { placements });
+  }
+
   if (req.method === "GET" && path === "/api/me") {
     const profile = await deps.affiliate(claims.sub);
     if (!profile) return json(404, { error: "you haven't joined this programme yet" });
@@ -168,6 +187,7 @@ async function enroll(claims: AffiliateClaims, req: HttpRequest, deps: PortalDep
       code: "",
       promotionCodeId: "",
       createdDay: deps.today(),
+      placements: [],
     });
   }
 
@@ -201,6 +221,7 @@ function publicProfile(profile: AffiliateProfile | undefined) {
     status: profile.status,
     code: profile.code,
     createdDay: profile.createdDay,
+    placements: profile.placements ?? [],
   };
 }
 
@@ -273,6 +294,7 @@ const liveDeps: PortalDeps = {
   createAffiliate: (profile) => ledger.createAffiliate(profile),
   totalsFor: (affId) => ledger.totalsFor(affId),
   ledgerFor: (affId) => ledger.ledgerFor(affId),
+  setPlacements: (affId, placements) => ledger.setPlacements(affId, placements),
   async countAffiliates() {
     // Count rows in the directory partition rather than reading every profile.
     let count = 0;
