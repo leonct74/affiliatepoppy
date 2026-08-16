@@ -12,3 +12,6 @@ affiliatepoppy-sidecar*
 .DS_Store
 # Written by `npm run certify` against a real account.
 leaves-no-trace.cert.json
+
+# generated PDFs from docs/
+docs/*.pdf

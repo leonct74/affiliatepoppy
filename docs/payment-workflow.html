@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AffiliatePoppy — how the money moves</title>
+<style>
+  @page { size: A4; margin: 14mm 13mm 16mm 13mm; }
+
+  :root {
+    --ink: #14181f;
+    --body: #2b323d;
+    --muted: #6b7484;
+    --line: #d9dee6;
+    --line-soft: #eceff4;
+    --accent: #3f6fb0;
+    --accent-soft: #eaf1fa;
+    --in: #2c7a58;
+    --in-soft: #e8f4ee;
+    --out: #a9403a;
+    --out-soft: #fbecea;
+    --warn: #96701c;
+    --warn-soft: #fbf3e0;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 10.2pt;
+    line-height: 1.5;
+    color: var(--body);
+  }
+
+  h1, h2, h3 { color: var(--ink); font-weight: 600; margin: 0; }
+  h1 { font-size: 25pt; line-height: 1.15; letter-spacing: -0.4px; }
+  h2 { font-size: 15pt; letter-spacing: -0.2px; margin-bottom: 3mm; }
+  h3 { font-size: 11pt; margin-bottom: 1.5mm; }
+  p { margin: 0 0 3mm 0; }
+  strong { color: var(--ink); font-weight: 600; }
+
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+  .keep { page-break-inside: avoid; }
+
+  .eyebrow {
+    font-size: 8pt; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--muted); font-weight: 600; margin-bottom: 2mm;
+  }
+
+  .lede { font-size: 11.5pt; line-height: 1.55; color: var(--body); }
+
+  .rule { border: 0; border-top: 1px solid var(--line); margin: 5mm 0; }
+
+  .note {
+    border-left: 2.5pt solid var(--accent); background: var(--accent-soft);
+    padding: 3mm 4mm; margin: 4mm 0; font-size: 9.6pt;
+  }
+  .note.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .note.good { border-left-color: var(--in); background: var(--in-soft); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 9.4pt; margin: 3mm 0; }
+  th {
+    text-align: left; font-weight: 600; color: var(--ink);
+    border-bottom: 1px solid var(--line); padding: 1.6mm 2mm;
+    font-size: 8.4pt; text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  td { border-bottom: 1px solid var(--line-soft); padding: 1.8mm 2mm; vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.total td { border-top: 1.2pt solid var(--ink); border-bottom: 0; font-weight: 600; color: var(--ink); }
+  .in { color: var(--in); }
+  .out { color: var(--out); }
+
+  .pill {
+    display: inline-block; padding: 0.5mm 2mm; border-radius: 8px;
+    font-size: 8pt; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap;
+  }
+  .pill.pending { background: var(--warn-soft); color: var(--warn); }
+  .pill.approved { background: var(--accent-soft); color: var(--accent); }
+  .pill.paid { background: var(--in-soft); color: var(--in); }
+  .pill.cancelled { background: #eef0f3; color: var(--muted); }
+  .pill.reversed { background: var(--out-soft); color: var(--out); }
+
+  .cols { display: flex; gap: 6mm; }
+  .cols > * { flex: 1; min-width: 0; }
+
+  .card {
+    border: 1px solid var(--line); border-radius: 2.5mm; padding: 4mm;
+  }
+  .card h3 { margin-bottom: 2mm; }
+
+  /* Scenario timeline strip */
+  /* The labels hang below the rule and are out of flow, so the wrapper must reserve
+     their height itself — otherwise the next block prints straight through them. */
+  .tl { margin: 3mm 0 4mm 0; padding-bottom: 17mm; }
+  .tl-track {
+    position: relative; height: 1.2pt; background: var(--line);
+    margin: 4mm 4mm 0 4mm;
+  }
+  .tl-mark { position: absolute; top: -2.2mm; transform: translateX(-50%); text-align: center; width: 30mm; }
+  .tl-dot {
+    width: 3.4mm; height: 3.4mm; border-radius: 50%; margin: 0 auto;
+    background: #fff; border: 1.4pt solid var(--accent);
+  }
+  .tl-dot.in { border-color: var(--in); background: var(--in); }
+  .tl-dot.out { border-color: var(--out); background: var(--out); }
+  .tl-dot.warn { border-color: var(--warn); background: var(--warn); }
+  .tl-dot.hollow { background: #fff; }
+  .tl-when { font-size: 7.6pt; font-weight: 600; color: var(--ink); margin-top: 1mm; }
+  .tl-what { font-size: 7.4pt; color: var(--muted); line-height: 1.25; }
+  .tl-above { position: absolute; bottom: 4mm; width: 34mm; transform: translateX(-50%); text-align: center; }
+
+  .scenario { page-break-inside: avoid; margin-bottom: 7mm; }
+  .scenario h2 { display: flex; align-items: baseline; gap: 2.5mm; margin-bottom: 1mm; }
+  .scenario h2 .tag {
+    font-size: 8pt; color: #fff; background: var(--ink); border-radius: 6px;
+    padding: 0.4mm 2mm; font-weight: 700; letter-spacing: 0.04em;
+  }
+  .verdict {
+    font-size: 9.4pt; padding: 2.5mm 3mm; border-radius: 2mm; margin-top: 2mm;
+    background: var(--in-soft); color: #1f5c42;
+  }
+  .verdict.bad { background: var(--out-soft); color: #7d2f2a; }
+  .verdict.neutral { background: #f1f3f6; color: var(--body); }
+
+  svg { display: block; max-width: 100%; height: auto; }
+  .caption { font-size: 8.4pt; color: var(--muted); margin-top: 1.5mm; }
+
+  .footer-note { font-size: 8.4pt; color: var(--muted); }
+  ol, ul { margin: 0 0 3mm 0; padding-left: 5mm; }
+  li { margin-bottom: 1.2mm; }
+  code { font-family: "SF Mono", Menlo, monospace; font-size: 9pt; background: #f2f4f7; padding: 0 1mm; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ============================ PAGE 1 — COVER + THE TWO WORLDS ============================ -->
+<section class="page">
+  <div class="eyebrow">AffiliatePoppy · design note · 16 August 2026</div>
+  <h1>How the money moves</h1>
+  <p class="lede" style="margin-top:4mm; max-width: 150mm;">
+    Every payment path, every date, and exactly what the ledger shows — including the ones where
+    something goes wrong. Built from decisions D12 and D15–D15e.
+  </p>
+
+  <hr class="rule">
+
+  <h2>Read this first: there are two separate products here</h2>
+  <p>
+    Almost all the complexity lives in the second one, which is <strong>optional and not built</strong>.
+    Keeping them apart is the difference between a simple story and a confusing one.
+  </p>
+
+  <svg viewBox="0 0 700 300" role="img" aria-label="The two worlds compared">
+    <defs>
+      <marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto">
+        <path d="M0,0 L8,3.2 L0,6.4 z" fill="#3f6fb0"/>
+      </marker>
+      <marker id="arg" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto">
+        <path d="M0,0 L8,3.2 L0,6.4 z" fill="#2c7a58"/>
+      </marker>
+    </defs>
+
+    <!-- WORLD A -->
+    <rect x="0" y="0" width="336" height="300" rx="8" fill="#f7f9fb" stroke="#d9dee6"/>
+    <text x="18" y="26" font-size="12" font-weight="700" fill="#14181f" font-family="Helvetica">WORLD A — the poppy as shipped</text>
+    <text x="18" y="43" font-size="10" fill="#2c7a58" font-family="Helvetica" font-weight="600">Live today · money never touches AgentsPoppy</text>
+
+    <rect x="30" y="66" width="110" height="34" rx="5" fill="#fff" stroke="#c3cad6"/>
+    <text x="85" y="87" font-size="10" text-anchor="middle" fill="#14181f" font-family="Helvetica">Customer</text>
+
+    <rect x="196" y="66" width="110" height="34" rx="5" fill="#fff" stroke="#c3cad6"/>
+    <text x="251" y="87" font-size="10" text-anchor="middle" fill="#14181f" font-family="Helvetica">Merchant</text>
+
+    <rect x="196" y="176" width="110" height="34" rx="5" fill="#fff" stroke="#c3cad6"/>
+    <text x="251" y="197" font-size="10" text-anchor="middle" fill="#14181f" font-family="Helvetica">Publisher</text>
+
+    <line x1="142" y1="83" x2="188" y2="83" stroke="#2c7a58" stroke-width="1.6" marker-end="url(#arg)"/>
+    <text x="165" y="76" font-size="8" text-anchor="middle" fill="#2c7a58" font-family="Helvetica">pays</text>
+
+    <line x1="251" y1="104" x2="251" y2="170" stroke="#2c7a58" stroke-width="1.6" marker-end="url(#arg)"/>
+    <text x="258" y="140" font-size="8" fill="#2c7a58" font-family="Helvetica">pays commission</text>
+    <text x="258" y="151" font-size="8" fill="#6b7484" font-family="Helvetica">from their own bank</text>
+
+    <rect x="30" y="176" width="140" height="34" rx="5" fill="#eaf1fa" stroke="#3f6fb0" stroke-dasharray="3 2"/>
+    <text x="100" y="192" font-size="9" text-anchor="middle" fill="#3f6fb0" font-family="Helvetica" font-weight="600">AffiliatePoppy</text>
+    <text x="100" y="204" font-size="8" text-anchor="middle" fill="#3f6fb0" font-family="Helvetica">counts · never pays</text>
+    <line x1="172" y1="193" x2="190" y2="193" stroke="#3f6fb0" stroke-width="1.2" stroke-dasharray="3 2"/>
+
+    <rect x="30" y="236" width="276" height="44" rx="5" fill="#e8f4ee" stroke="#2c7a58"/>
+    <text x="42" y="253" font-size="9" fill="#1f5c42" font-family="Helvetica" font-weight="600">AgentsPoppy's exposure: none.</text>
+    <text x="42" y="268" font-size="8.5" fill="#1f5c42" font-family="Helvetica">It is not a party to any payment in this world.</text>
+
+    <!-- WORLD B -->
+    <rect x="364" y="0" width="336" height="300" rx="8" fill="#fdfaf4" stroke="#e3d9c2"/>
+    <text x="382" y="26" font-size="12" font-weight="700" fill="#14181f" font-family="Helvetica">WORLD B — central campaigns</text>
+    <text x="382" y="43" font-size="10" fill="#96701c" font-family="Helvetica" font-weight="600">Optional · designed, NOT built</text>
+
+    <rect x="394" y="66" width="96" height="34" rx="5" fill="#fff" stroke="#c3cad6"/>
+    <text x="442" y="87" font-size="10" text-anchor="middle" fill="#14181f" font-family="Helvetica">Customer</text>
+
+    <rect x="558" y="66" width="110" height="34" rx="5" fill="#fff" stroke="#c3cad6"/>
+    <text x="613" y="87" font-size="10" text-anchor="middle" fill="#14181f" font-family="Helvetica">Developer</text>
+
+    <rect x="476" y="128" width="120" height="38" rx="5" fill="#3f6fb0" stroke="#3f6fb0"/>
+    <text x="536" y="145" font-size="10" text-anchor="middle" fill="#fff" font-family="Helvetica" font-weight="700">AgentsPoppy</text>
+    <text x="536" y="157" font-size="8" text-anchor="middle" fill="#dce8f6" font-family="Helvetica">issues codes · pays · collects</text>
+
+    <rect x="394" y="196" width="110" height="34" rx="5" fill="#fff" stroke="#c3cad6"/>
+    <text x="449" y="217" font-size="10" text-anchor="middle" fill="#14181f" font-family="Helvetica">Publisher</text>
+
+    <line x1="492" y1="83" x2="552" y2="83" stroke="#2c7a58" stroke-width="1.6" marker-end="url(#arg)"/>
+    <text x="522" y="76" font-size="8" text-anchor="middle" fill="#2c7a58" font-family="Helvetica">pays</text>
+
+    <line x1="600" y1="104" x2="556" y2="126" stroke="#3f6fb0" stroke-width="1.6" marker-end="url(#ar)"/>
+    <text x="612" y="120" font-size="8" fill="#3f6fb0" font-family="Helvetica">reimburses</text>
+
+    <line x1="500" y1="166" x2="462" y2="192" stroke="#3f6fb0" stroke-width="1.6" marker-end="url(#ar)"/>
+    <text x="398" y="182" font-size="8" fill="#3f6fb0" font-family="Helvetica">pays commission</text>
+
+    <rect x="382" y="248" width="300" height="36" rx="5" fill="#fbf3e0" stroke="#96701c"/>
+    <text x="394" y="264" font-size="9" fill="#7a5a12" font-family="Helvetica" font-weight="600">One counterparty for the publisher, who never chases anyone.</text>
+    <text x="394" y="277" font-size="8.5" fill="#7a5a12" font-family="Helvetica">Everything on the following pages is about this world.</text>
+  </svg>
+
+  <div class="note good">
+    <strong>The sentence for an investor:</strong> the product we sell today counts money and never
+    touches it. The platform-level programme — where AgentsPoppy stands behind every commission so a
+    publisher only ever deals with one counterparty — is a designed, costed option we can switch on
+    when it's worth the machinery.
+  </div>
+</section>
+
+<!-- ============================ PAGE 2 — ONE SALE ============================ -->
+<section class="page">
+  <div class="eyebrow">World B · the unit</div>
+  <h2>One sale, and where every euro goes</h2>
+  <p>
+    A €100 poppy, a 5% customer discount and a 10% publisher commission — the numbers AgentsPoppy
+    uses on its own programme. Payments are Stripe <strong>direct charges</strong>: the customer's
+    money lands in the developer's own Stripe account, and the platform's 5% is taken in that same
+    instant. AgentsPoppy never holds the developer's revenue — which is what forces the whole design
+    that follows.
+  </p>
+
+  <svg viewBox="0 0 700 268" role="img" aria-label="Money flow for a single sale">
+    <defs>
+      <marker id="a2" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto">
+        <path d="M0,0 L8,3.2 L0,6.4 z" fill="#2c7a58"/>
+      </marker>
+      <marker id="a3" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto">
+        <path d="M0,0 L8,3.2 L0,6.4 z" fill="#a9403a"/>
+      </marker>
+    </defs>
+
+    <!-- Day 0 band -->
+    <rect x="0" y="0" width="700" height="118" rx="6" fill="#f7f9fb" stroke="#e3e8ee"/>
+    <text x="14" y="20" font-size="9" font-weight="700" fill="#6b7484" font-family="Helvetica" letter-spacing="1">DAY 0 — THE CHARGE (INSTANT)</text>
+
+    <rect x="20" y="42" width="120" height="46" rx="5" fill="#fff" stroke="#c3cad6"/>
+    <text x="80" y="62" font-size="10" text-anchor="middle" fill="#14181f" font-family="Helvetica">Customer</text>
+    <text x="80" y="77" font-size="11" text-anchor="middle" fill="#a9403a" font-family="Helvetica" font-weight="700">− €95.00</text>
+
+    <line x1="146" y1="65" x2="256" y2="65" stroke="#2c7a58" stroke-width="1.8" marker-end="url(#a2)"/>
+    <text x="200" y="58" font-size="8.5" text-anchor="middle" fill="#2c7a58" font-family="Helvetica">€100 list, 5% off with the code</text>
+
+    <rect x="262" y="42" width="150" height="46" rx="5" fill="#fff" stroke="#c3cad6"/>
+    <text x="337" y="62" font-size="10" text-anchor="middle" fill="#14181f" font-family="Helvetica">Developer's Stripe</text>
+    <text x="337" y="77" font-size="11" text-anchor="middle" fill="#2c7a58" font-family="Helvetica" font-weight="700">+ €90.25</text>
+
+    <line x1="418" y1="65" x2="528" y2="65" stroke="#2c7a58" stroke-width="1.8" marker-end="url(#a2)"/>
+    <text x="473" y="58" font-size="8.5" text-anchor="middle" fill="#2c7a58" font-family="Helvetica">5% application fee</text>
+
+    <rect x="534" y="42" width="146" height="46" rx="5" fill="#eaf1fa" stroke="#3f6fb0"/>
+    <text x="607" y="62" font-size="10" text-anchor="middle" fill="#14181f" font-family="Helvetica">AgentsPoppy</text>
+    <text x="607" y="77" font-size="11" text-anchor="middle" fill="#2c7a58" font-family="Helvetica" font-weight="700">+ €4.75</text>
+
+    <text x="20" y="106" font-size="8.5" fill="#6b7484" font-family="Helvetica">Stripe's own processing fee (≈€1.70) also comes out of the developer's side here, and is not returned if the sale is later refunded.</text>
+
+    <!-- Later band -->
+    <rect x="0" y="132" width="700" height="136" rx="6" fill="#fdfaf4" stroke="#e3d9c2"/>
+    <text x="14" y="152" font-size="9" font-weight="700" fill="#96701c" font-family="Helvetica" letter-spacing="1">TWO MONTHS LATER — THE COMMISSION (SCHEDULED)</text>
+
+    <rect x="262" y="176" width="150" height="46" rx="5" fill="#fff" stroke="#c3cad6"/>
+    <text x="337" y="196" font-size="10" text-anchor="middle" fill="#14181f" font-family="Helvetica">Developer</text>
+    <text x="337" y="211" font-size="11" text-anchor="middle" fill="#a9403a" font-family="Helvetica" font-weight="700">− €9.50</text>
+
+    <line x1="418" y1="199" x2="528" y2="199" stroke="#a9403a" stroke-width="1.8" marker-end="url(#a3)"/>
+    <text x="473" y="192" font-size="8.5" text-anchor="middle" fill="#a9403a" font-family="Helvetica">direct debit, 1st of M+2</text>
+
+    <rect x="534" y="176" width="146" height="46" rx="5" fill="#eaf1fa" stroke="#3f6fb0"/>
+    <text x="607" y="196" font-size="10" text-anchor="middle" fill="#14181f" font-family="Helvetica">AgentsPoppy</text>
+    <text x="607" y="211" font-size="11" text-anchor="middle" fill="#6b7484" font-family="Helvetica" font-weight="700">± €0.00</text>
+
+    <rect x="20" y="176" width="120" height="46" rx="5" fill="#fff" stroke="#c3cad6"/>
+    <text x="80" y="196" font-size="10" text-anchor="middle" fill="#14181f" font-family="Helvetica">Publisher</text>
+    <text x="80" y="211" font-size="11" text-anchor="middle" fill="#2c7a58" font-family="Helvetica" font-weight="700">+ €9.50</text>
+
+    <line x1="256" y1="199" x2="146" y2="199" stroke="#2c7a58" stroke-width="1.8" marker-end="url(#a2)"/>
+    <text x="200" y="192" font-size="8.5" text-anchor="middle" fill="#2c7a58" font-family="Helvetica">payout, 10th of M+2</text>
+
+    <text x="20" y="248" font-size="8.5" fill="#7a5a12" font-family="Helvetica">The money is collected nine days before it is paid out. AgentsPoppy passes it through and keeps its 5% — it does not subsidise the sale.</text>
+    <text x="20" y="261" font-size="8.5" fill="#7a5a12" font-family="Helvetica">Net position per sale: developer €80.75, publisher €9.50, AgentsPoppy €4.75.</text>
+  </svg>
+
+  <div class="cols" style="margin-top:5mm;">
+    <div class="card keep">
+      <h3>Why AgentsPoppy pays, not the developer</h3>
+      <p style="margin:0;">
+        So the publisher has <strong>one counterparty</strong> who can never answer "talk to the
+        developer". That single promise is the reason a publisher trusts a programme they didn't
+        sign up to individually — and it is the product.
+      </p>
+    </div>
+    <div class="card keep">
+      <h3>Why the developer reimburses</h3>
+      <p style="margin:0;">
+        Without it, AgentsPoppy nets <strong>−€4.75</strong> on every campaign sale — paying €9.50 to
+        earn €4.75. With it, the platform stays at its 5% and the developer pays for a sale they
+        would not otherwise have had.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ PAGE 3 — THE CALENDAR ============================ -->
+<section class="page">
+  <div class="eyebrow">World B · timing</div>
+  <h2>The calendar — a date, not a delay</h2>
+  <p>
+    Publishers do not need to be paid quickly. They need to know <em>exactly when</em>. So the schedule
+    is a fixed calendar date, not a rolling countdown from each sale:
+    <strong>sales in a month are paid on the 10th of the month after next.</strong>
+  </p>
+
+  <svg viewBox="0 0 700 250" role="img" aria-label="The monthly payment calendar">
+    <!-- month bands -->
+    <rect x="0" y="30" width="220" height="52" rx="4" fill="#eaf1fa" stroke="#c9d9ec"/>
+    <rect x="228" y="30" width="220" height="52" rx="4" fill="#f4f6f9" stroke="#e3e8ee"/>
+    <rect x="456" y="30" width="238" height="52" rx="4" fill="#fdfaf4" stroke="#e3d9c2"/>
+
+    <text x="110" y="22" font-size="10" text-anchor="middle" font-weight="700" fill="#3f6fb0" font-family="Helvetica">MONTH M</text>
+    <text x="338" y="22" font-size="10" text-anchor="middle" font-weight="700" fill="#6b7484" font-family="Helvetica">MONTH M+1</text>
+    <text x="575" y="22" font-size="10" text-anchor="middle" font-weight="700" fill="#96701c" font-family="Helvetica">MONTH M+2</text>
+
+    <text x="110" y="52" font-size="9.5" text-anchor="middle" fill="#14181f" font-family="Helvetica">Sales happen</text>
+    <text x="110" y="68" font-size="8.5" text-anchor="middle" fill="#6b7484" font-family="Helvetica">every entry opens as Pending</text>
+    <text x="338" y="52" font-size="9.5" text-anchor="middle" fill="#14181f" font-family="Helvetica">The clearing month</text>
+    <text x="338" y="68" font-size="8.5" text-anchor="middle" fill="#6b7484" font-family="Helvetica">refunds land here for free</text>
+    <text x="578" y="52" font-size="9.5" text-anchor="middle" fill="#14181f" font-family="Helvetica">Money moves</text>
+    <text x="578" y="68" font-size="8.5" text-anchor="middle" fill="#6b7484" font-family="Helvetica">collect, then pay</text>
+
+    <!-- timeline -->
+    <line x1="10" y1="132" x2="690" y2="132" stroke="#c3cad6" stroke-width="1.4"/>
+
+    <!-- markers -->
+    <circle cx="60" cy="132" r="5" fill="#fff" stroke="#3f6fb0" stroke-width="2"/>
+    <text x="60" y="152" font-size="8.5" text-anchor="middle" font-weight="700" fill="#14181f" font-family="Helvetica">1 March</text>
+    <text x="60" y="164" font-size="8" text-anchor="middle" fill="#6b7484" font-family="Helvetica">a sale</text>
+
+    <circle cx="196" cy="132" r="5" fill="#fff" stroke="#3f6fb0" stroke-width="2"/>
+    <text x="196" y="152" font-size="8.5" text-anchor="middle" font-weight="700" fill="#14181f" font-family="Helvetica">31 March</text>
+    <text x="196" y="164" font-size="8" text-anchor="middle" fill="#6b7484" font-family="Helvetica">another sale</text>
+
+    <circle cx="470" cy="132" r="5.5" fill="#a9403a"/>
+    <text x="470" y="152" font-size="8.5" text-anchor="middle" font-weight="700" fill="#a9403a" font-family="Helvetica">1 May</text>
+    <text x="470" y="164" font-size="8" text-anchor="middle" fill="#6b7484" font-family="Helvetica">cohort clears;</text>
+    <text x="470" y="175" font-size="8" text-anchor="middle" fill="#6b7484" font-family="Helvetica">developers debited</text>
+
+    <circle cx="576" cy="132" r="5.5" fill="#2c7a58"/>
+    <text x="576" y="152" font-size="8.5" text-anchor="middle" font-weight="700" fill="#2c7a58" font-family="Helvetica">10 May</text>
+    <text x="576" y="164" font-size="8" text-anchor="middle" fill="#6b7484" font-family="Helvetica">publishers paid</text>
+
+    <!-- brackets showing wait -->
+    <path d="M60 112 L60 104 L470 104 L470 112" fill="none" stroke="#8f9bab" stroke-width="1"/>
+    <text x="265" y="99" font-size="8" text-anchor="middle" fill="#6b7484" font-family="Helvetica">61 days for the earliest sale</text>
+
+    <path d="M196 122 L196 116 L470 116 L470 122" fill="none" stroke="#8f9bab" stroke-width="1"/>
+    <text x="333" y="112" font-size="8" text-anchor="middle" fill="#6b7484" font-family="Helvetica">31 days for the latest</text>
+
+    <rect x="448" y="188" width="156" height="18" rx="3" fill="#fbecea"/>
+    <text x="526" y="200" font-size="8" text-anchor="middle" fill="#a9403a" font-family="Helvetica" font-weight="600">money in — 9 days — money out</text>
+
+    <rect x="10" y="220" width="680" height="26" rx="4" fill="#f7f9fb" stroke="#e3e8ee"/>
+    <text x="22" y="237" font-size="9" fill="#2b323d" font-family="Helvetica">Both March sales are paid on the same knowable date. The publisher learns that date the moment the sale appears — not when it is paid.</text>
+  </svg>
+
+  <h3 style="margin-top:5mm;">What the wait is actually for</h3>
+  <p>
+    This is the part that is easy to get backwards. <strong>A longer wait does nothing about a
+    developer who won't pay.</strong> That risk is governed by the <em>order</em> of the two events —
+    collect first, pay second — and by the ability to stop issuing codes. What the wait buys is
+    <strong>refund coverage</strong>: the window in which a sale can come undone before anyone has
+    been paid. So the delay is set from the refund curve, and not one day longer.
+  </p>
+
+  <table class="keep">
+    <thead>
+      <tr><th>Risk</th><th>What actually controls it</th><th>What does NOT help</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Developer won't pay</strong></td>
+        <td>Collect before paying out; stop minting codes on failure</td>
+        <td class="footer-note">Waiting longer</td>
+      </tr>
+      <tr>
+        <td><strong>Sale gets refunded</strong></td>
+        <td>The clearing period — the entry cancels before money moves</td>
+        <td class="footer-note">Any amount of paperwork</td>
+      </tr>
+      <tr>
+        <td><strong>Debit reversed after payout</strong></td>
+        <td>Card or SEPA <strong>B2B</strong> mandate — never SEPA Core, which the payer can claw back for 8 weeks with no reason given</td>
+        <td class="footer-note">Waiting longer (the window follows the debit, not the sale)</td>
+      </tr>
+      <tr>
+        <td><strong>Card dispute at 120 days</strong></td>
+        <td>A small rolling reserve per publisher</td>
+        <td class="footer-note">Making every publisher wait four months</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note warn">
+    <strong>The one thing deliberately left unprotected.</strong> If a developer's debit fails on the
+    1st, the publisher is still paid on the 10th. Making that payout conditional would put the
+    publisher back to waiting on somebody else's money — the exact thing this design removes. Minting
+    stops instead, so the loss is capped at one month of that one developer's affiliate sales.
+  </div>
+</section>
+
+<!-- ============================ PAGE 4 — LEDGER STATES ============================ -->
+<section class="page">
+  <div class="eyebrow">Both worlds · the ledger</div>
+  <h2>The life of a ledger entry</h2>
+  <p>
+    Every sale becomes one row. The row carries its state <em>and the date it will pay</em> from the
+    moment it appears — that pairing is what turns a two-month wait into a promise rather than a
+    silence.
+  </p>
+
+  <svg viewBox="0 0 700 260" role="img" aria-label="Ledger entry state machine">
+    <defs>
+      <marker id="a4" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto">
+        <path d="M0,0 L8,3.2 L0,6.4 z" fill="#8f9bab"/>
+      </marker>
+    </defs>
+
+    <!-- happy path -->
+    <rect x="14" y="60" width="132" height="44" rx="6" fill="#fbf3e0" stroke="#d8bd7c"/>
+    <text x="80" y="80" font-size="10.5" text-anchor="middle" font-weight="700" fill="#7a5a12" font-family="Helvetica">Pending</text>
+    <text x="80" y="94" font-size="8" text-anchor="middle" fill="#7a5a12" font-family="Helvetica">"pays on 10 May"</text>
+
+    <line x1="152" y1="82" x2="212" y2="82" stroke="#8f9bab" stroke-width="1.4" marker-end="url(#a4)"/>
+    <text x="182" y="74" font-size="7.5" text-anchor="middle" fill="#6b7484" font-family="Helvetica">1 May</text>
+
+    <rect x="218" y="60" width="132" height="44" rx="6" fill="#eaf1fa" stroke="#a8c2e0"/>
+    <text x="284" y="80" font-size="10.5" text-anchor="middle" font-weight="700" fill="#2f5a92" font-family="Helvetica">Approved</text>
+    <text x="284" y="94" font-size="8" text-anchor="middle" fill="#2f5a92" font-family="Helvetica">in the next run</text>
+
+    <line x1="356" y1="82" x2="416" y2="82" stroke="#8f9bab" stroke-width="1.4" marker-end="url(#a4)"/>
+    <text x="386" y="74" font-size="7.5" text-anchor="middle" fill="#6b7484" font-family="Helvetica">10 May</text>
+
+    <rect x="422" y="60" width="132" height="44" rx="6" fill="#e8f4ee" stroke="#8fc0a8"/>
+    <text x="488" y="80" font-size="10.5" text-anchor="middle" font-weight="700" fill="#1f5c42" font-family="Helvetica">Paid</text>
+    <text x="488" y="94" font-size="8" text-anchor="middle" fill="#1f5c42" font-family="Helvetica">sent 10 May</text>
+
+    <!-- cancelled branch -->
+    <path d="M80 108 L80 160 L212 160" fill="none" stroke="#8f9bab" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#a4)"/>
+    <text x="92" y="136" font-size="7.5" fill="#6b7484" font-family="Helvetica">refund before 1 May</text>
+
+    <rect x="218" y="140" width="132" height="40" rx="6" fill="#eef0f3" stroke="#c3cad6"/>
+    <text x="284" y="158" font-size="10.5" text-anchor="middle" font-weight="700" fill="#5b6472" font-family="Helvetica">Cancelled</text>
+    <text x="284" y="172" font-size="8" text-anchor="middle" fill="#6b7484" font-family="Helvetica">no money ever moved</text>
+
+    <!-- reversed branch -->
+    <path d="M488 108 L488 200 L422 200" fill="none" stroke="#c98a84" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#a4)"/>
+    <text x="496" y="150" font-size="7.5" fill="#a9403a" font-family="Helvetica">refund after payout</text>
+
+    <rect x="278" y="180" width="140" height="40" rx="6" fill="#fbecea" stroke="#dda9a4"/>
+    <text x="348" y="198" font-size="10.5" text-anchor="middle" font-weight="700" fill="#7d2f2a" font-family="Helvetica">Reversed</text>
+    <text x="348" y="212" font-size="8" text-anchor="middle" fill="#7d2f2a" font-family="Helvetica">− off future earnings</text>
+
+    <rect x="14" y="232" width="672" height="24" rx="4" fill="#fbecea"/>
+    <text x="26" y="248" font-size="8.6" fill="#7d2f2a" font-family="Helvetica" font-weight="600">A reversal is always a credit or a deduction — never a payment out of the platform. That single rule is what makes the fraud on page 7 unprofitable.</text>
+  </svg>
+
+  <h3 style="margin-top:5mm;">What the publisher sees in their portal</h3>
+  <table class="keep">
+    <thead>
+      <tr><th>Sale</th><th>Order</th><th class="num">You earn</th><th>Status</th><th>Pays</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>3 Mar</td><td>#4192</td><td class="num">€9.50</td><td><span class="pill paid">Paid</span></td><td>sent 10 May</td></tr>
+      <tr><td>18 Mar</td><td>#4227</td><td class="num">€9.50</td><td><span class="pill paid">Paid</span></td><td>sent 10 May</td></tr>
+      <tr><td>29 Mar</td><td>#4301</td><td class="num">€0.00</td><td><span class="pill cancelled">Cancelled</span></td><td>refunded 6 Apr</td></tr>
+      <tr><td>7 Apr</td><td>#4388</td><td class="num">€9.50</td><td><span class="pill approved">Approved</span></td><td>10 Jun</td></tr>
+      <tr><td>2 May</td><td>#4455</td><td class="num">€9.50</td><td><span class="pill pending">Pending</span></td><td>10 Jul</td></tr>
+      <tr class="total"><td colspan="2">Next payout — 10 June</td><td class="num">€9.50</td><td colspan="2"></td></tr>
+    </tbody>
+  </table>
+  <p class="caption">
+    Every row answers the only two questions a publisher has: how much, and when. Nothing says "processing".
+  </p>
+
+  <h3 style="margin-top:4mm;">What the developer sees</h3>
+  <table class="keep">
+    <thead>
+      <tr><th>Period</th><th>Campaign sales</th><th class="num">Extra revenue</th><th class="num">Commission due</th><th>Collected</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>March</td><td>2 sales</td><td class="num in">+€180.50</td><td class="num out">−€19.00</td><td>1 May ✓</td></tr>
+      <tr><td>April</td><td>1 sale</td><td class="num in">+€90.25</td><td class="num out">−€9.50</td><td>1 Jun</td></tr>
+    </tbody>
+  </table>
+  <p class="caption">
+    The developer's statement always shows the revenue beside the cost, because that is the honest
+    comparison: these are sales they would not otherwise have made.
+  </p>
+</section>
+
+<!-- ============================ PAGE 5 — SCENARIOS 1-3 ============================ -->
+<section class="page">
+  <div class="eyebrow">World B · every scenario</div>
+  <h2 style="margin-bottom:4mm;">What happens when…</h2>
+
+  <div class="scenario">
+    <h2><span class="tag">1</span> The ordinary sale</h2>
+    <div class="tl">
+      <div class="tl-track">
+        <div class="tl-mark" style="left:9%"><div class="tl-dot"></div><div class="tl-when">15 Mar</div><div class="tl-what">Sale. Entry opens as Pending, showing "pays 10 May".</div></div>
+        <div class="tl-mark" style="left:36%"><div class="tl-dot hollow"></div><div class="tl-when">1 May</div><div class="tl-what">Cohort clears. Developer debited €9.50.</div></div>
+        <div class="tl-mark" style="left:64%"><div class="tl-dot in"></div><div class="tl-when">10 May</div><div class="tl-what">Publisher paid €9.50.</div></div>
+        <div class="tl-mark" style="left:91%"><div class="tl-dot hollow"></div><div class="tl-when">after</div><div class="tl-what">Row reads Paid, sent 10 May.</div></div>
+      </div>
+    </div>
+    <div class="verdict"><strong>Platform exposure: nil.</strong> Money in on the 1st, out on the 10th. AgentsPoppy keeps its €4.75 fee and passes €9.50 through.</div>
+  </div>
+
+  <div class="scenario">
+    <h2><span class="tag">2</span> The customer refunds early — before the cohort clears</h2>
+    <div class="tl">
+      <div class="tl-track">
+        <div class="tl-mark" style="left:9%"><div class="tl-dot"></div><div class="tl-when">15 Mar</div><div class="tl-what">Sale. Pending.</div></div>
+        <div class="tl-mark" style="left:36%"><div class="tl-dot out"></div><div class="tl-when">27 Mar</div><div class="tl-what">Refund. Stripe tells the receiver.</div></div>
+        <div class="tl-mark" style="left:64%"><div class="tl-dot hollow"></div><div class="tl-when">same minute</div><div class="tl-what">Row becomes Cancelled, €0.00.</div></div>
+        <div class="tl-mark" style="left:91%"><div class="tl-dot hollow"></div><div class="tl-when">1 May</div><div class="tl-what">Nothing to collect. Nothing to pay.</div></div>
+      </div>
+    </div>
+    <div class="verdict"><strong>Platform exposure: nil</strong> — this is the whole purpose of the clearing period. No money moved in either direction, and the publisher was never told they had earned something they then lost.</div>
+  </div>
+
+  <div class="scenario">
+    <h2><span class="tag">3</span> The customer refunds late — after the publisher was paid</h2>
+    <div class="tl">
+      <div class="tl-track">
+        <div class="tl-mark" style="left:9%"><div class="tl-dot"></div><div class="tl-when">15 Mar</div><div class="tl-what">Sale.</div></div>
+        <div class="tl-mark" style="left:36%"><div class="tl-dot in"></div><div class="tl-when">10 May</div><div class="tl-what">Publisher paid €9.50.</div></div>
+        <div class="tl-mark" style="left:64%"><div class="tl-dot out"></div><div class="tl-when">2 Jun</div><div class="tl-what">Refund lands, past the window.</div></div>
+        <div class="tl-mark" style="left:91%"><div class="tl-dot warn"></div><div class="tl-when">10 Jul</div><div class="tl-what">−€9.50 netted off the next payout; developer credited €9.50.</div></div>
+      </div>
+    </div>
+    <div class="verdict neutral">
+      <strong>Platform exposure: only if the publisher never earns again.</strong> The deduction sits
+      against future earnings, and a rolling reserve (one cycle held back) absorbs the case where they
+      have already left. Both sides move symmetrically, so the platform is never left holding one leg
+      of a reversed transaction.
+    </div>
+  </div>
+
+  <div class="scenario">
+    <h2><span class="tag">4</span> A subscription renews, month after month</h2>
+    <div class="tl">
+      <div class="tl-track">
+        <div class="tl-mark" style="left:9%"><div class="tl-dot"></div><div class="tl-when">15 Mar</div><div class="tl-what">First payment. Commission earned.</div></div>
+        <div class="tl-mark" style="left:36%"><div class="tl-dot"></div><div class="tl-when">15 Apr</div><div class="tl-what">Renewal. Carries no discount code — attribution rides the stored subscription link.</div></div>
+        <div class="tl-mark" style="left:64%"><div class="tl-dot in"></div><div class="tl-when">10 May</div><div class="tl-what">March's commission paid.</div></div>
+        <div class="tl-mark" style="left:91%"><div class="tl-dot in"></div><div class="tl-when">10 Jun</div><div class="tl-what">April's commission paid.</div></div>
+      </div>
+    </div>
+    <div class="verdict">
+      <strong>Recurring income, on the same calendar.</strong> Stripe sends no discount information on
+      a renewal, so attribution is held by a subscription-to-publisher mapping written at the first
+      sale. Each renewal is simply a new row on the normal schedule. The merchant can switch renewals
+      off, in which case only the first payment ever earns.
+    </div>
+  </div>
+</section>
+
+<!-- ============================ PAGE 6 — SCENARIOS 5-7 ============================ -->
+<section class="page">
+  <div class="scenario">
+    <h2><span class="tag">5</span> The developer's direct debit fails</h2>
+    <div class="tl">
+      <div class="tl-track">
+        <div class="tl-mark" style="left:9%"><div class="tl-dot out"></div><div class="tl-when">1 May</div><div class="tl-what">Debit declined. Retried, developer notified.</div></div>
+        <div class="tl-mark" style="left:36%"><div class="tl-dot warn"></div><div class="tl-when">same day</div><div class="tl-what">Code minting stops for that developer. Existing codes keep working.</div></div>
+        <div class="tl-mark" style="left:64%"><div class="tl-dot in"></div><div class="tl-when">10 May</div><div class="tl-what">Publisher paid anyway — the promise holds.</div></div>
+        <div class="tl-mark" style="left:91%"><div class="tl-dot hollow"></div><div class="tl-when">1 Jun</div><div class="tl-what">Arrears collected with the next run, or the account is closed.</div></div>
+      </div>
+    </div>
+    <div class="verdict bad">
+      <strong>This is the one real loss case, and it is bounded.</strong> Worst case: one month of one
+      developer's campaign sales. The publisher is never made to wait — that is deliberate, because a
+      publisher who can be left unpaid by a stranger's default has no reason to trust the programme at
+      all.
+    </div>
+  </div>
+
+  <div class="scenario">
+    <h2><span class="tag">6</span> Someone tries the obvious fraud</h2>
+    <p style="font-size:9.6pt; margin-bottom:2mm;">
+      A developer signs up as a publisher, "sells" their own poppy to themselves with their own code,
+      collects the commission, then refunds the sale. Here is the arithmetic, wearing all three hats:
+    </p>
+    <table style="margin-top:1mm;">
+      <thead><tr><th>Step</th><th class="num">Their position</th></tr></thead>
+      <tbody>
+        <tr><td>Pays, as the fake customer</td><td class="num out">−€95.00</td></tr>
+        <tr><td>Receives, as the merchant</td><td class="num in">+€90.25</td></tr>
+        <tr><td>Receives, as the publisher</td><td class="num in">+€9.50</td></tr>
+        <tr><td>Reimburses, as the developer</td><td class="num out">−€9.50</td></tr>
+        <tr><td>Refund: gets the €95 back, returns the €90.25</td><td class="num">±€0.00</td></tr>
+        <tr><td>Reversal — a credit against future collections, <strong>not</strong> a payment out</td><td class="num">±€0.00</td></tr>
+        <tr><td>Stripe's processing fee, never returned</td><td class="num out">−€1.70</td></tr>
+        <tr class="total"><td>Net result of the fraud</td><td class="num out">−€6.45 per attempt</td></tr>
+      </tbody>
+    </table>
+    <div class="verdict">
+      <strong>It loses money every time — by arithmetic, not by policy.</strong> The scheme only pays
+      if a reversal can pull cash out of the platform, so reversals never do: the publisher takes a
+      deduction, the developer takes a credit. It still loses money when two people collude and split
+      the roles, because one of them has to be the developer paying in. On top of that: a developer
+      may not be a publisher on their own poppy (both identities are known at minting time), and a
+      refund pattern stops minting immediately.
+    </div>
+  </div>
+
+  <div class="scenario">
+    <h2><span class="tag">7</span> The publisher has earned very little</h2>
+    <div class="tl">
+      <div class="tl-track">
+        <div class="tl-mark" style="left:12%"><div class="tl-dot"></div><div class="tl-when">10 May</div><div class="tl-what">Owed €7.20 — under the €25 threshold. Carried forward, visibly.</div></div>
+        <div class="tl-mark" style="left:50%"><div class="tl-dot"></div><div class="tl-when">10 Jun</div><div class="tl-what">Now €18.60. Still carried.</div></div>
+        <div class="tl-mark" style="left:88%"><div class="tl-dot in"></div><div class="tl-when">10 Jul</div><div class="tl-what">€31.40 — paid in full.</div></div>
+      </div>
+    </div>
+    <div class="verdict neutral">
+      <strong>A threshold, stated up front and always visible.</strong> The ledger shows the balance
+      and how far it is from the next payout, so a small publisher is never left wondering whether
+      they were forgotten. Without it, the platform pays bank fees to send €1.40 twelve times a year.
+    </div>
+  </div>
+</section>
+
+<!-- ============================ PAGE 7 — SUMMARY ============================ -->
+<section class="page">
+  <div class="eyebrow">Summary</div>
+  <h2>The whole thing on one page</h2>
+
+  <table class="keep">
+    <thead>
+      <tr><th>Scenario</th><th>Publisher</th><th>Developer</th><th>AgentsPoppy's exposure</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Ordinary sale</td><td>Paid on the 10th</td><td>Debited on the 1st</td><td class="in">None</td></tr>
+      <tr><td>Refund before clearing</td><td>Row cancelled, nothing lost</td><td>Never charged</td><td class="in">None</td></tr>
+      <tr><td>Refund after payout</td><td>Deducted from next payout</td><td>Credited against next collection</td><td class="in">None, unless the publisher has left — covered by the reserve</td></tr>
+      <tr><td>Subscription renewals</td><td>Paid each cycle</td><td>Debited each cycle</td><td class="in">None</td></tr>
+      <tr><td>Developer's debit fails</td><td><strong>Paid anyway</strong></td><td>Minting stops; arrears pursued</td><td class="out">One month of that developer's campaign sales — the only real loss case</td></tr>
+      <tr><td>Self-dealing fraud</td><td>—</td><td>Loses ≈€6.45 per attempt</td><td class="in">None — the attack is unprofitable</td></tr>
+      <tr><td>Under the payout threshold</td><td>Balance carried, visibly</td><td>Unaffected</td><td class="in">None</td></tr>
+    </tbody>
+  </table>
+
+  <hr class="rule">
+
+  <h3>The five rules everything above follows from</h3>
+  <ol style="font-size:10pt;">
+    <li><strong>The party who issued the code pays the publisher.</strong> One counterparty, who can never say "talk to the developer".</li>
+    <li><strong>The developer reimburses that commission</strong> — automatically, by direct debit, on top of the platform's 5%. Nobody chases anybody.</li>
+    <li><strong>Collect before paying out.</strong> Nine days, not a month, and never the other way round.</li>
+    <li><strong>A fixed calendar date beats a short one.</strong> Sales in a month pay on the 10th of the month after next, and every row shows its date from birth.</li>
+    <li><strong>A reversal is a credit, never a payment out.</strong> This is what makes fraud arithmetically unprofitable rather than merely forbidden.</li>
+  </ol>
+
+  <div class="note good" style="margin-top:5mm;">
+    <strong>And the boundary, once more, because it is the thing to be clear about.</strong>
+    Everything in this document describes <em>central campaigns</em> — the optional platform-level
+    programme. <strong>AffiliatePoppy as it ships today does none of it:</strong> it counts
+    commissions and shows the merchant what they owe, and the merchant pays their own publishers from
+    their own bank. AgentsPoppy is not a party to any payment, holds no funds, and cannot be
+    defrauded. The product can be sold, and this second half switched on later — or never.
+  </div>
+
+  <hr class="rule">
+  <p class="footer-note">
+    Sources: <code>DESIGN.md</code> D12 (computed and reported, never executed), D15 (who pays),
+    D15b (reimbursement on top of the 5%), D15c (automatic collection), D15d (the calendar),
+    D15e (reversals are credits). Figures use a €100 list price, 5% customer discount, 10% publisher
+    commission, 5% platform fee; Stripe's own processing fee is approximate and varies by region and
+    payment method.
+  </p>
+</section>
+
+</body>
+</html>
