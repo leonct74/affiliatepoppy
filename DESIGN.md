@@ -85,6 +85,7 @@ patterns from them, never modify them from here.
 | D13 | Monetization: **free core on the AWS-generated portal URL; premium = the portal on the merchant's own domain** (`partners.merchant.com`) via the True Reach machinery. | Identical split to TrafficPoppy (stats.your-site.com is its paid tier); machinery already live-verified. Poppy's own price: founder decides before listing. |
 | D15 | **The party who emitted the coupon pays the publisher.** If AgentsPoppy issued the code, AgentsPoppy pays — even when the sale lands on a third-party developer's poppy. The developer then reimburses that commission, on top of the 5% (D15b), automatically by direct debit (D15c) — §12.6c. | Founder, 2026-08-14: "we are the one committing with the publisher". It gives the publisher ONE counterparty who can never answer "talk to the developer" — which is the whole trust proposition. The reimbursement keeps AgentsPoppy at its 5% instead of subsidising other people's sales. |
 | D15d | **The calendar, not the clock.** Sales in month M are approved and the developers direct-debited on the **1st of M+2**; publishers are paid on the **10th of M+2**. Money is always collected *before* it is paid out, and a rolling reserve covers the late-refund tail — §12.6d. | Founder, 2026-08-16: *"they wouldn't really care when the money will be in their pocket, they just need the certainty of when to expect."* A fixed date beats a short one. Collect-then-pay removes the float; the calendar removes the uncertainty; nobody's payout ever depends on somebody else's payment arriving. |
+| D15e | **A reversal is a credit, never a payment out**, and a developer may not be a publisher on their own poppy. Kills self-dealing by arithmetic rather than by policy — §12.6e. Applies only to central campaigns; **the shipped poppy is not in the money at all** (D12). | Founder, 2026-08-16, spotting the fraud: sign up as your own affiliate, sell to yourself, refund, keep the commission. It only pays if a reversal can pull cash out of the platform — so don't let it. |
 | D14 | AgentsPoppy is the **first customer**: the founder installs AffiliatePoppy in his own AWS and adds its receiver as a second webhook endpoint on the platform's Stripe. | Dogfooding that is also the demo. |
 
 ---
@@ -986,6 +987,54 @@ not an oversight.
 ledger must show each entry as Pending / Approved / Paid **with the date it will pay** — which
 is a small extension of what AffiliatePoppy already stores, and the single most valuable thing
 the portal can show a publisher who is deciding whether to trust the programme.
+
+### 12.6e D15e — the self-dealing attack, and the one rule that kills it
+
+**The founder found it (2026-08-16):** *"a developer could sign up as an affiliate as well,
+record many sales of his own poppy and request a refund for all of them, so he cashes out as a
+publisher and AgentsPoppy loses."* This is the classic affiliate fraud, and it is worth working
+through the arithmetic rather than reaching for a policy.
+
+**A completed self-dealt sale already loses money**, on a €100 poppy (5% off, 10% commission):
+
+| Fraudster wearing all three hats | |
+|---|---|
+| Pays, as the fake customer | −€95.00 |
+| Receives, as the merchant | +€90.25 |
+| Receives, as the publisher | +€9.50 |
+| Reimburses, as the developer (D15b) | −€9.50 |
+| **Net** | **−€4.75**, plus Stripe's processing fee, which is not returned on a refund |
+
+So the scheme only pays if the **refund** lets them keep the commission. Everything rests on
+one question: can a reversal pull cash out of the platform?
+
+**THE RULE: a reversal is a credit, never a payment out.** When a sale is refunded after
+payout, the publisher takes a negative entry against future earnings and the developer takes a
+credit against their next collection — nobody receives money back. Run the fraud again under
+that rule: +€9.50 as the publisher, −€9.50 as the developer, minus the platform fee, minus
+Stripe's fee. It loses money every time. It still loses money when two colluding people split
+the roles, because one of them has to be the developer paying in. The platform is structurally
+immune rather than defended.
+
+(The mild unfairness — a developer who stops selling entirely never uses their credit — is
+accepted deliberately, and is how ad platforms handle the same problem.)
+
+**Three cheap additions that close the rest:**
+
+1. **A developer may not be a publisher on their own poppy.** Both identities are known: the
+   connected account owns the poppy, the publisher signs up with an account. Refuse to mint
+   that code. One rule at minting time, and the naive version is gone.
+2. **The clearing period handles the impatient version.** A refund before the 1st of M+2 cancels
+   the entry with nothing moved; the attempt costs the fees and returns nothing.
+3. **Minting stops on a refund pattern** — the D15c lever, bounding the loss to one cohort of
+   one developer.
+
+**The boundary that matters more than any of this.** Every word of D15–D15e concerns the
+OPTIONAL central-campaign feature, where AgentsPoppy emits codes on developers' behalf.
+**AffiliatePoppy as built carries none of it:** under D12 commissions are computed and reported,
+never executed, the merchant pays their own publishers from their own bank, and AgentsPoppy is
+never in the money — a merchant who fakes sales against himself is stealing from himself. The
+poppy can ship, sell, and never have this half built.
 
 **Practical guidance to give developers** (mirrors the founder's own D3 move): price with the
 affiliate cut in mind before the campaign, not after — he raised AgentsPoppy's prices 15% so
