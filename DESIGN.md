@@ -83,6 +83,7 @@ patterns from them, never modify them from here.
 | D11 | v1 includes a **restricted Stripe API key** (promotion-codes write only), stored in the merchant's own AWS, to auto-issue codes at enrollment. | Self-service code issuance requires it. The key never touches AgentsPoppy servers. A keyless pre-created-pool fallback exists but undercuts "just share the link" — build the key path. |
 | D12 | Payouts are **computed and reported, never executed**. "Mark paid" records what the merchant paid manually. | No money-movement permissions in a poppy. Ledger + monthly manual transfer beats building payout rails on day one. |
 | D13 | Monetization: **free core on the AWS-generated portal URL; premium = the portal on the merchant's own domain** (`partners.merchant.com`) via the True Reach machinery. | Identical split to TrafficPoppy (stats.your-site.com is its paid tier); machinery already live-verified. Poppy's own price: founder decides before listing. |
+| D15 | **The party who emitted the coupon pays the publisher.** If AgentsPoppy issued the code, AgentsPoppy pays — even when the sale lands on a third-party developer's poppy. The developer then reimburses that commission, on top of the 5% (D15b, §12.6c). | Founder, 2026-08-14: "we are the one committing with the publisher". It gives the publisher ONE counterparty who can never answer "talk to the developer" — which is the whole trust proposition. The reimbursement keeps AgentsPoppy at its 5% instead of subsidising other people's sales. |
 | D14 | AgentsPoppy is the **first customer**: the founder installs AffiliatePoppy in his own AWS and adds its receiver as a second webhook endpoint on the platform's Stripe. | Dogfooding that is also the demo. |
 
 ---
@@ -863,6 +864,44 @@ leakage to coupon sites because his own margin absorbs it and he counts it as ad
 developer on a thinner margin may not want a publicly-posted code eating sales they would have
 made at full price — the classic cannibalisation problem. So: **participation is opt-in per
 developer, and the leakage tolerance is theirs to set**, never inherited from the platform's.
+
+**Who pays, DECIDED (founder, 2026-08-14 → D15): the party who emitted the coupon.** *"Once
+AgentsPoppy releases coupons, those need to be paid even if they land on a developer's poppy.
+Ideally it should be AgentsPoppy paying, as we are the one committing with the publisher — the
+party who emitted the coupon should be the one paying it."*
+
+Right, and it is what makes the publisher-side promise real: **one counterparty, who can never
+answer "talk to the developer".** But the arithmetic does not close on its own. A €100 poppy
+sale through an AgentsPoppy-emitted code (5% off, 10% commission):
+
+| | |
+|---|---|
+| Customer pays | €95 |
+| AgentsPoppy application fee (5% of €95) | **+€4.75** |
+| AgentsPoppy pays the publisher (10% of €95) | **−€9.50** |
+| **AgentsPoppy net** | **−€4.75** — a loss on every such sale |
+| Developer nets | €90.25, on a sale they did not have to find |
+
+**D15b — the recovery, and it is the founder's own "on top of the 5%":** the developer
+reimburses the commission on sales that came through an AgentsPoppy campaign. Then it is
+coherent from all three sides: the publisher deals only with AgentsPoppy and never chases;
+the developer pays for a sale they would not otherwise have had; AgentsPoppy stays at its 5%
+and carries the float and the credit risk (which is real — a developer who does not pay leaves
+the platform out of pocket, since the publisher has already been paid).
+
+**Two mechanical findings that make this cheaper than it looks:**
+
+1. **The platform ALREADY receives the events.** Poppy sales are direct charges on connected
+   accounts, and agentspoppy-web's webhook already consumes them (that is how entitlements are
+   granted today). So central attribution needs no cooperation from the developer, and no
+   second webhook — the feed exists.
+2. **A coupon lives on ONE account.** A code created on the platform account cannot be redeemed
+   at a checkout created on a developer's connected account. So one publisher-facing code must
+   be minted as N Stripe promotion codes — the same code string on each participating
+   developer's connected account. The platform can already do exactly this kind of
+   account-scoped write (it creates Prices on connected accounts today). It also means a
+   developer running their OWN AffiliatePoppy sees that sale, finds a code it does not know,
+   and correctly ignores it — no conflict between the two programmes.
 
 **Practical guidance to give developers** (mirrors the founder's own D3 move): price with the
 affiliate cut in mind before the campaign, not after — he raised AgentsPoppy's prices 15% so
