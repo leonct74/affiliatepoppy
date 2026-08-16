@@ -83,7 +83,7 @@ patterns from them, never modify them from here.
 | D11 | v1 includes a **restricted Stripe API key** (promotion-codes write only), stored in the merchant's own AWS, to auto-issue codes at enrollment. | Self-service code issuance requires it. The key never touches AgentsPoppy servers. A keyless pre-created-pool fallback exists but undercuts "just share the link" — build the key path. |
 | D12 | Payouts are **computed and reported, never executed**. "Mark paid" records what the merchant paid manually. | No money-movement permissions in a poppy. Ledger + monthly manual transfer beats building payout rails on day one. |
 | D13 | Monetization: **free core on the AWS-generated portal URL; premium = the portal on the merchant's own domain** (`partners.merchant.com`) via the True Reach machinery. | Identical split to TrafficPoppy (stats.your-site.com is its paid tier); machinery already live-verified. Poppy's own price: founder decides before listing. |
-| D15 | **The party who emitted the coupon pays the publisher.** If AgentsPoppy issued the code, AgentsPoppy pays — even when the sale lands on a third-party developer's poppy. The developer then reimburses that commission, on top of the 5% (D15b, §12.6c). | Founder, 2026-08-14: "we are the one committing with the publisher". It gives the publisher ONE counterparty who can never answer "talk to the developer" — which is the whole trust proposition. The reimbursement keeps AgentsPoppy at its 5% instead of subsidising other people's sales. |
+| D15 | **The party who emitted the coupon pays the publisher.** If AgentsPoppy issued the code, AgentsPoppy pays — even when the sale lands on a third-party developer's poppy. The developer then reimburses that commission, on top of the 5% (D15b), automatically by direct debit (D15c) — §12.6c. | Founder, 2026-08-14: "we are the one committing with the publisher". It gives the publisher ONE counterparty who can never answer "talk to the developer" — which is the whole trust proposition. The reimbursement keeps AgentsPoppy at its 5% instead of subsidising other people's sales. |
 | D14 | AgentsPoppy is the **first customer**: the founder installs AffiliatePoppy in his own AWS and adds its receiver as a second webhook endpoint on the platform's Stripe. | Dogfooding that is also the demo. |
 
 ---
@@ -888,6 +888,36 @@ coherent from all three sides: the publisher deals only with AgentsPoppy and nev
 the developer pays for a sale they would not otherwise have had; AgentsPoppy stays at its 5%
 and carries the float and the credit risk (which is real — a developer who does not pay leaves
 the platform out of pocket, since the publisher has already been paid).
+
+**D15c — the reimbursement must be AUTOMATIC (founder, 2026-08-14):** *"AgentsPoppy cannot
+spend time and resources chasing developers to be reimbursed."* The same principle he applied
+to publishers, now applied to the platform — and it is what makes the whole arrangement
+credible: nobody in this system chases anybody.
+
+**The structural catch:** under direct charges the platform NEVER holds the developer's money.
+The customer pays their connected account, the 5% application fee is taken in that instant,
+and that is the only moment of leverage. Nothing is owed to them later, so "net it off what we
+owe" does not exist as an option here. (It would exist under destination charges — money
+landing on the platform first — but that is a fundamental change to the flow of funds and
+makes AgentsPoppy hold everyone's revenue. Rejected for the same reasons as §12.5a's "never in
+the flow of funds".)
+
+**The mechanism: a payment method on file, charged monthly.** Opting into central campaigns
+means the developer becomes an ordinary Stripe Billing customer OF the platform (card or SEPA
+mandate), and commissions advanced on their behalf are collected automatically each month. A
+direct debit, not an invoice — nothing to chase.
+
+**The enforcement lever, which is already ours: code minting.** Campaign codes only exist on a
+developer's connected account because the platform put them there (see the finding below). So
+if a collection fails, the platform simply **stops minting new codes for that developer** —
+existing codes keep honouring what publishers have already earned (never punish the publisher
+for the developer's default), but the exposure stops growing. Worst case is bounded to one
+billing period of that developer's affiliate sales, and can be capped lower.
+
+**What cannot be engineered away, and should be stated rather than discovered:** D15 means the
+platform always **pays first and collects second**. That is the entire point — the publisher
+must never wait on somebody else's payment — so the credit risk is inherent to the promise,
+not a defect in the mechanism. The direct debit and the minting lever are what keep it small.
 
 **Two mechanical findings that make this cheaper than it looks:**
 
