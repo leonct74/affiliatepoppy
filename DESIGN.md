@@ -84,6 +84,7 @@ patterns from them, never modify them from here.
 | D12 | Payouts are **computed and reported, never executed**. "Mark paid" records what the merchant paid manually. | No money-movement permissions in a poppy. Ledger + monthly manual transfer beats building payout rails on day one. |
 | D13 | Monetization: **free core on the AWS-generated portal URL; premium = the portal on the merchant's own domain** (`partners.merchant.com`) via the True Reach machinery. | Identical split to TrafficPoppy (stats.your-site.com is its paid tier); machinery already live-verified. Poppy's own price: founder decides before listing. |
 | D15 | **The party who emitted the coupon pays the publisher.** If AgentsPoppy issued the code, AgentsPoppy pays — even when the sale lands on a third-party developer's poppy. The developer then reimburses that commission, on top of the 5% (D15b), automatically by direct debit (D15c) — §12.6c. | Founder, 2026-08-14: "we are the one committing with the publisher". It gives the publisher ONE counterparty who can never answer "talk to the developer" — which is the whole trust proposition. The reimbursement keeps AgentsPoppy at its 5% instead of subsidising other people's sales. |
+| D15d | **The calendar, not the clock.** Sales in month M are approved and the developers direct-debited on the **1st of M+2**; publishers are paid on the **10th of M+2**. Money is always collected *before* it is paid out, and a rolling reserve covers the late-refund tail — §12.6d. | Founder, 2026-08-16: *"they wouldn't really care when the money will be in their pocket, they just need the certainty of when to expect."* A fixed date beats a short one. Collect-then-pay removes the float; the calendar removes the uncertainty; nobody's payout ever depends on somebody else's payment arriving. |
 | D14 | AgentsPoppy is the **first customer**: the founder installs AffiliatePoppy in his own AWS and adds its receiver as a second webhook endpoint on the platform's Stripe. | Dogfooding that is also the demo. |
 
 ---
@@ -932,6 +933,59 @@ not a defect in the mechanism. The direct debit and the minting lever are what k
    account-scoped write (it creates Prices on connected accounts today). It also means a
    developer running their OWN AffiliatePoppy sees that sale, finds a code it does not know,
    and correctly ignores it — no conflict between the two programmes.
+
+### 12.6d D15d — when the money actually moves
+
+**The founder's own framing, and it is the right one (2026-08-16):** *"Once they have a ledger
+to monitor, they wouldn't really care when the money will be in their pocket — they just need
+the certainty of when to expect."* So the design target is **a date, not a delay**. Everything
+below follows from that.
+
+**First, the correction that decides where the extra time goes.** A longer wait does *nothing*
+about developer default: that risk is governed by the ORDER of the two events and by the
+minting lever, not by their distance from the sale. What a longer wait buys is **refund
+coverage** — the window in which a sale can come undone before anyone has been paid. So the
+delay is chosen from the refund curve; it is not a general safety margin, and stretching it
+"to be safe" only makes publishers wait for a reason that is not true.
+
+**The schedule — one sentence a publisher can hold in their head.** *Sales in a month are paid
+on the 10th of the month after next.*
+
+| When | What happens |
+|---|---|
+| Sale, in month M | Ledger entry opens as **Pending**, showing the exact date it will pay. |
+| 1st of M+2 | The whole month-M cohort clears. Refunds before this simply cancel the entry — no money has moved. Cohort marked **Approved**, and the participating developers are **direct-debited** for it. |
+| 10th of M+2 | Debits have settled. Publishers are **paid**. |
+
+A sale on the 1st waits ~70 days; one on the 31st waits ~40. Both are paid on the same,
+knowable date. The nine days between collection and payout exist so a debit settles before the
+payout leaves — that is the whole point of the ordering.
+
+**Three rules that carry the "never default" weight — none of them is the delay:**
+
+1. **Collect before paying, always.** The platform never sends money it has not already
+   received. This is the ordering, and it is what turns a month of float into nine days.
+2. **A collection instrument that cannot be reversed underneath us.** SEPA **Core** direct
+   debit lets the payer claw the money back for **eight weeks, no reason given** — which would
+   silently reopen the risk after the publisher has been paid. So developer collection uses a
+   **card** or a **SEPA B2B mandate** (no refund right, but the developer's bank must confirm
+   the mandate). This detail matters more than any amount of waiting.
+3. **A rolling reserve for the tail.** Card *disputes* run to 120 days, so a reversal will
+   occasionally land after payout at any sane schedule. Rather than make every publisher wait
+   four months for a rare event, hold back a small rolling reserve per publisher (one cycle's
+   earnings, released when they leave the programme) and net late reversals against it.
+
+**The one case that is deliberately NOT protected, because protecting it would break D15.** If
+a developer's debit fails on the 1st, the publisher is still paid on the 10th. Making the
+payout conditional would reintroduce exactly what D15 removed — a publisher waiting on somebody
+else's payment. What happens instead is that minting stops for that developer immediately, so
+the loss is capped at that single cohort. That is the bounded worst case, and it is a choice,
+not an oversight.
+
+**What this asks of the product:** the certainty has to be visible, or it is not certainty. The
+ledger must show each entry as Pending / Approved / Paid **with the date it will pay** — which
+is a small extension of what AffiliatePoppy already stores, and the single most valuable thing
+the portal can show a publisher who is deciding whether to trust the programme.
 
 **Practical guidance to give developers** (mirrors the founder's own D3 move): price with the
 affiliate cut in mind before the campaign, not after — he raised AgentsPoppy's prices 15% so
