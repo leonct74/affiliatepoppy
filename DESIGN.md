@@ -86,6 +86,7 @@ patterns from them, never modify them from here.
 | D15 | **The party who emitted the coupon pays the publisher.** If AgentsPoppy issued the code, AgentsPoppy pays — even when the sale lands on a third-party developer's poppy. The developer then reimburses that commission, on top of the 5% (D15b), automatically by direct debit (D15c) — §12.6c. | Founder, 2026-08-14: "we are the one committing with the publisher". It gives the publisher ONE counterparty who can never answer "talk to the developer" — which is the whole trust proposition. The reimbursement keeps AgentsPoppy at its 5% instead of subsidising other people's sales. |
 | D15d | **The calendar, not the clock.** Sales in month M are approved and the developers direct-debited on the **1st of M+2**; publishers are paid on the **10th of M+2**. Money is always collected *before* it is paid out, and a rolling reserve covers the late-refund tail — §12.6d. | Founder, 2026-08-16: *"they wouldn't really care when the money will be in their pocket, they just need the certainty of when to expect."* A fixed date beats a short one. Collect-then-pay removes the float; the calendar removes the uncertainty; nobody's payout ever depends on somebody else's payment arriving. |
 | D15e | **A reversal is a credit, never a payment out**, and a developer may not be a publisher on their own poppy. Kills self-dealing by arithmetic rather than by policy — §12.6e. Applies only to central campaigns; **the shipped poppy is not in the money at all** (D12). | Founder, 2026-08-16, spotting the fraud: sign up as your own affiliate, sell to yourself, refund, keep the commission. It only pays if a reversal can pull cash out of the platform — so don't let it. |
+| D16 | **The backend is confined** — `backend.isolation: "strict"`: it may read its install directory and write only its `dataDir` and OS temp; nothing else on the machine, and no child processes. Files leave via the host's `/ext-dl` one-shot handoff, never via `~/Documents`. | Founder, 2026-08-16: *"by design all poppies must comply not to access the file-system except for their own folder."* AffiliatePoppy keeps NO local state (everything is in the merchant's AWS), so the only casualty was the CSV export writing to Documents — replaced. Verified by booting the shipped bundle under the host's exact `NODE_OPTIONS`: `~/.aws` and `~/Documents` → `ERR_ACCESS_DENIED`, `dataDir` and install dir → allowed. |
 | D14 | AgentsPoppy is the **first customer**: the founder installs AffiliatePoppy in his own AWS and adds its receiver as a second webhook endpoint on the platform's Stripe. | Dogfooding that is also the demo. |
 
 ---
@@ -308,8 +309,9 @@ implementation used; only the tab position changed.
    and says existing ledger is kept).
 3. **Ledger** — per-affiliate and total: earned / refunded / paid / **owed**, per currency;
    "Mark paid" records a payout batch (type the amount, it must equal owed, two-step);
-   CSV export — **the backend writes the file and reveals it** (family trap: sandboxed
-   poppy frontends cannot download; `<a download>` silently no-ops).
+   CSV export — **the backend hands the bytes to the system browser via a one-shot token**
+   (D16): the frontend can't download (sandboxed frame — `<a download>` silently no-ops) and
+   the backend may not write to the user's disk (confined to its own folder).
 4. **Settings** — discount % (with "changing this creates a new coupon; existing codes
    keep their old discount" honesty), commission % default, `firstPaymentOnly` toggle
    (D5), `autoApprove` toggle (D8), white-label editor (name, logo upload ≤100 KB, accent,

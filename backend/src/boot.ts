@@ -10,6 +10,12 @@ export interface BackendBootstrap {
   credentialsUrl: string;
   credentialsToken?: string;
   port?: number;
+  /**
+   * The one directory this backend may write (besides OS temp) under strict isolation. We
+   * keep NO local state — every byte lives in the merchant's own AWS — so it goes unused,
+   * but it is part of the contract and the place any future local file must go.
+   */
+  dataDir?: string;
   account: { accountId: string; region: string };
 }
 

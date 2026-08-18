@@ -13,7 +13,8 @@ import { LambdaClient, GetFunctionUrlConfigCommand } from "@aws-sdk/client-lambd
 import { S3Client } from "@aws-sdk/client-s3";
 import { SSMClient } from "@aws-sdk/client-ssm";
 import { readBootstrap, brokerCredentialsProvider } from "./boot";
-import { defaultExportDir, writeCsv } from "./export-csv";
+import { DownloadHandoff, contentDisposition } from "./downloads";
+import { exportFiles } from "./export-csv";
 import { Program } from "./program";
 import { describeSecrets, putSecret, type SecretName } from "./secrets";
 import { deploy, getStatus, teardown, tableName, type AwsCtx } from "./stack";
@@ -31,6 +32,8 @@ const aws: AwsCtx = {
 const db = new DynamoDBClient({ region, credentials });
 const lambda = new LambdaClient({ region, credentials });
 const program = new Program(db, tableName, aws.ssm);
+/** Files waiting for the user's browser to collect them (downloads.ts). */
+const handoff = new DownloadHandoff();
 
 /** Attribution for anything we create (who made it) — separate from the AWS client context. */
 const attribution = { accountId: boot.account.accountId, connectionId: boot.connectionId };
@@ -182,12 +185,34 @@ const server = createServer(async (req, res) => {
       );
     }
 
-    // The CSV the merchant's accountant opens. The SIDECAR writes it — a sandboxed frontend
-    // cannot download a file (platform rule).
+    // The CSV the merchant's accountant opens. We hand the BYTES to the user's browser via a
+    // one-shot token; we never write to their disk (this backend is confined to its own
+    // folder) and the sandboxed frontend can't download at all. See downloads.ts.
     if (method === "POST" && parts[0] === "export" && parts.length === 1) {
       const affiliates = await program.affiliates();
       const entries = (await Promise.all(affiliates.map((a) => program.ledgerFor(a.affId)))).flat();
-      return json(res, 200, await writeCsv(defaultExportDir(), today(), affiliates, entries));
+      const files = exportFiles(today(), affiliates, entries).map((f) => ({
+        token: handoff.offer(f),
+        filename: f.filename,
+      }));
+      return json(res, 200, { rows: entries.length, files });
+    }
+
+    // The browser collecting a file it was handed above. Reached through the host's
+    // passthrough (GET /ext-dl/<id>/local-download/<token>), which carries no bearer token —
+    // the single-use, one-minute token IS the authorisation. Bytes, not JSON.
+    if (method === "GET" && parts[0] === "local-download" && parts.length === 2) {
+      const file = handoff.take(decodeURIComponent(parts[1]!));
+      if (!file) {
+        res.statusCode = 404;
+        res.setHeader("content-type", "text/plain; charset=utf-8");
+        return res.end("This download link has expired or was already used. Export again from the Ledger tab.");
+      }
+      res.statusCode = 200;
+      res.setHeader("content-type", file.contentType);
+      res.setHeader("content-disposition", contentDisposition(file.filename));
+      res.setHeader("content-length", String(file.bytes.length));
+      return res.end(file.bytes);
     }
 
     // The teardown hook the host POSTs at the start of teardown. MUST be idempotent.

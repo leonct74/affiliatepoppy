@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { AffiliateProfile, LedgerEntry } from "../../shared/src/ledger";
-import { exportPath, toCsv } from "./export-csv";
+import { commissionsFilename, exportFiles, toCsv } from "./export-csv";
 
 const affiliate = (over: Partial<AffiliateProfile> = {}): AffiliateProfile => ({
   affId: "aff-oliver",
@@ -82,11 +82,30 @@ describe("the file a person opens", () => {
   });
 });
 
-describe("where it lands", () => {
-  it("uses one deterministic name per day, so re-running overwrites instead of multiplying", () => {
-    // A merchant who clicks Export three times wants one file, not three near-identical ones
-    // in their Documents folder.
-    expect(exportPath("/tmp", "2026-08-14")).toBe("/tmp/AffiliatePoppy-commissions-2026-08-14.csv");
-    expect(exportPath("/tmp", "2026-08-14")).toBe(exportPath("/tmp", "2026-08-14"));
+describe("what leaves the poppy", () => {
+  it("uses one deterministic name per day, so exporting twice gives the same file, not a second one", () => {
+    expect(commissionsFilename("2026-08-14")).toBe("AffiliatePoppy-commissions-2026-08-14.csv");
+    expect(commissionsFilename("2026-08-14")).toBe(commissionsFilename("2026-08-14"));
+  });
+
+  it("builds bytes to hand over — never a path, because this backend does not write to the user's disk", () => {
+    // Confined by design (extension.json `isolation: "strict"`): the merchant's Documents
+    // folder is not ours to write into. The file goes out through a one-shot token instead.
+    const files = exportFiles("2026-08-14", [affiliate()], [entry()]);
+    expect(files).toHaveLength(1);
+    expect(files[0]).toMatchObject({ filename: "AffiliatePoppy-commissions-2026-08-14.csv", contentType: /text\/csv/ });
+    expect(files[0]!.bytes.toString("utf8")).toContain("Oliver,oliver@example.com");
+    expect(Object.keys(files[0]!)).not.toContain("path");
+  });
+
+  it("adds the placements file only when someone has actually declared a placement", () => {
+    expect(exportFiles("2026-08-14", [affiliate()], [])).toHaveLength(1);
+    const withLink = affiliate({ placements: [{ url: "https://blog.example/post", note: "review" }] });
+    const files = exportFiles("2026-08-14", [withLink], []);
+    expect(files.map((f) => f.filename)).toEqual([
+      "AffiliatePoppy-commissions-2026-08-14.csv",
+      "AffiliatePoppy-placements-2026-08-14.csv",
+    ]);
+    expect(files[1]!.bytes.toString("utf8")).toContain("https://blog.example/post");
   });
 });

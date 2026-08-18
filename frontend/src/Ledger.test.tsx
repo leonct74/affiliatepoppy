@@ -2,13 +2,15 @@
 //
 //  · "Mark as paid" RECORDS a payment the merchant already made — it must never read as if
 //    the poppy sent money, and it must not accept an amount that disagrees with what is owed.
-//  · The export writes a FILE and tells the merchant where it is, because a poppy frontend is
-//    sandboxed: a download link would silently do nothing (the family's most expensive UI bug).
+//  · The export hands the file to the SYSTEM BROWSER, because neither half of a poppy may save
+//    it: the frontend is sandboxed (a download link silently does nothing — the family's most
+//    expensive UI bug) and the backend is confined to its own folder by design.
 
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "./api";
+import { host } from "./host";
 import { Ledger } from "./Ledger";
 import type { Affiliate } from "./types";
 
@@ -110,22 +112,37 @@ describe("recording a payment", () => {
 });
 
 describe("the export", () => {
-  it("names the file the BACKEND wrote — a sandboxed frontend cannot download", async () => {
+  it("hands the files to the system browser — nobody in a poppy may write to the user's disk", async () => {
+    // The frontend is a sandboxed frame (no downloads); the backend is confined to its own
+    // folder (no Documents). So the backend mints one-shot tokens and the SYSTEM browser
+    // collects the bytes through the host's passthrough on this frontend's own origin.
+    window.history.pushState({}, "", "/ext-ui/com.affiliatepoppy.desktop/index.html");
     vi.spyOn(api, "exportCsv").mockResolvedValue({
-      path: "/Users/x/Documents/AffiliatePoppy-commissions-2026-08-14.csv",
       rows: 42,
+      files: [
+        { token: "tok-1", filename: "AffiliatePoppy-commissions-2026-08-14.csv" },
+        { token: "tok-2", filename: "AffiliatePoppy-placements-2026-08-14.csv" },
+      ],
     });
+    const open = vi.spyOn(host, "openExternal").mockResolvedValue(undefined);
     render(<Ledger affiliates={[oliver]} loading={false} ready onChanged={vi.fn()} />);
     await userEvent.click(await screen.findByRole("button", { name: /export everything/i }));
 
     expect(await screen.findByText(/AffiliatePoppy-commissions-2026-08-14\.csv/)).toBeInTheDocument();
+    expect(screen.getByText(/AffiliatePoppy-placements-2026-08-14\.csv/)).toBeInTheDocument();
     expect(screen.getByText("42")).toBeInTheDocument();
+    expect(open.mock.calls.map((c) => c[0])).toEqual([
+      "http://localhost:3000/ext-dl/com.affiliatepoppy.desktop/local-download/tok-1",
+      "http://localhost:3000/ext-dl/com.affiliatepoppy.desktop/local-download/tok-2",
+    ]);
+    // And it says so — the merchant should know their disk was never touched.
+    expect(screen.getByText(/never writes to your disk/i)).toBeInTheDocument();
   });
 
   it("shows the failure rather than looking like nothing happened", async () => {
-    vi.spyOn(api, "exportCsv").mockRejectedValue(new Error("Couldn't write the file."));
+    vi.spyOn(api, "exportCsv").mockRejectedValue(new Error("Couldn't build the file."));
     render(<Ledger affiliates={[oliver]} loading={false} ready onChanged={vi.fn()} />);
     await userEvent.click(await screen.findByRole("button", { name: /export everything/i }));
-    expect(await screen.findByText(/couldn't write the file/i)).toBeInTheDocument();
+    expect(await screen.findByText(/couldn't build the file/i)).toBeInTheDocument();
   });
 });

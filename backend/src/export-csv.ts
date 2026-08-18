@@ -1,31 +1,25 @@
-// The ledger as a CSV file on the merchant's own machine.
+// The ledger as a CSV file the merchant keeps.
 //
-// THE BACKEND WRITES THE FILE — not the frontend. A poppy's UI runs in a sandboxed frame
-// where `<a download>` and blob URLs silently do nothing, so a download button implemented in
-// the frontend is a dead button (the family's most expensive UI lesson). The sidecar writes
-// to Documents and hands the path back, and the UI shows the path.
+// This module only BUILDS the files. It never writes one: the backend runs confined and has
+// no business in the merchant's Documents folder (or anywhere else on their machine). The
+// bytes are handed to the user's browser through a one-shot token instead — see downloads.ts.
+// The frontend can't do it either: a poppy's UI runs in a sandboxed frame where `<a download>`
+// and blob URLs silently do nothing (the family's most expensive UI lesson).
 //
 // A merchant paying commissions needs this for their own books, and it is also the answer to
 // "what if I stop using this poppy": every number can leave, in a format any spreadsheet and
 // any accountant can read.
 
-import { writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import type { AffiliateProfile, LedgerEntry } from "../../shared/src/ledger";
+import type { FileToHandOver } from "./downloads";
 
-export interface ExportSummary {
-  path: string;
-  rows: number;
+/** One name per day, deterministic — exporting twice gives the same file, not a second one. */
+export function commissionsFilename(today: string): string {
+  return `AffiliatePoppy-commissions-${today}.csv`;
 }
 
-/** One file per day, deterministic name — re-running overwrites rather than multiplying. */
-export function exportPath(dir: string, today: string): string {
-  return join(dir, `AffiliatePoppy-commissions-${today}.csv`);
-}
-
-export function defaultExportDir(): string {
-  return join(homedir(), "Documents");
+export function placementsFilename(today: string): string {
+  return `AffiliatePoppy-placements-${today}.csv`;
 }
 
 /** RFC 4180 quoting: wrap in quotes and double any quote inside. */
@@ -67,22 +61,27 @@ export function toCsv(
   return [header.join(","), ...rows].join("\n") + "\n";
 }
 
-export async function writeCsv(
-  dir: string,
+/**
+ * Everything the merchant should walk away with, as files ready to hand over. The commissions
+ * file always; the placements file only when anyone has declared where they share their code
+ * — an empty second file would be one more thing to explain.
+ */
+export function exportFiles(
   today: string,
   affiliates: AffiliateProfile[],
   entries: LedgerEntry[],
-): Promise<ExportSummary> {
-  const path = exportPath(dir, today);
-  await writeFile(path, toCsv(affiliates, entries), "utf8");
-  // The declared placements ride alongside, only when there are any — an empty second file
-  // would be one more thing to explain.
+): FileToHandOver[] {
+  const files: FileToHandOver[] = [
+    { filename: commissionsFilename(today), contentType: CSV, bytes: Buffer.from(toCsv(affiliates, entries), "utf8") },
+  ];
   const withLinks = affiliates.filter((a) => a.placements?.length);
   if (withLinks.length) {
-    await writeFile(join(dir, `AffiliatePoppy-placements-${today}.csv`), placementsCsv(withLinks), "utf8");
+    files.push({ filename: placementsFilename(today), contentType: CSV, bytes: Buffer.from(placementsCsv(withLinks), "utf8") });
   }
-  return { path, rows: entries.length };
+  return files;
 }
+
+const CSV = "text/csv; charset=utf-8";
 
 /**
  * A second, small CSV: where each affiliate says they share their code. Kept separate from

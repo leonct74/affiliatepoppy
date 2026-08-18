@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "./api";
+import { collectFiles } from "./download";
 import { Button } from "./Button";
 import { money, parseAmount } from "./money";
 import type { Affiliate, Payout } from "./types";
@@ -27,7 +28,7 @@ export function Ledger(props: {
 }) {
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [exported, setExported] = useState<{ path: string; rows: number } | null>(null);
+  const [exported, setExported] = useState<{ rows: number; filenames: string[] } | null>(null);
   const [paying, setPaying] = useState<{ affiliate: Affiliate; currency: string; owedCents: number } | null>(null);
 
   const load = async () => {
@@ -98,11 +99,13 @@ export function Ledger(props: {
           </h2>
           <Button
             className="btn btn-sm"
-            busyLabel="Writing the file…"
+            busyLabel="Preparing the file…"
             onClick={async () => {
               setError(null);
               try {
-                setExported(await api.exportCsv());
+                const result = await api.exportCsv();
+                await collectFiles(result.files);
+                setExported({ rows: result.rows, filenames: result.files.map((f) => f.filename) });
               } catch (e) {
                 setError((e as Error).message);
               }
@@ -113,7 +116,15 @@ export function Ledger(props: {
         </div>
         {exported && (
           <div className="banner info">
-            Saved <strong>{exported.rows}</strong> rows to <span className="chip">{exported.path}</span>
+            Handed <strong>{exported.rows}</strong> rows to your browser as{" "}
+            {exported.filenames.map((name, i) => (
+              <span key={name}>
+                {i > 0 && " and "}
+                <span className="chip">{name}</span>
+              </span>
+            ))}
+            . It's saving {exported.filenames.length > 1 ? "them" : "it"} where your downloads usually go — this poppy
+            never writes to your disk itself.
           </div>
         )}
 

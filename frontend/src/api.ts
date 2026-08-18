@@ -77,6 +77,7 @@ export const api = {
   }): Promise<{ recorded: boolean }> => host.invokeBackend({ method: "POST", path: "/payouts", body }),
 
   /** The CSV — written by the BACKEND, because a sandboxed frontend cannot download a file. */
-  exportCsv: (): Promise<{ path: string; rows: number }> =>
+  /** Builds the CSVs and returns one-shot tokens; see download.ts for how they become files. */
+  exportCsv: (): Promise<{ rows: number; files: { token: string; filename: string }[] }> =>
     host.invokeBackend({ method: "POST", path: "/export" }, 5 * 60_000),
 };
