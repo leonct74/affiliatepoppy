@@ -487,6 +487,15 @@ partners. Fixed by escaping `<` as `<`; `portal.test.ts` proves the page renders
 one script element and that a hostile merchant name stays *text*. Reverting the escape fails
 the test.
 
+**Live, first approval (2026-08-16): `Received unknown parameter: coupon`.** We sent no
+`Stripe-Version` header, so Stripe answered in whatever version the *merchant's account*
+defaults to — and the founder's account was on one where promotion codes take
+`promotion[type]=coupon` + `promotion[coupon]=…` (changed in `2025-09-30.clover`). The fix is
+not just the parameter: **the client now pins `STRIPE_API_VERSION`** on every call, so the
+wire shape is ours to choose and identical for every merchant, whatever their account is set
+to. `stripe-api.test.ts` asserts the header and the exact form body. (Webhook parsing was
+untouched — it reads `discounts[].promotion_code`, which survived the change.)
+
 ### 12.3 What is built
 
 - **P0** — repo, workspaces, embedded-template deploy pipeline (content-addressed template +

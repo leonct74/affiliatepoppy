@@ -12,6 +12,19 @@
 
 const API_BASE = "https://api.stripe.com/v1";
 
+/**
+ * PINNED. Without this header Stripe answers in whatever API version the MERCHANT's account
+ * defaults to — which differs from merchant to merchant and moves under us when they upgrade.
+ * The first live approval failed exactly that way: the founder's account was on a version
+ * where `coupon` had become `promotion[coupon]` ("Received unknown parameter: coupon"). Pin
+ * the version this file is written against, and every merchant gets the same wire shape.
+ *
+ * 2025-09-30.clover is the release that made the change (Stripe changelog: "Promotion Codes
+ * now reference Coupons using a polymorphic field for promotions"). Moving the pin is a
+ * deliberate act: re-read the changelog for /coupons and /promotion_codes first.
+ */
+export const STRIPE_API_VERSION = "2025-09-30.clover";
+
 export class StripeApiError extends Error {
   constructor(
     message: string,
@@ -49,7 +62,8 @@ export interface PromotionCode {
   id: string;
   code: string;
   active: boolean;
-  coupon?: { id: string };
+  /** Since 2025-09-30.clover a code points at a "promotion", of which a coupon is one kind. */
+  promotion?: { type: "coupon"; coupon: string };
 }
 
 export class StripeClient {
@@ -68,6 +82,7 @@ export class StripeClient {
     const headers: Record<string, string> = {
       authorization: `Bearer ${this.opts.apiKey}`,
       "content-type": "application/x-www-form-urlencoded",
+      "stripe-version": STRIPE_API_VERSION,
     };
     // A retried create must never mint a second code for the same affiliate. Stripe replays
     // the original response for 24h against the same key.
@@ -129,7 +144,8 @@ export class StripeClient {
     return this.call<PromotionCode>(
       "POST",
       "/promotion_codes",
-      { coupon: couponId, code },
+      // The polymorphic form (2025-09-30.clover+): a promotion of type coupon.
+      { "promotion[type]": "coupon", "promotion[coupon]": couponId, code },
       idempotencyKey,
     );
   }
