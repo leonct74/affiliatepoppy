@@ -51,9 +51,30 @@ export interface SecretStatus {
 export interface ProgramConfig {
   settings: ProgramSettings;
   branding: PortalBranding;
-  stripe: { couponId: string; lastEventAt: number; livemode: boolean };
+  stripe: { couponId: string; lastEventAt: number; livemode: boolean; partners: Partner[] };
   offer: string;
-  secrets: { webhookSecret: SecretStatus; apiKey: SecretStatus };
+  secrets: { webhookSecret: SecretStatus; apiKey: SecretStatus; connectSecret?: SecretStatus };
+}
+
+/** P7: a developer whose Stripe connected account the merchant's codes also work on. */
+export interface Partner {
+  account: string;
+  label: string;
+  couponId: string;
+  couponPct: number;
+}
+
+/** P7 / D15b: what the merchant has advanced on one developer's sales, per currency. */
+export interface PartnerTotal {
+  account: string;
+  label: string;
+  currency: string;
+  advancedCents: number;
+}
+
+export interface SyncReport {
+  minted: number;
+  failures: { account: string; label: string; message: string; affiliate: string }[];
 }
 
 export interface Totals {

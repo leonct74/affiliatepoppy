@@ -48,6 +48,16 @@ export function parseTotSk(sk: string): { affId: string; currency: string } | nu
   const m = /^aff#(.+)#([a-z]{3})$/.exec(sk);
   return m ? { affId: m[1]!, currency: m[2]! } : null;
 }
+/**
+ * Running totals per CONNECTED ACCOUNT (P7 / D15b): what the merchant is advancing on sales
+ * that landed on a developer's account, and so what that developer owes them back. Same
+ * partition, different prefix, written in the same transaction as the entry.
+ */
+export const acctTotSk = (account: string, currency: string) => `acct#${account}#${currency.toLowerCase()}`;
+export function parseAcctTotSk(sk: string): { account: string; currency: string } | null {
+  const m = /^acct#(.+)#([a-z]{3})$/.exec(sk);
+  return m ? { account: m[1]!, currency: m[2]! } : null;
+}
 
 /** Redeemed-code → affiliate. Written for BOTH the human code and Stripe's promotion-code id
  *  (see stripe-events.ts: a webhook carries the id, a human types the code). */

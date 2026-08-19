@@ -35,6 +35,8 @@ import {
   MAP_SK,
   PAYOUTS_PK,
   TOT_PK,
+  acctTotSk,
+  parseAcctTotSk,
   affPk,
   codePk,
   dirSk,
@@ -54,6 +56,17 @@ import {
 } from "./settings";
 import type { AffiliateProfile, LedgerEntry, Payout, Totals } from "./ledger";
 import { sanitizePlacements, type Placement } from "./placements";
+import { sanitizePartners, type Partner } from "./partners";
+
+/** A credit as a reverse-lookup row describes it (the refund path's view of a sale). */
+export interface FoundCredit {
+  affId: string;
+  ledgerId: string;
+  amountCents: number;
+  currency: string;
+  /** The connected account the sale landed on ("" = the merchant's own). */
+  account: string;
+}
 
 const CONDITION_FAILED = "ConditionalCheckFailedException";
 const TRANSACTION_CANCELED = "TransactionCanceledException";
@@ -124,13 +137,36 @@ export class DynamoLedger {
   }
 
   /** The non-secret half of the Stripe connection: which coupon, and when we last heard. */
-  async stripeState(): Promise<{ couponId: string; lastEventAt: number; livemode: boolean }> {
+  async stripeState(): Promise<{ couponId: string; lastEventAt: number; livemode: boolean; partners: Partner[] }> {
     const item = await this.get(CFG_PK, CFG_SK_STRIPE);
     return {
       couponId: item?.couponId?.S ?? "",
       lastEventAt: Number(item?.lastEventAt?.N ?? "0"),
       livemode: item?.livemode?.BOOL ?? false,
+      partners: sanitizePartners(item?.partners?.S ? safeParse(item.partners.S) : []),
     };
+  }
+
+  /** P7: the participating developers, replaced wholesale (the list is small and edited by hand). */
+  async savePartners(partners: Partner[]): Promise<void> {
+    await this.db.send(
+      new UpdateItemCommand({
+        TableName: this.tableName,
+        Key: { pk: S(CFG_PK), sk: S(CFG_SK_STRIPE) },
+        UpdateExpression: "SET partners = :p",
+        ExpressionAttributeValues: { ":p": S(JSON.stringify(sanitizePartners(partners))) },
+      }),
+    );
+  }
+
+  /** P7: point a promotion code minted on a connected account at its affiliate. Idempotent. */
+  async mapPromotionCode(promotionCodeId: string, affId: string): Promise<void> {
+    await this.db.send(
+      new PutItemCommand({
+        TableName: this.tableName,
+        Item: { pk: S(promoPk(promotionCodeId)), sk: S(MAP_SK), affId: S(affId) },
+      }),
+    );
   }
 
   async saveCoupon(couponId: string, discountPct: number): Promise<void> {
@@ -195,6 +231,20 @@ export class DynamoLedger {
                 ExpressionAttributeValues: { ":amount": N(Math.abs(entry.amountCents)) },
               },
             },
+            // P7: what the merchant is advancing on a DEVELOPER's sale — what that developer
+            // owes back (D15b). Same transaction, so it can never disagree with the entry.
+            ...(entry.account
+              ? [
+                  {
+                    Update: {
+                      TableName: this.tableName,
+                      Key: { pk: S(TOT_PK), sk: S(acctTotSk(entry.account, entry.currency)) },
+                      UpdateExpression: `ADD ${totalsField} :amount`,
+                      ExpressionAttributeValues: { ":amount": N(Math.abs(entry.amountCents)) },
+                    },
+                  },
+                ]
+              : []),
             // Reverse lookups, so a later refund can find this credit from whichever id the
             // charge names (DESIGN.md §4.3's third subtlety).
             ...references.slice(0, 5).map((reference) => ({
@@ -207,6 +257,7 @@ export class DynamoLedger {
                   ledgerId: S(entry.ledgerId),
                   amountCents: N(entry.amountCents),
                   currency: S(entry.currency),
+                  ...(entry.account ? { account: S(entry.account) } : {}),
                 },
               },
             })),
@@ -220,9 +271,7 @@ export class DynamoLedger {
     }
   }
 
-  async findCredit(
-    references: string[],
-  ): Promise<{ affId: string; ledgerId: string; amountCents: number; currency: string } | undefined> {
+  async findCredit(references: string[]): Promise<FoundCredit | undefined> {
     for (const reference of references) {
       const item = await this.get(refPk(reference), MAP_SK);
       if (item?.affId?.S) {
@@ -231,6 +280,7 @@ export class DynamoLedger {
           ledgerId: item.ledgerId?.S ?? "",
           amountCents: Number(item.amountCents?.N ?? "0"),
           currency: item.currency?.S ?? "",
+          account: item.account?.S ?? "",
         };
       }
     }
@@ -241,10 +291,7 @@ export class DynamoLedger {
    * File an existing credit under further ids. Plain puts of identical rows, so a redelivered
    * event rewrites the same values — nothing to guard.
    */
-  async addReferences(
-    references: string[],
-    credit: { affId: string; ledgerId: string; amountCents: number; currency: string },
-  ): Promise<void> {
+  async addReferences(references: string[], credit: FoundCredit): Promise<void> {
     for (const reference of references.slice(0, 5)) {
       await this.db.send(
         new PutItemCommand({
@@ -256,6 +303,7 @@ export class DynamoLedger {
             ledgerId: S(credit.ledgerId),
             amountCents: N(credit.amountCents),
             currency: S(credit.currency),
+            ...(credit.account ? { account: S(credit.account) } : {}),
           },
         }),
       );
@@ -293,6 +341,18 @@ export class DynamoLedger {
                   ExpressionAttributeValues: { ":delta": N(delta) },
                 },
               },
+              ...(entry.account
+                ? [
+                    {
+                      Update: {
+                        TableName: this.tableName,
+                        Key: { pk: S(TOT_PK), sk: S(acctTotSk(entry.account, entry.currency)) },
+                        UpdateExpression: "ADD refundedCents :delta",
+                        ExpressionAttributeValues: { ":delta": N(delta) },
+                      },
+                    },
+                  ]
+                : []),
             ],
           }),
         );
@@ -323,6 +383,7 @@ export class DynamoLedger {
       pct: Number(r.pct?.N ?? "0"),
       orderRef: r.orderRef?.S ?? "",
       day: r.day?.S ?? "",
+      account: r.account?.S ?? "",
     }));
   }
 
@@ -399,6 +460,23 @@ export class DynamoLedger {
         return totals && m ? { ...totals, affId: m[1]! } : undefined;
       })
       .filter((t): t is Totals & { affId: string } => !!t);
+  }
+
+  /** P7: per connected account, what the merchant has advanced on that developer's sales. */
+  async partnerTotals(): Promise<{ account: string; currency: string; earnedCents: number; refundedCents: number }[]> {
+    const rows = await this.query(TOT_PK, "acct#");
+    return rows
+      .map((r) => {
+        const parsed = parseAcctTotSk(r.sk?.S ?? "");
+        return parsed
+          ? {
+              ...parsed,
+              earnedCents: Number(r.earnedCents?.N ?? "0"),
+              refundedCents: Number(r.refundedCents?.N ?? "0"),
+            }
+          : undefined;
+      })
+      .filter((t): t is { account: string; currency: string; earnedCents: number; refundedCents: number } => !!t);
   }
 
   /** Register a new affiliate: the directory row and the profile, written together. */
@@ -481,7 +559,7 @@ export class DynamoLedger {
   /** Patch a profile's mutable fields (status, code, override) without touching the rest. */
   async updateAffiliate(
     affId: string,
-    patch: Partial<Pick<AffiliateProfile, "status" | "code" | "promotionCodeId" | "pctOverride">>,
+    patch: Partial<Pick<AffiliateProfile, "status" | "code" | "promotionCodeId" | "promotionCodeIds" | "pctOverride">>,
   ): Promise<void> {
     const sets: string[] = [];
     const removes: string[] = [];
@@ -499,6 +577,10 @@ export class DynamoLedger {
     if (patch.promotionCodeId !== undefined) {
       sets.push("promotionCodeId = :promo");
       values[":promo"] = S(patch.promotionCodeId);
+    }
+    if (patch.promotionCodeIds !== undefined) {
+      sets.push("promotionCodeIds = :promos");
+      values[":promos"] = S(JSON.stringify(patch.promotionCodeIds));
     }
     if (patch.pctOverride === null || patch.pctOverride === undefined) {
       if ("pctOverride" in patch) removes.push("pctOverride");
@@ -533,6 +615,7 @@ function ledgerItem(entry: LedgerEntry): Record<string, AttributeValue> {
     pct: N(entry.pct),
     orderRef: S(entry.orderRef),
     day: S(entry.day),
+    ...(entry.account ? { account: S(entry.account) } : {}),
   };
 }
 
@@ -545,12 +628,21 @@ function readAffiliate(affId: string, item: Record<string, AttributeValue>): Aff
     status: status === "active" || status === "retired" ? status : "pending",
     code: item.code?.S ?? "",
     promotionCodeId: item.promotionCodeId?.S ?? "",
+    promotionCodeIds: readPromoIds(item.promotionCodeIds?.S),
     createdDay: item.createdDay?.S ?? "",
     // Stored as JSON and re-sanitised on read, so a row written by an older build (no field)
     // or a hand-edited one still yields a clean list.
     placements: sanitizePlacements(item.placements?.S ? safeParse(item.placements.S) : []),
     ...(item.pctOverride?.N ? { pctOverride: Number(item.pctOverride.N) } : {}),
   };
+}
+
+function readPromoIds(text: string | undefined): Record<string, string> {
+  const parsed = text ? safeParse(text) : {};
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) if (typeof v === "string") out[k] = v;
+  return out;
 }
 
 function safeParse(text: string): unknown {

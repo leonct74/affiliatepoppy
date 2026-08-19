@@ -31,7 +31,7 @@ const status = (over: Partial<DeploymentStatus> = {}): DeploymentStatus => ({
 const config = (over: Partial<ProgramConfig> = {}): ProgramConfig => ({
   settings: { discountPct: 5, commissionPct: 10, firstPaymentOnly: false, autoApprove: false, maxAffiliates: 1000 },
   branding: { merchantName: "Olly Digital", accentColor: "#bccf9e", logoDataUri: "", offerCopy: "", termsText: "" },
-  stripe: { couponId: "", lastEventAt: 0, livemode: false },
+  stripe: { couponId: "", lastEventAt: 0, livemode: false, partners: [] },
   offer: "Earn 10% of every sale you bring in.",
   secrets: { webhookSecret: { stored: false, hint: "" }, apiKey: { stored: false, hint: "" } },
   ...over,
@@ -104,7 +104,7 @@ describe("handing over a secret", () => {
   it("never shows it back — only that it's saved, and the last four characters", () => {
     const stored = config({
       secrets: { webhookSecret: { stored: true, hint: "…1234" }, apiKey: { stored: true, hint: "…9zx8" } },
-      stripe: { couponId: "co_1", lastEventAt: 0, livemode: false },
+      stripe: { couponId: "co_1", lastEventAt: 0, livemode: false, partners: [] },
     });
     setup({ config: stored });
     // …and which Stripe world it lives in, permanently — not only in the moment it was saved.

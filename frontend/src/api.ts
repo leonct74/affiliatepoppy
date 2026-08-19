@@ -4,6 +4,9 @@
 
 import { host } from "./host";
 import type {
+  Partner,
+  PartnerTotal,
+  SyncReport,
   Affiliate,
   DeploymentStatus,
   LedgerEntry,
@@ -42,7 +45,7 @@ export const api = {
    * back — the reply says only that it was saved, plus the last four characters.
    */
   saveSecret: (
-    which: "webhookSecret" | "apiKey",
+    which: "webhookSecret" | "apiKey" | "connectSecret",
     value: string,
   ): Promise<SecretStatus & { connection?: { ok: boolean; livemode: boolean; message?: string } }> =>
     host.invokeBackend({ method: "PUT", path: `/secrets/${which}`, body: { value } }, 60_000),
@@ -80,4 +83,13 @@ export const api = {
   /** Builds the CSVs and returns one-shot tokens; see download.ts for how they become files. */
   exportCsv: (): Promise<{ rows: number; files: { token: string; filename: string }[] }> =>
     host.invokeBackend({ method: "POST", path: "/export" }, 5 * 60_000),
+
+  // ── P7: developers selling through the merchant's Stripe platform ───────────────────
+  partners: (): Promise<{ partners: Partner[]; totals: PartnerTotal[] }> =>
+    host.invokeBackend({ method: "GET", path: "/partners" }),
+  addPartner: (account: string, label: string): Promise<{ partners: Partner[]; sync: SyncReport }> =>
+    host.invokeBackend({ method: "POST", path: "/partners", body: { account, label } }, 5 * 60_000),
+  removePartner: (account: string): Promise<{ partners: Partner[] }> =>
+    host.invokeBackend({ method: "DELETE", path: `/partners/${encodeURIComponent(account)}` }, 5 * 60_000),
+  syncCodes: (): Promise<SyncReport> => host.invokeBackend({ method: "POST", path: "/partners/sync" }, 5 * 60_000),
 };

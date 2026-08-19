@@ -13,6 +13,7 @@ import { useState } from "react";
 import { api } from "./api";
 import { Button } from "./Button";
 import { CopyButton } from "./CopyButton";
+import { Developers } from "./Developers";
 import { host } from "./host";
 import { ago } from "./money";
 import type { DeploymentStatus, ProgramConfig } from "./types";
@@ -86,6 +87,8 @@ export function Setup(props: {
           <p className="muted" style={{ margin: 0 }}>Your link appears here once step 1 finishes.</p>
         )}
       </Step>
+
+      {deployed && stripeConnected && <Developers status={status} config={config} onChanged={props.onConfigChanged} />}
 
       {config?.stripe.lastEventAt ? (
         <div className="banner info">

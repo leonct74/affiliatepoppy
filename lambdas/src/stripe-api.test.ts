@@ -52,3 +52,16 @@ describe("talking to Stripe", () => {
     } satisfies Partial<StripeApiError>);
   });
 });
+
+describe("acting on a connected account (P7)", () => {
+  it("sends the Stripe-Account header for that account, and not otherwise", async () => {
+    const { calls, client } = capture();
+    await client.getCoupon("co_1");
+    await client.forAccount("acct_dev1").getCoupon("co_1");
+    const h = (i: number) => calls[i]!.init.headers as Record<string, string>;
+    expect(h(0)["stripe-account"]).toBeUndefined();
+    expect(h(1)["stripe-account"]).toBe("acct_dev1");
+    expect(client.forAccount("acct_dev1").account).toBe("acct_dev1");
+    expect(client.account).toBe("");
+  });
+});

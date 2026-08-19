@@ -47,6 +47,8 @@ export type Instruction =
 
 export interface Sale {
   kind: "sale";
+  /** The connected account the event came from (`event.account`), or "" for the merchant's own. */
+  account: string;
   /** The ledger key — the checkout session's own id, so a redelivery is a no-op. */
   ledgerId: string;
   /** Stripe's id for the promotion code that was redeemed (the reliable lookup). */
@@ -67,6 +69,8 @@ export interface Sale {
 
 export interface Renewal {
   kind: "renewal";
+  /** The connected account the event came from (`event.account`), or "" for the merchant's own. */
+  account: string;
   /** The invoice's own id. */
   ledgerId: string;
   subscriptionId: string;
@@ -86,6 +90,8 @@ export interface Renewal {
  */
 export interface Link {
   kind: "link";
+  /** The connected account the event came from (`event.account`), or "" for the merchant's own. */
+  account: string;
   /** An id the credit is already filed under (the invoice's own id). */
   knownReference: string;
   /** The new ids to file it under as well. */
@@ -95,6 +101,8 @@ export interface Link {
 
 export interface Refund {
   kind: "refund";
+  /** The connected account the event came from (`event.account`), or "" for the merchant's own. */
+  account: string;
   chargeId: string;
   refundedCents: number;
   chargeTotalCents: number;
@@ -170,6 +178,8 @@ export function readEvent(event: unknown): Instruction {
   if (!data || typeof data !== "object") return { kind: "ignore", reason: "event has no object" };
   const obj = data as Record<string, unknown>;
   const day = dayOf(num(e.created) || Math.floor(Date.now() / 1000));
+  // Present only on events delivered by a "connected accounts" webhook endpoint (P7).
+  const account = typeof e.account === "string" ? e.account : "";
 
   if (type === "checkout.session.completed" || type === "checkout.session.async_payment_succeeded") {
     const { promotionCodeId, code } = readDiscount(obj.discounts);
@@ -179,6 +189,7 @@ export function readEvent(event: unknown): Instruction {
     const references = [idOf(obj.payment_intent), idOf(obj.invoice), ledgerId].filter(Boolean);
     return {
       kind: "sale",
+      account,
       ledgerId,
       promotionCodeId,
       code: code.toUpperCase(),
@@ -206,12 +217,13 @@ export function readEvent(event: unknown): Instruction {
     if (obj.billing_reason === "subscription_create") {
       const references = invoicePaymentRefs(obj);
       if (references.length === 0) return { kind: "ignore", reason: "first invoice — already credited at checkout" };
-      return { kind: "link", knownReference: ledgerId, references, day };
+      return { kind: "link", account, knownReference: ledgerId, references, day };
     }
     const amountPaidCents = num(obj.amount_paid);
     if (amountPaidCents <= 0) return { kind: "ignore", reason: "nothing was paid on this invoice" };
     return {
       kind: "renewal",
+      account,
       ledgerId,
       subscriptionId,
       amountPaidCents,
@@ -228,6 +240,7 @@ export function readEvent(event: unknown): Instruction {
     if (!chargeId || refundedCents <= 0) return { kind: "ignore", reason: "no refunded amount" };
     return {
       kind: "refund",
+      account,
       chargeId,
       refundedCents,
       chargeTotalCents: num(obj.amount),

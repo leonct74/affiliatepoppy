@@ -8,7 +8,8 @@
 
 import type { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import type { SSMClient } from "@aws-sdk/client-ssm";
-import { issueCodeFor } from "../../shared/src/issue";
+import { issueCodeFor, mintOnPartners, type MintOnPartnersResult } from "../../shared/src/issue";
+import { isAccountId, type Partner } from "../../shared/src/partners";
 import type { AffiliateProfile, Payout, Totals } from "../../shared/src/ledger";
 import { DynamoLedger } from "../../shared/src/ledger-store";
 import { owedCents } from "../../shared/src/money";
@@ -21,6 +22,12 @@ import {
 } from "../../shared/src/settings";
 import { StripeClient, permissionProblem } from "../../shared/src/stripe-api";
 import { readSecret } from "./secrets";
+
+/** What syncCodes() did, and what it couldn't — shown to the merchant, never swallowed. */
+export interface SyncReport {
+  minted: number;
+  failures: (MintOnPartnersResult["failures"][number] & { affiliate: string })[];
+}
 
 /** One affiliate, as the poppy's Affiliates and Ledger tabs show them. */
 export interface AffiliateView extends AffiliateProfile {
@@ -47,7 +54,7 @@ export class Program {
   async config(): Promise<{
     settings: ProgramSettings;
     branding: PortalBranding;
-    stripe: { couponId: string; lastEventAt: number; livemode: boolean };
+    stripe: { couponId: string; lastEventAt: number; livemode: boolean; partners: Partner[] };
     /** The offer as affiliates will actually read it — generated when the merchant left it blank. */
     offer: string;
   }> {
@@ -84,7 +91,133 @@ export class Program {
       await this.ledger.saveCoupon(coupon.id, settings.discountPct);
       couponChanged = true;
     }
+    // P7: the coupon on each developer's account must give the same discount — a changed
+    // discount means a new coupon THERE too, and every code re-minted against it.
+    if (stripe && state.partners.length) await this.ensurePartnerCoupons(stripe, settings, branding, state.partners);
     return { settings, branding, couponChanged };
+  }
+
+  // ── P7: participating developers (connected accounts) ────────────────────────────────
+
+  /**
+   * Make sure each partner has a coupon at the CURRENT discount on their own account. A
+   * partner whose coupon is missing or stale gets a new one; the codes are minted against it
+   * by syncCodes(). Failures are recorded on the partner (couponId "") rather than thrown, so
+   * one developer's problem never blocks saving the merchant's settings.
+   */
+  private async ensurePartnerCoupons(
+    stripe: StripeClient,
+    settings: ProgramSettings,
+    branding: PortalBranding,
+    partners: Partner[],
+  ): Promise<Partner[]> {
+    const next: Partner[] = [];
+    for (const partner of partners) {
+      if (partner.couponId && partner.couponPct === settings.discountPct) {
+        next.push(partner);
+        continue;
+      }
+      try {
+        const coupon = await stripe
+          .forAccount(partner.account)
+          .createCoupon(settings.discountPct, `${branding.merchantName || "Affiliate"} ${settings.discountPct}% off`);
+        next.push({ ...partner, couponId: coupon.id, couponPct: settings.discountPct });
+      } catch {
+        next.push({ ...partner, couponId: "", couponPct: Number.NaN });
+      }
+    }
+    await this.ledger.savePartners(next);
+    return next;
+  }
+
+  async partners(): Promise<Partner[]> {
+    return (await this.ledger.stripeState()).partners;
+  }
+
+  /** Add a developer's connected account: create the coupon there, then mint every active code. */
+  async addPartner(account: string, label: string): Promise<{ partners: Partner[]; sync: SyncReport }> {
+    const clean = account.trim();
+    if (!isAccountId(clean)) throw new Error("That doesn't look like a Stripe account id — it starts with acct_ and is in Stripe → Connect → Accounts.");
+    const state = await this.ledger.stripeState();
+    if (state.partners.some((p) => p.account === clean)) throw new Error("That developer is already in your programme.");
+    const stripe = await this.stripe();
+    if (!stripe) throw new Error("Connect your Stripe account first.");
+    const { settings, branding } = await this.ledger.config();
+    const partners = await this.ensurePartnerCoupons(stripe, settings, branding, [
+      ...state.partners,
+      { account: clean, label: label.trim().slice(0, 60), couponId: "", couponPct: Number.NaN },
+    ]);
+    const added = partners.find((p) => p.account === clean)!;
+    if (!added.couponId) {
+      // The coupon is the first thing that needs the key to act on that account. If it can't,
+      // say so now and leave the developer out, rather than listing one nothing works for.
+      await this.ledger.savePartners(partners.filter((p) => p.account !== clean));
+      throw new Error(
+        `Stripe wouldn't let your key act on ${clean}. It has to be a connected account of YOUR Stripe platform, and the key must be the platform's.`,
+      );
+    }
+    return { partners, sync: await this.syncCodes() };
+  }
+
+  /** Remove a developer: codes minted there are retired; the ledger keeps what they owe. */
+  async removePartner(account: string): Promise<Partner[]> {
+    const state = await this.ledger.stripeState();
+    const stripe = await this.stripe();
+    if (stripe) {
+      for (const profile of await this.ledger.listAffiliates()) {
+        const id = profile.promotionCodeIds?.[account];
+        if (!id) continue;
+        try {
+          await stripe.forAccount(account).deactivatePromotionCode(id);
+        } catch {
+          /* the account may already have cut us off — the list entry goes either way */
+        }
+        const { [account]: _gone, ...rest } = profile.promotionCodeIds ?? {};
+        await this.ledger.updateAffiliate(profile.affId, { promotionCodeIds: rest });
+      }
+    }
+    const partners = state.partners.filter((p) => p.account !== account);
+    await this.ledger.savePartners(partners);
+    return partners;
+  }
+
+  /**
+   * Mint every active affiliate's code on every partner account where it is missing. Safe to
+   * run any time; it does nothing when there is nothing to do. This is also the recovery path
+   * for any partner minting that failed at approval or enrolment.
+   */
+  async syncCodes(): Promise<SyncReport> {
+    const stripe = await this.stripe();
+    const { partners } = await this.ledger.stripeState();
+    const report: SyncReport = { minted: 0, failures: [] };
+    if (!stripe || !partners.length) return report;
+    for (const profile of await this.ledger.listAffiliates()) {
+      if (profile.status !== "active" || !profile.code) continue;
+      const before = Object.keys(profile.promotionCodeIds ?? {}).length;
+      const result = await mintOnPartners({
+        affId: profile.affId,
+        code: profile.code,
+        partners,
+        already: profile.promotionCodeIds ?? {},
+        stripe,
+        registry: this.ledger,
+      });
+      report.minted += Object.keys(result.promotionCodeIds).length - before;
+      for (const f of result.failures) report.failures.push({ ...f, affiliate: profile.displayName });
+    }
+    return report;
+  }
+
+  /** P7 / D15b: per developer, what the merchant has advanced on their sales — what they owe back. */
+  async partnerTotals(): Promise<{ account: string; label: string; currency: string; advancedCents: number }[]> {
+    const [{ partners }, totals] = await Promise.all([this.ledger.stripeState(), this.ledger.partnerTotals()]);
+    const label = new Map(partners.map((p) => [p.account, p.label]));
+    return totals.map((t) => ({
+      account: t.account,
+      label: label.get(t.account) ?? "",
+      currency: t.currency,
+      advancedCents: t.earnedCents - t.refundedCents,
+    }));
   }
 
   /** The discount the live coupon actually gives, or NaN when there isn't one yet. */
@@ -161,7 +294,7 @@ export class Program {
     const stripe = await this.stripe();
     if (!stripe) throw new Error("Connect your Stripe account first — a code can't be created without it.");
     const { couponId } = await this.ledger.stripeState();
-    await issueCodeFor({
+    const { code } = await issueCodeFor({
       affId,
       displayName: profile.displayName,
       couponId,
@@ -169,6 +302,10 @@ export class Program {
       registry: this.ledger,
       ...(preferredCode ? { preferred: preferredCode } : {}),
     });
+    // P7: the same code on every participating developer's account. A developer-side failure
+    // is reported through syncCodes() — the affiliate's own code is already working.
+    const { partners } = await this.ledger.stripeState();
+    if (partners.length) await mintOnPartners({ affId, code, partners, already: {}, stripe, registry: this.ledger });
     return (await this.ledger.affiliate(affId))!;
   }
 
@@ -186,6 +323,16 @@ export class Program {
       } catch (e) {
         // A code already deleted in the Stripe dashboard is fine — the outcome is what we want.
         if (!/No such promotion code/i.test((e as Error).message)) throw e;
+      }
+    }
+    // P7: and everywhere else it was minted.
+    if (stripe) {
+      for (const [account, id] of Object.entries(profile.promotionCodeIds ?? {})) {
+        try {
+          await stripe.forAccount(account).deactivatePromotionCode(id);
+        } catch (e) {
+          if (!/No such promotion code/i.test((e as Error).message)) throw e;
+        }
       }
     }
     await this.ledger.updateAffiliate(affId, { status: "retired" });

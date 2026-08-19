@@ -86,3 +86,84 @@ export async function issueCodeFor(params: IssueParams): Promise<{ code: string;
 
   throw new CodeIssueError("Couldn't find a free code to issue. Try again, or set one by hand.");
 }
+
+// ── P7: the same code on every participating developer's account ─────────────────────────
+
+/** The Stripe side of minting on a connected account: a client that can act as that account. */
+export interface AccountIssuer {
+  forAccount(account: string): CodeIssuer;
+}
+
+/** The storage side: remember each account's promotion-code id and point it at the affiliate. */
+export interface PartnerRegistry {
+  mapPromotionCode(promotionCodeId: string, affId: string): Promise<void>;
+  updateAffiliate(affId: string, patch: { promotionCodeIds: Record<string, string> }): Promise<void>;
+}
+
+export interface MintOnPartnersParams {
+  affId: string;
+  /** The code as already issued on the merchant's own account — the SAME string goes everywhere. */
+  code: string;
+  /** Each participating developer, with the coupon as created on THEIR account. */
+  partners: { account: string; couponId: string; label: string }[];
+  /** acct → promo id already minted (a re-run mints only what is missing). */
+  already: Record<string, string>;
+  stripe: AccountIssuer;
+  registry: PartnerRegistry;
+}
+
+export interface MintOnPartnersResult {
+  /** acct → promo id, for every account that now has the code (old and new). */
+  promotionCodeIds: Record<string, string>;
+  /** Accounts the code could NOT be minted on, in words the merchant can act on. */
+  failures: { account: string; label: string; message: string }[];
+}
+
+/**
+ * Mint an already-issued code on each participating connected account.
+ *
+ * A Stripe promotion code lives on ONE account, so a code that should work at a developer's
+ * checkout has to be created there as well — same string, that account's coupon. Idempotent
+ * per account (Stripe idempotency key + "already exists" → look it up), and partial failure is
+ * reported rather than thrown: the merchant's own account already has the code, and one
+ * developer's misconfiguration must not stop the other nine from working.
+ */
+export async function mintOnPartners(params: MintOnPartnersParams): Promise<MintOnPartnersResult> {
+  const promotionCodeIds = { ...params.already };
+  const failures: MintOnPartnersResult["failures"] = [];
+
+  for (const partner of params.partners) {
+    if (promotionCodeIds[partner.account]) continue;
+    if (!partner.couponId) {
+      failures.push({ ...partner, message: "No discount coupon exists on this account yet — save Settings again to create it." });
+      continue;
+    }
+    const issuer = params.stripe.forAccount(partner.account);
+    try {
+      let id: string;
+      try {
+        const created = await issuer.createPromotionCode(
+          partner.couponId,
+          params.code,
+          `ap-${params.affId}-${params.code}-${partner.account}`,
+        );
+        id = created.id;
+      } catch (e) {
+        if (!/already exists|code_already_exists/i.test((e as Error).message)) throw e;
+        // Minted on a previous, interrupted run — or by hand. Either way it is the right code.
+        const found = await issuer.findPromotionCode(params.code);
+        if (!found) throw e;
+        id = found.id;
+      }
+      await params.registry.mapPromotionCode(id, params.affId);
+      promotionCodeIds[partner.account] = id;
+    } catch (e) {
+      failures.push({ ...partner, message: (e as Error).message });
+    }
+  }
+
+  if (Object.keys(promotionCodeIds).length !== Object.keys(params.already).length) {
+    await params.registry.updateAffiliate(params.affId, { promotionCodeIds });
+  }
+  return { promotionCodeIds, failures };
+}

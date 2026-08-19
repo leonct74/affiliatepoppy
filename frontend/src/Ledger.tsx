@@ -12,7 +12,7 @@ import { api } from "./api";
 import { collectFiles } from "./download";
 import { Button } from "./Button";
 import { money, parseAmount } from "./money";
-import type { Affiliate, Payout } from "./types";
+import type { Affiliate, PartnerTotal, Payout } from "./types";
 
 export function Ledger(props: {
   affiliates: Affiliate[];
@@ -27,6 +27,7 @@ export function Ledger(props: {
   onChanged: () => Promise<void>;
 }) {
   const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [partnerTotals, setPartnerTotals] = useState<PartnerTotal[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [exported, setExported] = useState<{ rows: number; filenames: string[] } | null>(null);
   const [paying, setPaying] = useState<{ affiliate: Affiliate; currency: string; owedCents: number } | null>(null);
@@ -34,6 +35,8 @@ export function Ledger(props: {
   const load = async () => {
     try {
       setPayouts((await api.payouts()).payouts);
+      // P7: what developers owe back. Older backends have no such route; that is "nothing".
+      setPartnerTotals((await api.partners().catch(() => ({ totals: [] }))).totals);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -91,6 +94,28 @@ export function Ledger(props: {
           </div>
         )}
       </div>
+
+      {partnerTotals.some((t) => t.advancedCents !== 0) && (
+        <div className="card stack">
+          <h2 className="section-title">Owed to you by developers</h2>
+          <p className="muted" style={{ margin: 0 }}>
+            Commission you're paying publishers on sales that landed on a developer's account. You pay the publisher
+            either way; this is what each developer owes you back. Reported here — collecting it is between you and
+            them.
+          </p>
+          {partnerTotals
+            .filter((t) => t.advancedCents !== 0)
+            .map((t) => (
+              <div key={`${t.account}-${t.currency}`} className="spread" style={{ borderTop: "1px solid var(--poppy-border)", paddingTop: 10 }}>
+                <div>
+                  <strong>{t.label || t.account}</strong>
+                  {t.label && <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>{t.account}</span>}
+                </div>
+                <strong>{money(t.advancedCents, t.currency)}</strong>
+              </div>
+            ))}
+        </div>
+      )}
 
       <div className="card stack">
         <div className="spread">

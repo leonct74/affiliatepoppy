@@ -87,6 +87,7 @@ patterns from them, never modify them from here.
 | D15d | **The calendar, not the clock.** Sales in month M are approved and the developers direct-debited on the **1st of M+2**; publishers are paid on the **10th of M+2**. Money is always collected *before* it is paid out, and a rolling reserve covers the late-refund tail — §12.6d. | Founder, 2026-08-16: *"they wouldn't really care when the money will be in their pocket, they just need the certainty of when to expect."* A fixed date beats a short one. Collect-then-pay removes the float; the calendar removes the uncertainty; nobody's payout ever depends on somebody else's payment arriving. |
 | D15e | **A reversal is a credit, never a payment out**, and a developer may not be a publisher on their own poppy. Kills self-dealing by arithmetic rather than by policy — §12.6e. Applies only to central campaigns; **the shipped poppy is not in the money at all** (D12). | Founder, 2026-08-16, spotting the fraud: sign up as your own affiliate, sell to yourself, refund, keep the commission. It only pays if a reversal can pull cash out of the platform — so don't let it. |
 | D16 | **The backend is confined** — `backend.isolation: "strict"`: it may read its install directory and write only its `dataDir` and OS temp; nothing else on the machine, and no child processes. Files leave via the host's `/ext-dl` one-shot handoff, never via `~/Documents`. | Founder, 2026-08-16: *"by design all poppies must comply not to access the file-system except for their own folder."* AffiliatePoppy keeps NO local state (everything is in the merchant's AWS), so the only casualty was the CSV export writing to Documents — replaced. Verified by booting the shipped bundle under the host's exact `NODE_OPTIONS`: `~/.aws` and `~/Documents` → `ERR_ACCESS_DENIED`, `dataDir` and install dir → allowed. |
+| D17 | **Connected accounts are in the poppy (P7).** A merchant who runs a Stripe *platform* lists participating developers' `acct_…` ids; every affiliate code is minted on the merchant's account **and on each of theirs**; a second, "connected accounts" webhook endpoint feeds the same receiver; every ledger entry records the account the sale landed on; the Ledger reports **what each developer owes back** (D15b) — computed and reported, never collected (D12). | Founder, 2026-08-16, at the end of the first live test: *"I don't want to test the teardown if we still need to develop a new Stripe workflow and ledger to work with connected accounts."* Without it, the poppy tracks first-party poppy sales only (those charge on the platform account); developers' poppies — the majority of the catalogue — would be invisible. Opt-in per developer, not automatic: D15's guard. |
 | D14 | AgentsPoppy is the **first customer**: the founder installs AffiliatePoppy in his own AWS and adds its receiver as a second webhook endpoint on the platform's Stripe. | Dogfooding that is also the demo. |
 
 ---
@@ -429,6 +430,15 @@ two visually distinct merchant setups from the same build.*
 Port TrafficPoppy `edge.ts`; entitlement-gate via platform checkout; Manage billing
 visible where the feature lives. *Gate: portal live on a real custom domain in the test
 setup, then torn down clean.*
+
+**P7 — Connected accounts (D17) — BUILT 2026-08-16, ahead of P5/P6.**
+Second ("connected accounts") webhook secret in SSM, receiver verifies against either;
+`Stripe-Account` header on the existing restricted key; partner list in `cfg#stripe`;
+coupon per partner account; `mintOnPartners()` after issue/approve, `syncCodes()` as the
+recovery path; `account` on every ledger entry and ref row; `acct#` totals rows moved in the
+same transaction; Setup step 4 (folded away for non-platforms); Ledger "Owed to you by
+developers". *Gate: a test-mode sale on a connected account credits the publisher and the
+developer's figure; refund reverses both.*
 
 **P6 — Dogfood + listing.**
 Founder installs in his own AWS; agentspoppy-web one-liner (§7) ships; platform webhook
@@ -1062,6 +1072,37 @@ poppy can ship, sell, and never have this half built.
 **Practical guidance to give developers** (mirrors the founder's own D3 move): price with the
 affiliate cut in mind before the campaign, not after — he raised AgentsPoppy's prices 15% so
 that a 5% customer discount and a 10% commission fit inside the margin rather than eating it.
+
+### 12.6f P7 as built — connected accounts, what to check live
+
+The platform half of D15 that the POPPY can carry (the rest — who pays whom when, direct
+debit — stays platform billing and stays on the shelf):
+
+- **Stripe side.** A code lives on one account, so `mintOnPartners()` creates the same string
+  on each participating `acct_…` with `Stripe-Account` on the merchant's own restricted key
+  (no second key). Coupons live on one account too: `ensurePartnerCoupons()` keeps a coupon at
+  the current discount on every partner, and a changed discount re-creates them all. Failures
+  are per developer and reported (Setup → "Create any missing codes"), never all-or-nothing:
+  the merchant's own account already has the code.
+- **Events.** A connected account's sales reach the receiver only through a webhook endpoint
+  created as *"Listen to events on connected accounts"*, which signs with its own secret — a
+  third SSM parameter, optional; `handleWebhook` verifies against either. The event's
+  `account` rides into every instruction; `attribute.ts` puts it on the entry; a refund is
+  booked against the account of the SALE (from the ref row), not the refund event.
+- **Ledger.** `acct#<account>#<currency>` totals rows move in the same `TransactWriteItems` as
+  the entry, so "owed to you by developers" can never disagree with the rows. The CSV gains an
+  `account` column. The publisher's view is unchanged — one number, one counterparty.
+- **What a live check proves** (the first real deploy did NOT include this; it needs a
+  connected account in the founder's test platform): add the account in Setup step 4 → the
+  coupon and the affiliate's code appear under that account in Stripe; a Payment Link on that
+  account with the code → a `sale` row with `account` set, the publisher's owed figure AND the
+  developer's figure move together; refund → both come back down.
+- **The key question it may answer:** whether a *restricted* key may act on connected accounts
+  at all. Stripe's Connect docs describe the platform's *secret* key; restricted keys carry the
+  same resource scopes and are expected to work, but `addPartner()` is written so that if the
+  coupon create on the account is refused, the developer is not added and the message says
+  which key to use. If it turns out a platform needs its standard secret key here, that is a
+  D11 conversation (the key's scope), not a code change.
 
 ### 12.7 Live-only risks — what the first real deploy is actually testing
 

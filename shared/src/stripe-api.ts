@@ -37,6 +37,12 @@ export class StripeApiError extends Error {
 
 export interface StripeClientOptions {
   apiKey: string;
+  /**
+   * Act on a CONNECTED ACCOUNT instead of the key's own (P7). Stripe's `Stripe-Account`
+   * header: the platform's key, the developer's account. A coupon or promotion code created
+   * this way exists on that account only — which is the whole reason it is needed.
+   */
+  account?: string;
   /** Injected so every call is testable without touching Stripe. */
   fetchImpl?: typeof fetch;
 }
@@ -84,6 +90,7 @@ export class StripeClient {
       "content-type": "application/x-www-form-urlencoded",
       "stripe-version": STRIPE_API_VERSION,
     };
+    if (this.opts.account) headers["stripe-account"] = this.opts.account;
     // A retried create must never mint a second code for the same affiliate. Stripe replays
     // the original response for 24h against the same key.
     if (idempotencyKey) headers["idempotency-key"] = idempotencyKey;
@@ -117,6 +124,16 @@ export class StripeClient {
       );
     }
     return body as T;
+  }
+
+  /** The same key, acting on a connected account. */
+  forAccount(account: string): StripeClient {
+    return new StripeClient({ ...this.opts, account });
+  }
+
+  /** Which account this client acts on ("" = the key's own). */
+  get account(): string {
+    return this.opts.account ?? "";
   }
 
   /** The program's ONE coupon; every affiliate's promotion code points at it. */

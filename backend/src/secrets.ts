@@ -18,11 +18,16 @@ import {
   PutParameterCommand,
   type SSMClient,
 } from "@aws-sdk/client-ssm";
-import { SSM_API_KEY, SSM_WEBHOOK_SECRET } from "../../infra/src/template";
+import { SSM_API_KEY, SSM_CONNECT_WEBHOOK_SECRET, SSM_WEBHOOK_SECRET } from "../../infra/src/template";
 import type { AttributionContext } from "./tags";
 import { APP_ID, TAG_ACCOUNT, TAG_APP, TAG_CONNECTION } from "./tags";
 
-export const SECRET_NAMES = { webhookSecret: SSM_WEBHOOK_SECRET, apiKey: SSM_API_KEY } as const;
+export const SECRET_NAMES = {
+  webhookSecret: SSM_WEBHOOK_SECRET,
+  apiKey: SSM_API_KEY,
+  /** P7, optional: the "connected accounts" endpoint's own signing secret. */
+  connectSecret: SSM_CONNECT_WEBHOOK_SECRET,
+} as const;
 export type SecretName = keyof typeof SECRET_NAMES;
 
 /** What the UI may know about a stored secret: that it exists, and its last four characters. */
@@ -93,7 +98,7 @@ export async function describeSecrets(ssm: SSMClient): Promise<Record<SecretName
   return Object.fromEntries(entries) as Record<SecretName, SecretStatus>;
 }
 
-/** Delete both secrets. Idempotent — "already gone" is success. Returns what was removed. */
+/** Delete every secret. Idempotent — "already gone" is success. Returns what was removed. */
 export async function forgetSecrets(ssm: SSMClient): Promise<string[]> {
   const removed: string[] = [];
   for (const Name of Object.values(SECRET_NAMES)) {

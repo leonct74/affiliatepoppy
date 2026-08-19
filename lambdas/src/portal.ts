@@ -25,7 +25,7 @@ import {
   type ProgramSettings,
 } from "../../shared/src/settings";
 import { StripeClient } from "../../shared/src/stripe-api";
-import { CodeIssueError, issueCodeFor } from "../../shared/src/issue";
+import { CodeIssueError, issueCodeFor, mintOnPartners } from "../../shared/src/issue";
 import { sanitizePlacements, type Placement } from "../../shared/src/placements";
 import { bearerToken, verifyJwt, type AffiliateClaims, type Jwk } from "./auth";
 import { portalHtml } from "./portal-page";
@@ -316,7 +316,15 @@ const liveDeps: PortalDeps = {
   },
   async issueCode({ affId, displayName, couponId }) {
     const stripe = new StripeClient({ apiKey: await stripeKey() });
-    await issueCodeFor({ affId, displayName, couponId, issuer: stripe, registry: ledger });
+    const { code } = await issueCodeFor({ affId, displayName, couponId, issuer: stripe, registry: ledger });
+    // P7: the same code on every participating developer's account. Best-effort here — the
+    // affiliate already has a working code on the merchant's account, and a developer-side
+    // failure is the merchant's to see (the poppy's "sync codes" shows it), not the affiliate's.
+    const { partners } = await ledger.stripeState();
+    if (partners.length) {
+      const result = await mintOnPartners({ affId, code, partners, already: {}, stripe, registry: ledger });
+      for (const f of result.failures) console.log("[affiliatepoppy] partner mint failed", JSON.stringify(f));
+    }
   },
   async allowEnrolment(sourceIp) {
     if (!sourceIp) return true;

@@ -127,7 +127,9 @@ const server = createServer(async (req, res) => {
     // response says only that it was saved, and shows the last four characters.
     if (method === "PUT" && parts[0] === "secrets" && parts.length === 2) {
       const which = parts[1] as SecretName;
-      if (which !== "webhookSecret" && which !== "apiKey") return json(res, 404, { error: "No such secret." });
+      if (which !== "webhookSecret" && which !== "apiKey" && which !== "connectSecret") {
+        return json(res, 404, { error: "No such secret." });
+      }
       const body = (await readBody(req)) ?? {};
       const status = await putSecret(aws.ssm, which, str(body.value), attribution);
       // Saving the API key is also the moment to prove it works and make sure the coupon
@@ -138,6 +140,24 @@ const server = createServer(async (req, res) => {
 
     if (method === "POST" && parts[0] === "stripe" && parts[1] === "check") {
       return json(res, 200, await program.connectStripe());
+    }
+
+    // ── P7: participating developers (connected accounts) ─────────────────────────────
+    if (parts[0] === "partners") {
+      if (method === "GET" && parts.length === 1) {
+        const [partners, totals] = await Promise.all([program.partners(), program.partnerTotals()]);
+        return json(res, 200, { partners, totals });
+      }
+      if (method === "POST" && parts.length === 1) {
+        const body = (await readBody(req)) ?? {};
+        return json(res, 200, await program.addPartner(str(body.account), str(body.label)));
+      }
+      if (method === "POST" && parts.length === 2 && parts[1] === "sync") {
+        return json(res, 200, await program.syncCodes());
+      }
+      if (method === "DELETE" && parts.length === 2) {
+        return json(res, 200, { partners: await program.removePartner(decodeURIComponent(parts[1]!)) });
+      }
     }
 
     // ── affiliates ────────────────────────────────────────────────────────────────────

@@ -19,7 +19,7 @@ class FakeStore implements LedgerStore {
   codes = new Map<string, string>();
   subscriptions = new Map<string, string>();
   entries = new Map<string, LedgerEntry>();
-  references = new Map<string, { affId: string; ledgerId: string; amountCents: number; currency: string }>();
+  references = new Map<string, { affId: string; ledgerId: string; amountCents: number; currency: string; account: string }>();
   /** Every credit attempt, including the ones a redelivery rejected. */
   creditAttempts: LedgerEntry[] = [];
 
@@ -46,7 +46,7 @@ class FakeStore implements LedgerStore {
     if (this.entries.has(entry.ledgerId)) return false; // the redelivery guard
     this.entries.set(entry.ledgerId, entry);
     for (const r of references) {
-      this.references.set(r, { affId: entry.affId, ledgerId: entry.ledgerId, amountCents: entry.amountCents, currency: entry.currency });
+      this.references.set(r, { affId: entry.affId, ledgerId: entry.ledgerId, amountCents: entry.amountCents, currency: entry.currency, account: entry.account ?? "" });
     }
     return true;
   }
@@ -57,7 +57,7 @@ class FakeStore implements LedgerStore {
     }
     return undefined;
   }
-  async addReferences(references: string[], credit: { affId: string; ledgerId: string; amountCents: number; currency: string }) {
+  async addReferences(references: string[], credit: { affId: string; ledgerId: string; amountCents: number; currency: string; account: string }) {
     for (const r of references) this.references.set(r, credit);
   }
   async reverse(entry: LedgerEntry) {
@@ -290,6 +290,25 @@ describe("a refund", () => {
     const outcomes = await apply(refund({ id: "ch_other", payment_intent: "pi_other" }));
     expect(outcomes).toEqual([{ applied: "ignored", reason: "refund is for a sale we never credited" }]);
     expect(store.balance("aff-oliver")).toBe(1000);
+  });
+});
+
+describe("a sale on a developer's connected account (P7)", () => {
+  it("credits the publisher exactly as on the merchant's own account, and records WHOSE account it was", async () => {
+    // The publisher's side is unchanged: same code, same rate, same money. What is new is the
+    // account on the entry — which is how the merchant knows what the developer owes back.
+    const outcomes = await apply({ ...checkout({ id: "cs_dev" }), account: "acct_dev1" });
+    expect(outcomes.at(-1)).toMatchObject({ applied: "credited", entry: { amountCents: 1000, account: "acct_dev1" } });
+    expect(store.balance("aff-oliver")).toBe(1000);
+  });
+
+  it("books the refund against the account the SALE was on, whatever the refund event says", async () => {
+    await apply({ ...checkout({ id: "cs_dev", payment_intent: "pi_dev" }), account: "acct_dev1" });
+    const outcomes = await apply({
+      type: "charge.refunded", created: 1_756_678_400, account: "acct_dev1",
+      data: { object: { id: "ch_dev", amount: 12000, amount_refunded: 12000, currency: "eur", payment_intent: "pi_dev" } },
+    });
+    expect(outcomes[0]).toMatchObject({ applied: "reversed", entry: { amountCents: -1000, account: "acct_dev1" } });
   });
 });
 

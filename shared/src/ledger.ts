@@ -19,9 +19,15 @@ export interface LedgerEntry {
   baseCents: number;
   currency: string;
   pct: number;
-  /** The Stripe object this came from — meaningful only inside the merchant's own account. */
+  /** The Stripe object this came from — meaningful only inside the account it landed on. */
   orderRef: string;
   day: string;
+  /**
+   * The Stripe CONNECTED ACCOUNT the sale landed on (`acct_…`), or "" for the merchant's own
+   * account. P7: a code minted on a developer's account produces sales there; the merchant
+   * pays the publisher either way (D15) and this is how they know what the developer owes back.
+   */
+  account?: string;
 }
 
 /** An affiliate as the money path needs them. */
@@ -37,7 +43,10 @@ export interface AffiliateProfile extends AffiliateRecord {
   email: string;
   displayName: string;
   code: string;
+  /** Stripe's id for the code on the merchant's OWN account. */
   promotionCodeId: string;
+  /** The same code, minted on each participating connected account: acct id → promo id (P7). */
+  promotionCodeIds?: Record<string, string>;
   createdDay: string;
   /**
    * Where they say they share their code — optional, declared by them, a favour to the

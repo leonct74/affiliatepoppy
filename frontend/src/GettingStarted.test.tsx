@@ -23,7 +23,7 @@ const status = (over: Partial<DeploymentStatus> = {}): DeploymentStatus => ({
 const config = (over: Partial<ProgramConfig> = {}): ProgramConfig => ({
   settings: { discountPct: 5, commissionPct: 10, firstPaymentOnly: false, autoApprove: false, maxAffiliates: 1000 },
   branding: { merchantName: "", accentColor: "#bccf9e", logoDataUri: "", offerCopy: "", termsText: "" },
-  stripe: { couponId: "", lastEventAt: 0, livemode: false },
+  stripe: { couponId: "", lastEventAt: 0, livemode: false, partners: [] },
   offer: "",
   secrets: { webhookSecret: { stored: false, hint: "" }, apiKey: { stored: false, hint: "" } },
   ...over,
@@ -68,7 +68,7 @@ describe("as the merchant works through it", () => {
 
     const full = config({
       secrets: { webhookSecret: { stored: true, hint: "…1" }, apiKey: { stored: true, hint: "…2" } },
-      stripe: { couponId: "co_1", lastEventAt: 0, livemode: false },
+      stripe: { couponId: "co_1", lastEventAt: 0, livemode: false, partners: [] },
     });
     render(<GettingStarted status={status({ phase: "ready" })} config={full} onGo={vi.fn()} />);
     expect(screen.getAllByText(/^Done$/)).toHaveLength(2 + 1); // +1 from the first render above
@@ -77,7 +77,7 @@ describe("as the merchant works through it", () => {
   it("says where the link is once the programme is open", () => {
     const open = config({
       secrets: { webhookSecret: { stored: true, hint: "…1" }, apiKey: { stored: true, hint: "…2" } },
-      stripe: { couponId: "co_1", lastEventAt: 0, livemode: false },
+      stripe: { couponId: "co_1", lastEventAt: 0, livemode: false, partners: [] },
       branding: { merchantName: "Olly Digital", accentColor: "#bccf9e", logoDataUri: "", offerCopy: "", termsText: "" },
     });
     render(<GettingStarted status={status({ phase: "ready" })} config={open} onGo={vi.fn()} />);

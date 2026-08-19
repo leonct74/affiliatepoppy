@@ -98,6 +98,19 @@ describe("a checkout", () => {
   });
 });
 
+describe("a connected account's event (P7)", () => {
+  it("carries the account id through, and reads as the merchant's own when there is none", () => {
+    const sale = event("checkout.session.completed", {
+      id: "cs_1", amount_total: 9500, currency: "eur", payment_status: "paid",
+      discounts: [{ promotion_code: "promo_1" }],
+    });
+    expect(readEvent(sale)).toMatchObject({ kind: "sale", account: "" });
+    expect(readEvent({ ...sale, account: "acct_dev1" })).toMatchObject({ kind: "sale", account: "acct_dev1" });
+    const refund = event("charge.refunded", { id: "ch_1", amount: 9500, amount_refunded: 9500, currency: "eur" });
+    expect(readEvent({ ...refund, account: "acct_dev1" })).toMatchObject({ kind: "refund", account: "acct_dev1" });
+  });
+});
+
 describe("an invoice", () => {
   const invoice = (over: Record<string, unknown> = {}) =>
     readEvent(

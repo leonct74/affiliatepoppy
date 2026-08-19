@@ -46,6 +46,8 @@ export const USER_POOL_NAME = "AffiliatePoppyAffiliates";
 export const SSM_PREFIX = "/affiliatepoppy";
 export const SSM_WEBHOOK_SECRET = `${SSM_PREFIX}/stripe/webhook-secret`;
 export const SSM_API_KEY = `${SSM_PREFIX}/stripe/api-key`;
+/** P7: the signing secret of a SECOND endpoint, the "connected accounts" one. Optional. */
+export const SSM_CONNECT_WEBHOOK_SECRET = `${SSM_PREFIX}/stripe/connect-webhook-secret`;
 
 /**
  * Affiliate passwords are the merchant's partners' passwords — the merchant never sees them
@@ -153,9 +155,10 @@ export function buildTemplate(): CfnTemplate {
                     // whole internet is the last place to hold a writable Stripe key.
                     Effect: "Allow",
                     Action: ["ssm:GetParameter"],
-                    Resource: {
-                      "Fn::Sub": `arn:aws:ssm:\${AWS::Region}:\${AWS::AccountId}:parameter${SSM_WEBHOOK_SECRET}`,
-                    },
+                    Resource: [
+                      { "Fn::Sub": `arn:aws:ssm:\${AWS::Region}:\${AWS::AccountId}:parameter${SSM_WEBHOOK_SECRET}` },
+                      { "Fn::Sub": `arn:aws:ssm:\${AWS::Region}:\${AWS::AccountId}:parameter${SSM_CONNECT_WEBHOOK_SECRET}` },
+                    ],
                   },
                   {
                     Effect: "Allow",
@@ -200,6 +203,7 @@ export function buildTemplate(): CfnTemplate {
             Variables: {
               TABLE_NAME: { Ref: "LedgerTable" },
               WEBHOOK_SECRET_PARAM: SSM_WEBHOOK_SECRET,
+              CONNECT_WEBHOOK_SECRET_PARAM: SSM_CONNECT_WEBHOOK_SECRET,
             },
           },
         },

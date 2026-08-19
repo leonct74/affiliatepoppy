@@ -21,6 +21,7 @@ import { DynamoLedger } from "../../shared/src/ledger-store";
 
 const TABLE = process.env.TABLE_NAME ?? "";
 const SECRET_PARAM = process.env.WEBHOOK_SECRET_PARAM ?? "";
+const CONNECT_SECRET_PARAM = process.env.CONNECT_WEBHOOK_SECRET_PARAM ?? "";
 
 const db = new DynamoDBClient({});
 const ssm = new SSMClient({});
@@ -35,6 +36,12 @@ export interface WebhookRequest {
 export interface WebhookDeps {
   store: LedgerStore;
   secret(): Promise<string>;
+  /**
+   * P7: the SECOND endpoint's secret — Stripe's "connected accounts" endpoints sign with their
+   * own. Optional; "" means the merchant has no such endpoint. A body that verifies against
+   * either is genuine, and which one tells us nothing the event's own `account` doesn't.
+   */
+  connectSecret?(): Promise<string>;
   /** Records that Stripe reached us, so the Setup tab can say so. Best-effort. */
   noteEvent?(livemode: boolean, at: number): Promise<void>;
 }
@@ -45,16 +52,21 @@ export interface WebhookResult {
   outcomes?: Outcome[];
 }
 
+/** Verify with the account endpoint's secret, then the connected-accounts one. */
+function verifyAgainstEither(req: WebhookRequest, secret: string, connectSecret: string): unknown {
+  try {
+    return verifyStripeSignature({ payload: req.rawBody, header: req.signature, secret, now: req.now });
+  } catch (e) {
+    if (!(e instanceof SignatureError) || !connectSecret) throw e;
+    return verifyStripeSignature({ payload: req.rawBody, header: req.signature, secret: connectSecret, now: req.now });
+  }
+}
+
 /** The whole request path, with its dependencies injected. */
 export async function handleWebhook(req: WebhookRequest, deps: WebhookDeps): Promise<WebhookResult> {
   let event: unknown;
   try {
-    event = verifyStripeSignature({
-      payload: req.rawBody,
-      header: req.signature,
-      secret: await deps.secret(),
-      now: req.now,
-    });
+    event = verifyAgainstEither(req, await deps.secret(), deps.connectSecret ? await deps.connectSecret() : "");
   } catch (e) {
     if (e instanceof SignatureError) {
       // Say nothing useful: an unauthenticated caller learns only that it was refused.
@@ -76,14 +88,24 @@ export async function handleWebhook(req: WebhookRequest, deps: WebhookDeps): Pro
 
 // ── real-world wiring ───────────────────────────────────────────────────────────────────
 
-/** The signing secret, cached for the life of the container (one SSM read per cold start). */
-let cachedSecret: string | undefined;
-async function secret(): Promise<string> {
-  if (cachedSecret !== undefined) return cachedSecret;
-  const out = await ssm.send(new GetParameterCommand({ Name: SECRET_PARAM, WithDecryption: true }));
-  cachedSecret = out.Parameter?.Value ?? "";
-  return cachedSecret;
+/** The signing secrets, cached for the life of the container (one SSM read each per cold start). */
+const cached = new Map<string, string>();
+async function readParam(name: string): Promise<string> {
+  const hit = cached.get(name);
+  if (hit !== undefined) return hit;
+  let value = "";
+  try {
+    const out = await ssm.send(new GetParameterCommand({ Name: name, WithDecryption: true }));
+    value = out.Parameter?.Value ?? "";
+  } catch (e) {
+    // The connect secret is optional: absent means "no such endpoint", not an error.
+    if ((e as { name?: string })?.name !== "ParameterNotFound") throw e;
+  }
+  cached.set(name, value);
+  return value;
 }
+const secret = () => readParam(SECRET_PARAM);
+const connectSecret = () => (CONNECT_SECRET_PARAM ? readParam(CONNECT_SECRET_PARAM) : Promise.resolve(""));
 
 async function noteEvent(livemode: boolean, at: number): Promise<void> {
   await db.send(
@@ -113,7 +135,7 @@ export async function handler(event: {
   try {
     const result = await handleWebhook(
       { rawBody, signature, now: Math.floor(Date.now() / 1000) },
-      { store: new DynamoLedger(db, TABLE), secret, noteEvent },
+      { store: new DynamoLedger(db, TABLE), secret, connectSecret, noteEvent },
     );
     if (result.outcomes) {
       // The merchant's own log, in their own account: what we did and why, with no buyer data.

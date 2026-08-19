@@ -58,7 +58,7 @@ describe("the file a person opens", () => {
     const csv = toCsv([affiliate({ displayName: 'Olly, "the Digital" one' })], [entry()]);
     expect(csv).toContain('"Olly, ""the Digital"" one"');
     // …and the parsed row still has the expected number of columns.
-    expect(csv.split("\n")[0]!.split(",")).toHaveLength(10);
+    expect(csv.split("\n")[0]!.split(",")).toHaveLength(11);
   });
 
   it("shows a refund as the negative it is", () => {
@@ -77,7 +77,7 @@ describe("the file a person opens", () => {
 
   it("has a header row naming every column", () => {
     expect(toCsv([], []).split("\n")[0]).toBe(
-      "date,affiliate,email,code,kind,commission,currency,rate_pct,base,stripe_ref",
+      "date,affiliate,email,code,kind,commission,currency,rate_pct,base,stripe_ref,account",
     );
   });
 });

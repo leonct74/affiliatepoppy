@@ -14,6 +14,7 @@ import type { AffiliateRecord, LedgerEntry } from "../../shared/src/ledger";
 import { commissionBase, commissionCents, proportionalReversal } from "../../shared/src/money";
 import type { ProgramSettings } from "../../shared/src/settings";
 import type { Instruction } from "../../shared/src/stripe-events";
+import type { FoundCredit } from "../../shared/src/ledger-store";
 
 export type { AffiliateRecord, Instruction, LedgerEntry };
 
@@ -46,13 +47,7 @@ export interface LedgerStore {
   reverse(entry: LedgerEntry): Promise<void>;
 }
 
-/** A credit as a reverse-lookup row describes it. */
-export interface FoundCredit {
-  affId: string;
-  ledgerId: string;
-  amountCents: number;
-  currency: string;
-}
+export type { FoundCredit };
 
 /** What happened, in a shape worth logging and asserting on. */
 export type Outcome =
@@ -102,6 +97,7 @@ export async function applyInstruction(instruction: Instruction, store: LedgerSt
       affId,
       ledgerId: instruction.ledgerId,
       kind: "sale",
+      account: instruction.account,
       amountCents: amount,
       baseCents: base,
       currency: instruction.currency,
@@ -132,6 +128,7 @@ export async function applyInstruction(instruction: Instruction, store: LedgerSt
       affId,
       ledgerId: instruction.ledgerId,
       kind: "renewal",
+      account: instruction.account,
       amountCents: amount,
       baseCents: base,
       currency: instruction.currency,
@@ -161,6 +158,9 @@ export async function applyInstruction(instruction: Instruction, store: LedgerSt
     affId: original.affId,
     ledgerId: refundLedgerId(instruction.chargeId),
     kind: "refund",
+    // The reversal belongs to the account the SALE was on — that is whose commission is
+    // being handed back — not to whatever the refund event happened to say.
+    account: original.account,
     // Negative, so the ledger reads as a running account rather than a list of two kinds of
     // positive number that the reader has to sign themselves.
     amountCents: -reversal,

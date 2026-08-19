@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { CODE_PATTERN, normalizeCode, suggestCode } from "../../shared/src/codes";
-import { CodeIssueError, issueCodeFor, type CodeIssuer, type CodeRegistry } from "../../shared/src/issue";
+import { CodeIssueError, issueCodeFor, mintOnPartners, type CodeIssuer, type CodeRegistry } from "../../shared/src/issue";
 
 /**
  * Deterministic "randomness" so a test can predict the code that comes out — but DIFFERENT on
@@ -183,5 +183,72 @@ describe("issuing it", () => {
       throw new Error("Invalid API Key provided");
     };
     await expect(issue({ issuer }).run()).rejects.toThrow(/Invalid API Key/);
+  });
+});
+
+describe("minting the same code on developers' accounts (P7)", () => {
+  const partners = [
+    { account: "acct_a", couponId: "co_a", label: "Dev A" },
+    { account: "acct_b", couponId: "co_b", label: "Dev B" },
+  ];
+  function harness(failOn: Record<string, string> = {}) {
+    const created: { account: string; couponId: string; code: string; key?: string }[] = [];
+    const mapped: string[] = [];
+    const patched: Record<string, string>[] = [];
+    const stripe = {
+      forAccount: (account: string) => ({
+        async findPromotionCode(code: string) {
+          return failOn[account] === "exists" ? { id: `promo_${account}_found`, code } : undefined;
+        },
+        async createPromotionCode(couponId: string, code: string, key?: string) {
+          if (failOn[account] === "exists") throw new Error("Promotion code already exists");
+          if (failOn[account]) throw new Error(failOn[account]!);
+          created.push({ account, couponId, code, key });
+          return { id: `promo_${account}`, code };
+        },
+      }),
+    };
+    const registry = {
+      async mapPromotionCode(id: string) { mapped.push(id); },
+      async updateAffiliate(_: string, patch: { promotionCodeIds: Record<string, string> }) { patched.push(patch.promotionCodeIds); },
+    };
+    return { created, mapped, patched, stripe, registry };
+  }
+
+  it("mints on every participating account with THAT account's coupon and the same code string", async () => {
+    const h = harness();
+    const r = await mintOnPartners({ affId: "aff-1", code: "OLIVER7K3M", partners, already: {}, stripe: h.stripe, registry: h.registry });
+    expect(h.created).toEqual([
+      { account: "acct_a", couponId: "co_a", code: "OLIVER7K3M", key: "ap-aff-1-OLIVER7K3M-acct_a" },
+      { account: "acct_b", couponId: "co_b", code: "OLIVER7K3M", key: "ap-aff-1-OLIVER7K3M-acct_b" },
+    ]);
+    expect(r.promotionCodeIds).toEqual({ acct_a: "promo_acct_a", acct_b: "promo_acct_b" });
+    expect(h.mapped).toEqual(["promo_acct_a", "promo_acct_b"]);
+    expect(h.patched).toEqual([{ acct_a: "promo_acct_a", acct_b: "promo_acct_b" }]);
+    expect(r.failures).toEqual([]);
+  });
+
+  it("mints only what is missing on a re-run, and writes nothing when nothing changed", async () => {
+    const h = harness();
+    const r = await mintOnPartners({ affId: "aff-1", code: "X", partners, already: { acct_a: "promo_old" }, stripe: h.stripe, registry: h.registry });
+    expect(h.created.map((c) => c.account)).toEqual(["acct_b"]);
+    expect(r.promotionCodeIds).toEqual({ acct_a: "promo_old", acct_b: "promo_acct_b" });
+    const again = await mintOnPartners({ affId: "aff-1", code: "X", partners, already: r.promotionCodeIds, stripe: h.stripe, registry: h.registry });
+    expect(h.patched).toHaveLength(1); // the second run found nothing to do
+    expect(again.failures).toEqual([]);
+  });
+
+  it("reports one developer's failure and still mints on the others — never all-or-nothing", async () => {
+    const h = harness({ acct_a: "This key can't act on that account." });
+    const r = await mintOnPartners({ affId: "aff-1", code: "X", partners, already: {}, stripe: h.stripe, registry: h.registry });
+    expect(r.promotionCodeIds).toEqual({ acct_b: "promo_acct_b" });
+    expect(r.failures).toEqual([{ account: "acct_a", couponId: "co_a", label: "Dev A", message: "This key can't act on that account." }]);
+  });
+
+  it("adopts a code that already exists on the account (an interrupted earlier run)", async () => {
+    const h = harness({ acct_a: "exists" });
+    const r = await mintOnPartners({ affId: "aff-1", code: "X", partners, already: {}, stripe: h.stripe, registry: h.registry });
+    expect(r.promotionCodeIds.acct_a).toBe("promo_acct_a_found");
+    expect(r.failures).toEqual([]);
   });
 });

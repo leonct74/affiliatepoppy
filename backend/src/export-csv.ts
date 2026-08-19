@@ -38,7 +38,7 @@ export function toCsv(
   entries: LedgerEntry[],
 ): string {
   const byId = new Map(affiliates.map((a) => [a.affId, a]));
-  const header = ["date", "affiliate", "email", "code", "kind", "commission", "currency", "rate_pct", "base", "stripe_ref"];
+  const header = ["date", "affiliate", "email", "code", "kind", "commission", "currency", "rate_pct", "base", "stripe_ref", "account"];
   // Placements are per affiliate, not per entry — they get their own small file-section
   // rather than being repeated on every row. See placementsCsv().
   const rows = [...entries]
@@ -56,6 +56,8 @@ export function toCsv(
         e.pct,
         (e.baseCents / 100).toFixed(2),
         e.orderRef,
+        // P7: which connected account the sale was on — "" means the merchant's own.
+        e.account ?? "",
       ].map(cell).join(",");
     });
   return [header.join(","), ...rows].join("\n") + "\n";
