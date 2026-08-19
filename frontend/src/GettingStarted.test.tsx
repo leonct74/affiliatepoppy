@@ -81,6 +81,6 @@ describe("as the merchant works through it", () => {
       branding: { merchantName: "Olly Digital", accentColor: "#bccf9e", logoDataUri: "", offerCopy: "", termsText: "" },
     });
     render(<GettingStarted status={status({ phase: "ready" })} config={open} onGo={vi.fn()} />);
-    expect(screen.getByText(/it's on the setup tab\. anyone who opens it can join/i)).toBeInTheDocument();
+    expect(screen.getByText(/it's on the setup tab\. anyone who opens it can apply to join your affiliate programme/i)).toBeInTheDocument();
   });
 });

@@ -65,7 +65,7 @@ export function Setup(props: {
         n={3}
         title="Share the link with people who want to promote you"
         done={deployed && !!status?.portalUrl && stripeConnected}
-        note="Anyone with this link can apply to join. They get their own code, and can check what they've earned at any time — you don't have to build a page or send anything by hand."
+        note="Anyone with this link can apply to join your affiliate programme. They get their own code, and can check what they've earned at any time — you don't have to build a page or send anything by hand."
       >
         {status?.portalUrl ? (
           <>

@@ -66,7 +66,7 @@ export function GettingStarted(props: {
         title="Share your link"
         detail={
           deployed && stripeDone
-            ? "It's on the Setup tab. Anyone who opens it can join and get their own code."
+            ? "It's on the Setup tab. Anyone who opens it can apply to join your affiliate programme and get their own code."
             : "Appears on the Setup tab once steps 1 and 2 are done."
         }
         onGo={props.onGo}
