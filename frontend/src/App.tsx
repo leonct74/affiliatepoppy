@@ -15,6 +15,8 @@ import type { Affiliate, DeploymentStatus, Meta, ProgramConfig } from "./types";
 const icon = "./affiliatepoppy-icon.png";
 
 const POLL_MS = 5_000;
+/** How often the ledger numbers refresh by themselves while the programme is open. */
+const LEDGER_POLL_MS = 30_000;
 
 type Phase = "loading" | "gate" | "ready";
 
@@ -86,6 +88,15 @@ export function App() {
     }
   }, []);
 
+  /** The same read, without the spinner — for background refreshes the merchant didn't ask for. */
+  const quietlyReloadAffiliates = useCallback(async () => {
+    try {
+      setAffiliates((await api.affiliates()).affiliates);
+    } catch {
+      /* a background refresh that fails says nothing; the next one will try again */
+    }
+  }, []);
+
   const connect = useCallback(async () => {
     setErr(null);
     try {
@@ -124,6 +135,25 @@ export function App() {
     void loadConfig();
     void loadAffiliates();
   }, [phase, status?.phase, loadConfig, loadAffiliates]);
+
+  // Once the programme is open, the numbers move because of things that happen in STRIPE —
+  // a sale, a refund — not in this window. So refresh them quietly every half minute, and
+  // the moment the merchant comes back to the app (live lesson: the founder refunded a test
+  // sale in Stripe and only saw the ledger move after quitting and reopening AgentsPoppy).
+  useEffect(() => {
+    if (phase !== "ready" || status?.phase !== "ready") return;
+    const timer = window.setInterval(() => void quietlyReloadAffiliates(), LEDGER_POLL_MS);
+    const onReturn = () => {
+      if (document.visibilityState === "visible") void quietlyReloadAffiliates();
+    };
+    document.addEventListener("visibilitychange", onReturn);
+    window.addEventListener("focus", onReturn);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onReturn);
+      window.removeEventListener("focus", onReturn);
+    };
+  }, [phase, status?.phase, quietlyReloadAffiliates]);
 
   // Poll only while AWS is actually mid-operation, and re-attach automatically on mount if we
   // return to find work still in flight.
