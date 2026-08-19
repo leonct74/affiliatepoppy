@@ -264,7 +264,12 @@ function StripeConnect(props: {
           anything. It's kept encrypted in your own AWS account, and it is never shown again once saved.
         </p>
         <label className="field">
-          <span>Restricted key{config?.secrets.apiKey.hint ? ` (saved, ends ${config.secrets.apiKey.hint})` : ""}</span>
+          <span>
+            Restricted key
+            {config?.secrets.apiKey.hint
+              ? ` (saved, ends ${config.secrets.apiKey.hint} — ${config.stripe.couponId ? (config.stripe.livemode ? "live" : "test") + " mode" : "not checked yet"})`
+              : ""}
+          </span>
           <input
             className="input mono"
             value={apiKey}

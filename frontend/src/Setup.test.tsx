@@ -107,7 +107,9 @@ describe("handing over a secret", () => {
       stripe: { couponId: "co_1", lastEventAt: 0, livemode: false },
     });
     setup({ config: stored });
-    expect(screen.getByText(/saved, ends …9zx8/i)).toBeInTheDocument();
+    // …and which Stripe world it lives in, permanently — not only in the moment it was saved.
+    // (Founder, first live test: "it doesn't say anything about live or testing".)
+    expect(screen.getByText(/saved, ends …9zx8 — test mode/i)).toBeInTheDocument();
     // The input is empty: there is nothing here to read over anyone's shoulder.
     expect(screen.getByPlaceholderText("rk_…")).toHaveValue("");
   });
