@@ -42,7 +42,8 @@ export type Instruction =
   | { kind: "ignore"; reason: string }
   | Sale
   | Renewal
-  | Refund;
+  | Refund
+  | Link;
 
 export interface Sale {
   kind: "sale";
@@ -76,6 +77,22 @@ export interface Renewal {
   day: string;
 }
 
+/**
+ * "These ids also name a sale you already credited." The first invoice of a subscription is
+ * credited at checkout, under the session's ids — but the charge that a LATER refund names
+ * belongs to the invoice's payment intent, which the checkout session never carried. Since
+ * API version 2025-03-31 the charge no longer points back at its invoice either, so without
+ * this row a refund of a subscription's first payment could not be matched to its credit.
+ */
+export interface Link {
+  kind: "link";
+  /** An id the credit is already filed under (the invoice's own id). */
+  knownReference: string;
+  /** The new ids to file it under as well. */
+  references: string[];
+  day: string;
+}
+
 export interface Refund {
   kind: "refund";
   chargeId: string;
@@ -95,6 +112,25 @@ function invoiceTax(invoice: Record<string, unknown>): number {
     return totals.reduce((sum: number, t: unknown) => sum + num((t as { amount?: unknown })?.amount), 0);
   }
   return 0;
+}
+
+/**
+ * Every payment id an invoice names, across the shapes Stripe has used: the flat `charge` /
+ * `payment_intent` fields (removed in 2025-03-31.basil) and the `payments` list that replaced
+ * them. A refund event names the charge and its payment intent, never the invoice (any more),
+ * so these are what a later refund is matched on.
+ */
+function invoicePaymentRefs(invoice: Record<string, unknown>): string[] {
+  const refs = [idOf(invoice.charge), idOf(invoice.payment_intent)];
+  const payments = (invoice.payments as { data?: unknown } | undefined)?.data;
+  if (Array.isArray(payments)) {
+    for (const p of payments) {
+      const payment = (p as { payment?: Record<string, unknown> })?.payment;
+      if (!payment) continue;
+      refs.push(idOf(payment.payment_intent), idOf(payment.charge));
+    }
+  }
+  return [...new Set(refs.filter(Boolean))];
 }
 
 /** The subscription an invoice belongs to, across the shapes Stripe has used for it. */
@@ -161,13 +197,17 @@ export function readEvent(event: unknown): Instruction {
   if (type === "invoice.paid" || type === "invoice.payment_succeeded") {
     const subscriptionId = invoiceSubscription(obj);
     if (!subscriptionId) return { kind: "ignore", reason: "invoice is not for a subscription" };
-    // The first invoice of a subscription is the checkout we already credited — crediting it
-    // again would pay twice for one sale. (Its ledger key differs, so nothing else catches it.)
-    if (obj.billing_reason === "subscription_create") {
-      return { kind: "ignore", reason: "first invoice — already credited at checkout" };
-    }
     const ledgerId = idOf(obj.id);
     if (!ledgerId) return { kind: "ignore", reason: "invoice has no id" };
+    // The first invoice of a subscription is the checkout we already credited — crediting it
+    // again would pay twice for one sale. (Its ledger key differs, so nothing else catches it.)
+    // But it carries the payment ids a future refund will name, and the checkout did not — so
+    // file the existing credit under them too.
+    if (obj.billing_reason === "subscription_create") {
+      const references = invoicePaymentRefs(obj);
+      if (references.length === 0) return { kind: "ignore", reason: "first invoice — already credited at checkout" };
+      return { kind: "link", knownReference: ledgerId, references, day };
+    }
     const amountPaidCents = num(obj.amount_paid);
     if (amountPaidCents <= 0) return { kind: "ignore", reason: "nothing was paid on this invoice" };
     return {
@@ -177,7 +217,7 @@ export function readEvent(event: unknown): Instruction {
       amountPaidCents,
       taxCents: invoiceTax(obj),
       currency: String(obj.currency ?? "").toLowerCase(),
-      references: [idOf(obj.charge), idOf(obj.payment_intent), ledgerId].filter(Boolean),
+      references: [...invoicePaymentRefs(obj), ledgerId],
       day,
     };
   }

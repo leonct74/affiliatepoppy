@@ -252,6 +252,18 @@ invisible on `invoice.paid`. That is why `checkout.session.completed` writes the
 `sub#<subscriptionId> → affId` mapping at first purchase: renewals are attributed from the
 mapping, not the discount. Without this row, D5 silently becomes first-payment-only.
 
+**The refund-matching subtlety (found 2026-08-16, founder's webhook on `dahlia`).** A
+`charge.refunded` names the charge and its payment intent — and since `2025-03-31.basil` a
+charge no longer points back at its invoice, while an invoice names its payments in a
+`payments` list instead of flat `charge`/`payment_intent` fields. Two consequences, both
+handled in `stripe-events.ts` and covered by tests: (1) renewal credits are filed under every
+id in `invoice.payments[]` as well as the old fields; (2) the **first invoice of a
+subscription**, which the checkout already credited, is no longer merely ignored — it becomes
+a `link` instruction that files the existing credit under the invoice's payment ids, because
+the checkout session never carried them and a refund of the first payment will name nothing
+else. Without the link, refunding a subscription's first payment would read "a sale we never
+credited" and the publisher would keep the commission.
+
 ---
 
 ## 5. The affiliate portal (hosted from the merchant's AWS)

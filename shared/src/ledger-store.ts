@@ -220,18 +220,46 @@ export class DynamoLedger {
     }
   }
 
-  async findCredit(references: string[]): Promise<{ affId: string; amountCents: number; currency: string } | undefined> {
+  async findCredit(
+    references: string[],
+  ): Promise<{ affId: string; ledgerId: string; amountCents: number; currency: string } | undefined> {
     for (const reference of references) {
       const item = await this.get(refPk(reference), MAP_SK);
       if (item?.affId?.S) {
         return {
           affId: item.affId.S,
+          ledgerId: item.ledgerId?.S ?? "",
           amountCents: Number(item.amountCents?.N ?? "0"),
           currency: item.currency?.S ?? "",
         };
       }
     }
     return undefined;
+  }
+
+  /**
+   * File an existing credit under further ids. Plain puts of identical rows, so a redelivered
+   * event rewrites the same values — nothing to guard.
+   */
+  async addReferences(
+    references: string[],
+    credit: { affId: string; ledgerId: string; amountCents: number; currency: string },
+  ): Promise<void> {
+    for (const reference of references.slice(0, 5)) {
+      await this.db.send(
+        new PutItemCommand({
+          TableName: this.tableName,
+          Item: {
+            pk: S(refPk(reference)),
+            sk: S(MAP_SK),
+            affId: S(credit.affId),
+            ledgerId: S(credit.ledgerId),
+            amountCents: N(credit.amountCents),
+            currency: S(credit.currency),
+          },
+        }),
+      );
+    }
   }
 
   async reverse(entry: LedgerEntry): Promise<void> {

@@ -35,7 +35,9 @@ export interface LedgerStore {
    */
   credit(entry: LedgerEntry, references: string[]): Promise<boolean>;
   /** The credit a refund is about, found by whichever id the charge happens to name. */
-  findCredit(references: string[]): Promise<{ affId: string; amountCents: number; currency: string } | undefined>;
+  findCredit(references: string[]): Promise<FoundCredit | undefined>;
+  /** File an existing credit under more ids (idempotent — the same rows, the same values). */
+  addReferences(references: string[], credit: FoundCredit): Promise<void>;
   /**
    * Move a reversal to `amountCents` (idempotent by charge): the entry is rewritten to the new
    * total and the running totals move by the difference, so repeated `charge.refunded` events
@@ -44,9 +46,18 @@ export interface LedgerStore {
   reverse(entry: LedgerEntry): Promise<void>;
 }
 
+/** A credit as a reverse-lookup row describes it. */
+export interface FoundCredit {
+  affId: string;
+  ledgerId: string;
+  amountCents: number;
+  currency: string;
+}
+
 /** What happened, in a shape worth logging and asserting on. */
 export type Outcome =
   | { applied: "ignored"; reason: string }
+  | { applied: "linked"; ledgerId: string; references: string[] }
   | { applied: "mapped"; subscriptionId: string; affId: string }
   | { applied: "credited"; entry: LedgerEntry }
   | { applied: "duplicate"; ledgerId: string }
@@ -130,6 +141,13 @@ export async function applyInstruction(instruction: Instruction, store: LedgerSt
     };
     const written = await store.credit(entry, instruction.references);
     return [written ? { applied: "credited", entry } : { applied: "duplicate", ledgerId: entry.ledgerId }];
+  }
+
+  if (instruction.kind === "link") {
+    const credit = await store.findCredit([instruction.knownReference]);
+    if (!credit) return [{ applied: "ignored", reason: "first invoice of a sale we never credited" }];
+    await store.addReferences(instruction.references, credit);
+    return [{ applied: "linked", ledgerId: credit.ledgerId, references: instruction.references }];
   }
 
   // A refund.

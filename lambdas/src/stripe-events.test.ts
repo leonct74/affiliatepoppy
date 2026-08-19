@@ -128,8 +128,29 @@ describe("an invoice", () => {
     });
   });
 
-  it("skips the first invoice of a subscription — the checkout already credited it", () => {
-    expect(invoice({ billing_reason: "subscription_create" })).toMatchObject({ kind: "ignore" });
+  it("names the charge AND the payment intent across both invoice shapes, so a refund can find it", () => {
+    // 2025-03-31.basil removed `invoice.charge` / `invoice.payment_intent` for a `payments`
+    // list — and the refund event names the charge's payment intent, never the invoice. Read
+    // only the old fields and every refund on a renewal goes unmatched under the new version.
+    expect(invoice({ payment_intent: "pi_2" })).toMatchObject({ references: ["ch_2", "pi_2", "in_2"] });
+    expect(
+      invoice({
+        charge: undefined,
+        payments: { data: [{ payment: { type: "payment_intent", payment_intent: "pi_new" } }] },
+      }),
+    ).toMatchObject({ references: ["pi_new", "in_2"] });
+  });
+
+  it("turns the first invoice of a subscription into a LINK — credited at checkout, but these are the refundable ids", () => {
+    // The checkout session carried the invoice id but not this payment intent; a refund of the
+    // first payment will name the payment intent. So the credit gets filed under it too.
+    expect(invoice({ billing_reason: "subscription_create", payment_intent: "pi_first" })).toMatchObject({
+      kind: "link",
+      knownReference: "in_2",
+      references: ["ch_2", "pi_first"],
+    });
+    // …and with nothing to link, the old behaviour: ignore, never double-credit.
+    expect(invoice({ billing_reason: "subscription_create", charge: undefined })).toMatchObject({ kind: "ignore" });
   });
 
   it("skips an invoice that isn't for a subscription, and one that was never paid", () => {

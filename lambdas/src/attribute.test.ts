@@ -19,7 +19,7 @@ class FakeStore implements LedgerStore {
   codes = new Map<string, string>();
   subscriptions = new Map<string, string>();
   entries = new Map<string, LedgerEntry>();
-  references = new Map<string, { affId: string; amountCents: number; currency: string }>();
+  references = new Map<string, { affId: string; ledgerId: string; amountCents: number; currency: string }>();
   /** Every credit attempt, including the ones a redelivery rejected. */
   creditAttempts: LedgerEntry[] = [];
 
@@ -46,7 +46,7 @@ class FakeStore implements LedgerStore {
     if (this.entries.has(entry.ledgerId)) return false; // the redelivery guard
     this.entries.set(entry.ledgerId, entry);
     for (const r of references) {
-      this.references.set(r, { affId: entry.affId, amountCents: entry.amountCents, currency: entry.currency });
+      this.references.set(r, { affId: entry.affId, ledgerId: entry.ledgerId, amountCents: entry.amountCents, currency: entry.currency });
     }
     return true;
   }
@@ -56,6 +56,9 @@ class FakeStore implements LedgerStore {
       if (found) return found;
     }
     return undefined;
+  }
+  async addReferences(references: string[], credit: { affId: string; ledgerId: string; amountCents: number; currency: string }) {
+    for (const r of references) this.references.set(r, credit);
   }
   async reverse(entry: LedgerEntry) {
     this.entries.set(entry.ledgerId, entry);
@@ -198,9 +201,30 @@ describe("a renewal", () => {
   });
 
   it("never double-pays the FIRST invoice, which the checkout already credited", async () => {
-    const outcomes = await apply(invoice({ id: "in_first", billing_reason: "subscription_create" }));
+    const outcomes = await apply(invoice({ id: "in_first", billing_reason: "subscription_create", charge: undefined }));
     expect(outcomes[0]).toMatchObject({ applied: "ignored" });
     expect(store.balance("aff-oliver")).toBe(1000); // the sale only
+  });
+
+  it("files the checkout's credit under the first invoice's payment ids — so refunding the FIRST payment still works", async () => {
+    // Under current API versions the refund event names the charge's payment intent (pi_first)
+    // and not the invoice; the checkout session never carried pi_first. Without the link, the
+    // refund below would be "a sale we never credited" and the affiliate would keep €10 on a
+    // sale that was given back.
+    await apply(checkout({ id: "cs_test_2", invoice: "in_first", payment_intent: undefined })); // a second sale
+    const linked = await apply(
+      invoice({ id: "in_first", billing_reason: "subscription_create", charge: undefined,
+        payments: { data: [{ payment: { type: "payment_intent", payment_intent: "pi_first" } }] } }),
+    );
+    expect(linked[0]).toMatchObject({ applied: "linked", ledgerId: "cs_test_2", references: ["pi_first"] });
+    expect(store.balance("aff-oliver")).toBe(2000); // two sales — the link credited nothing
+
+    await apply({
+      type: "charge.refunded",
+      created: 1_756_678_400,
+      data: { object: { id: "ch_first", amount: 12000, amount_refunded: 12000, currency: "eur", payment_intent: "pi_first" } },
+    });
+    expect(store.balance("aff-oliver")).toBe(1000); // the second sale's commission taken back
   });
 
   it("is ignored for a subscription no affiliate brought in", async () => {
