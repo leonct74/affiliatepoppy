@@ -1127,8 +1127,9 @@ debit — stays platform billing and stays on the shelf):
   the publisher's sale row ($3.80 at 20%) and "Owed back to you" for that account, same
   figure. Environment discipline was most of the debugging: multiple sandboxes each have
   their own keys AND their own view of which accounts exist — the error's own dashboard URL
-  is the reliable pointer to the right one. Refund half: verify a refund drops both figures
-  together.
+  is the reliable pointer to the right one. Refund half verified same day: the
+  connected-account refund reversed the publisher's $3.80 AND the account's owed figure to
+  zero, in one webhook. P7 gate met in full.
 - **ANSWERED live (2026-08-16), in two steps.** The first Add was REFUSED — and the refusal
   was initially masked by our own error handling swallowing Stripe's message (fixed: the UI now
   quotes Stripe verbatim). The reason, per Stripe's restricted-keys docs: a restricted key has
