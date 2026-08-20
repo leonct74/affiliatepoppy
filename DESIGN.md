@@ -88,6 +88,7 @@ patterns from them, never modify them from here.
 | D15e | **A reversal is a credit, never a payment out**, and a developer may not be a publisher on their own poppy. Kills self-dealing by arithmetic rather than by policy — §12.6e. Applies only to central campaigns; **the shipped poppy is not in the money at all** (D12). | Founder, 2026-08-16, spotting the fraud: sign up as your own affiliate, sell to yourself, refund, keep the commission. It only pays if a reversal can pull cash out of the platform — so don't let it. |
 | D16 | **The backend is confined** — `backend.isolation: "strict"`: it may read its install directory and write only its `dataDir` and OS temp; nothing else on the machine, and no child processes. Files leave via the host's `/ext-dl` one-shot handoff, never via `~/Documents`. | Founder, 2026-08-16: *"by design all poppies must comply not to access the file-system except for their own folder."* AffiliatePoppy keeps NO local state (everything is in the merchant's AWS), so the only casualty was the CSV export writing to Documents — replaced. Verified by booting the shipped bundle under the host's exact `NODE_OPTIONS`: `~/.aws` and `~/Documents` → `ERR_ACCESS_DENIED`, `dataDir` and install dir → allowed. |
 | D17 | **Connected accounts are in the poppy (P7).** A merchant who runs a Stripe *platform* lists participating developers' `acct_…` ids; every affiliate code is minted on the merchant's account **and on each of theirs**; a second, "connected accounts" webhook endpoint feeds the same receiver; every ledger entry records the account the sale landed on; the Ledger reports **what each developer owes back** (D15b) — computed and reported, never collected (D12). | Founder, 2026-08-16, at the end of the first live test: *"I don't want to test the teardown if we still need to develop a new Stripe workflow and ledger to work with connected accounts."* Without it, the poppy tracks first-party poppy sales only (those charge on the platform account); developers' poppies — the majority of the catalogue — would be invisible. Opt-in per developer, not automatic: D15's guard. |
+| D18 | **Collect at source (founder, 2026-08-16): the commission rides the application fee.** The buyer enters the code IN the poppy's purchase flow, before checkout creation; agentspoppy-web pre-applies the discount and sets the fee to platform % + commission — the reimbursement lands in the platform's balance at the instant of the sale. Subscriptions carry the bumped `application_fee_percent`, so renewals collect automatically. A refund refunds the fee's commission share back to the connected account. — §12.6g. | Founder's own question: *"since we take a commission automatically from any connected-account sale, why not add the 3.80 to it?"* The only obstacle was timing — the fee is immutable after session creation and Stripe's own code box is too late — and capturing the code one screen earlier removes it. Replaces D15c's direct-debit machinery for every platform-created checkout, i.e. all poppy sales; no chasing, no credit risk. |
 | D14 | AgentsPoppy is the **first customer**: the founder installs AffiliatePoppy in his own AWS and adds its receiver as a second webhook endpoint on the platform's Stripe. | Dogfooding that is also the demo. |
 
 ---
@@ -1069,6 +1070,30 @@ OPTIONAL central-campaign feature, where AgentsPoppy emits codes on developers' 
 never executed, the merchant pays their own publishers from their own bank, and AgentsPoppy is
 never in the money — a merchant who fakes sales against himself is stealing from himself. The
 poppy can ship, sell, and never have this half built.
+
+### 12.6g D18 — collect at source (the founder's simplification of D15c)
+
+The application fee on a direct charge is set when the CHECKOUT SESSION is created and is
+immutable afterwards; the code box on Stripe's checkout page opens after that moment, which is
+why "just add it to the fee" wasn't the original design. The founder's fix: **move the code
+entry one screen earlier** — a "Have a code?" field in the poppy's own purchase flow. Then the
+platform knows everything at creation time:
+
+- session created with the discount pre-applied (`discounts: [{ promotion_code }]`, not
+  `allow_promotion_codes`) and `application_fee_amount = platform fee + commission`;
+- for subscriptions, `subscription_data.application_fee_percent = platform % + commission %`
+  — renewals then collect by themselves, matching D5;
+- on `charge.refunded`, the platform refunds the fee's commission share to the connected
+  account (`refund_application_fee` on the proportional amount) so a developer never pays
+  commission on a sale that was undone;
+- AffiliatePoppy's ledger stays the record: entries collected this way are settled at birth,
+  not owed — the "Owed back to you" card is then only for typed-code/legacy sales, if any.
+
+**Where it lives: agentspoppy-web** (whoever creates the checkout owns the fee). The poppy
+cannot do this for merchants whose sub-sellers make their own payment links — for them the
+report-and-collect card remains the product. What remains of D15c after D18: nothing, for
+platform-created checkouts; the payment-method-on-file machinery would only ever return if a
+non-platform-created sale path had to be collected automatically.
 
 **Practical guidance to give developers** (mirrors the founder's own D3 move): price with the
 affiliate cut in mind before the campaign, not after — he raised AgentsPoppy's prices 15% so
