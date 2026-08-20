@@ -1097,10 +1097,14 @@ debit — stays platform billing and stays on the shelf):
   coupon and the affiliate's code appear under that account in Stripe; a Payment Link on that
   account with the code → a `sale` row with `account` set, the publisher's owed figure AND the
   developer's figure move together; refund → both come back down.
-- **ANSWERED live (2026-08-16): a restricted key CAN act on connected accounts.** The founder
-  added a test connected account through Setup step 4 — the coupon create on that account (the
-  first thing `addPartner()` does, and its go/no-go gate) succeeded with the same
-  promotion-codes-write restricted key. No secret key, no second key. D11 stands as designed.
+- **ANSWERED live (2026-08-16), in two steps.** The first Add was REFUSED — and the refusal
+  was initially masked by our own error handling swallowing Stripe's message (fixed: the UI now
+  quotes Stripe verbatim). The reason, per Stripe's restricted-keys docs: a restricted key has
+  a SEPARATE permission column for connected accounts (None/Read/Write per resource), and a key
+  made with only the account-side "Promotion codes: Write" defaults to None on the Connect
+  side. So: a restricted key CAN act on connected accounts — D11 stands — but the key recipe
+  for a platform merchant is "Promotion codes: Write" in BOTH columns. The Developers card
+  says so.
 
 **D17b — adherence is contractual for AgentsPoppy's own use (founder, 2026-08-16):**
 *"developers should mandatorily adhere to join any affiliate programme from AgentsPoppy."*

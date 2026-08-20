@@ -70,7 +70,10 @@ describe("for a platform", () => {
     render(<Developers status={status} config={config()} onChanged={vi.fn().mockResolvedValue(undefined)} />);
     await userEvent.click(screen.getByRole("button", { name: /i run a platform/i }));
     expect(screen.getByText(/choose/i)).toBeInTheDocument();
-    expect(screen.getByText("Connected accounts")).toBeInTheDocument();
+    expect(screen.getAllByText("Connected accounts").length).toBeGreaterThan(0);
+    // …and the key requirement is stated where the failure would otherwise happen.
+    expect(screen.getByText(/set/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/promotion codes/i).length).toBeGreaterThan(0);
     await userEvent.type(screen.getByPlaceholderText("whsec_…"), "whsec_connect");
     await userEvent.click(screen.getByRole("button", { name: /save signing secret/i }));
     expect(save).toHaveBeenCalledWith("connectSecret", "whsec_connect");

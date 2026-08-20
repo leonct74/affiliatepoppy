@@ -110,8 +110,11 @@ export class Program {
     settings: ProgramSettings,
     branding: PortalBranding,
     partners: Partner[],
-  ): Promise<Partner[]> {
+  ): Promise<{ partners: Partner[]; errors: Map<string, string> }> {
     const next: Partner[] = [];
+    // Stripe's own words, per account — the live lesson here is that swallowing these cost a
+    // debugging round-trip: the founder saw our guess instead of Stripe's actual refusal.
+    const errors = new Map<string, string>();
     for (const partner of partners) {
       if (partner.couponId && partner.couponPct === settings.discountPct) {
         next.push(partner);
@@ -122,12 +125,13 @@ export class Program {
           .forAccount(partner.account)
           .createCoupon(settings.discountPct, `${branding.merchantName || "Affiliate"} ${settings.discountPct}% off`);
         next.push({ ...partner, couponId: coupon.id, couponPct: settings.discountPct });
-      } catch {
+      } catch (e) {
+        errors.set(partner.account, (e as Error).message);
         next.push({ ...partner, couponId: "", couponPct: Number.NaN });
       }
     }
     await this.ledger.savePartners(next);
-    return next;
+    return { partners: next, errors };
   }
 
   async partners(): Promise<Partner[]> {
@@ -143,17 +147,19 @@ export class Program {
     const stripe = await this.stripe();
     if (!stripe) throw new Error("Connect your Stripe account first.");
     const { settings, branding } = await this.ledger.config();
-    const partners = await this.ensurePartnerCoupons(stripe, settings, branding, [
+    const { partners, errors } = await this.ensurePartnerCoupons(stripe, settings, branding, [
       ...state.partners,
       { account: clean, label: label.trim().slice(0, 60), couponId: "", couponPct: Number.NaN },
     ]);
     const added = partners.find((p) => p.account === clean)!;
     if (!added.couponId) {
       // The coupon is the first thing that needs the key to act on that account. If it can't,
-      // say so now and leave the developer out, rather than listing one nothing works for.
+      // say so now — in STRIPE's words — and leave the developer out of the list.
       await this.ledger.savePartners(partners.filter((p) => p.account !== clean));
+      const reason = errors.get(clean) ?? "Stripe refused without a reason.";
       throw new Error(
-        `Stripe wouldn't let your key act on ${clean}. It has to be a connected account of YOUR Stripe platform, and the key must be the platform's.`,
+        `Stripe wouldn't act on ${clean}: "${reason}" — usually the key: a restricted key has a SEPARATE ` +
+          `Connected-accounts permission column, and "Promotion codes: Write" must be set THERE too.`,
       );
     }
     return { partners, sync: await this.syncCodes() };
