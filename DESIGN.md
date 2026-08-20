@@ -1093,11 +1093,17 @@ debit — stays platform billing and stays on the shelf):
 - **Ledger.** `acct#<account>#<currency>` totals rows move in the same `TransactWriteItems` as
   the entry, so "owed to you by developers" can never disagree with the rows. The CSV gains an
   `account` column. The publisher's view is unchanged — one number, one counterparty.
-- **What a live check proves** (the first real deploy did NOT include this; it needs a
-  connected account in the founder's test platform): add the account in Setup step 4 → the
-  coupon and the affiliate's code appear under that account in Stripe; a Payment Link on that
-  account with the code → a `sale` row with `account` set, the publisher's owed figure AND the
-  developer's figure move together; refund → both come back down.
+- **LIVE-VERIFIED (2026-08-16), sale half.** Test-native connected account created by API
+  (`type=standard`, business name set at creation — the two traps: a dashboard-made "v2" live
+  account is only half-visible from test keys, and Checkout refuses an account with no
+  business name). Added through the Connected accounts tab → coupon + code minted there; a
+  $20 checkout ON that account (platform-created session, `allow_promotion_codes: true`,
+  exactly the agentspoppy-web shape) accepted the code → ONE transaction moved both sides:
+  the publisher's sale row ($3.80 at 20%) and "Owed back to you" for that account, same
+  figure. Environment discipline was most of the debugging: multiple sandboxes each have
+  their own keys AND their own view of which accounts exist — the error's own dashboard URL
+  is the reliable pointer to the right one. Refund half: verify a refund drops both figures
+  together.
 - **ANSWERED live (2026-08-16), in two steps.** The first Add was REFUSED — and the refusal
   was initially masked by our own error handling swallowing Stripe's message (fixed: the UI now
   quotes Stripe verbatim). The reason, per Stripe's restricted-keys docs: a restricted key has
