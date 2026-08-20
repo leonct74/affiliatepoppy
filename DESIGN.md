@@ -1097,12 +1097,22 @@ debit — stays platform billing and stays on the shelf):
   coupon and the affiliate's code appear under that account in Stripe; a Payment Link on that
   account with the code → a `sale` row with `account` set, the publisher's owed figure AND the
   developer's figure move together; refund → both come back down.
-- **The key question it may answer:** whether a *restricted* key may act on connected accounts
-  at all. Stripe's Connect docs describe the platform's *secret* key; restricted keys carry the
-  same resource scopes and are expected to work, but `addPartner()` is written so that if the
-  coupon create on the account is refused, the developer is not added and the message says
-  which key to use. If it turns out a platform needs its standard secret key here, that is a
-  D11 conversation (the key's scope), not a code change.
+- **ANSWERED live (2026-08-16): a restricted key CAN act on connected accounts.** The founder
+  added a test connected account through Setup step 4 — the coupon create on that account (the
+  first thing `addPartner()` does, and its go/no-go gate) succeeded with the same
+  promotion-codes-write restricted key. No secret key, no second key. D11 stands as designed.
+
+**D17b — adherence is contractual for AgentsPoppy's own use (founder, 2026-08-16):**
+*"developers should mandatorily adhere to join any affiliate programme from AgentsPoppy."*
+The POPPY keeps per-developer opt-in as the mechanism — any merchant using it decides whose
+accounts their codes are minted on. But AgentsPoppy-the-platform exercises that choice by
+contract: catalogue membership means accepting developer terms that include participation in
+platform-arranged affiliate campaigns (with the D15b reimbursement on top of the 5%, priced in
+per the D3 guidance). So for the founder's own install, every catalogue developer's account is
+added as a matter of course. This is a terms-of-service change on agentspoppy-web when
+campaigns go live — not code in this repo. It also collapses D15's per-developer leakage
+concern into the terms: a developer who objects to coupon-site leakage prices it in or doesn't
+list, rather than half-joining.
 
 ### 12.7 Live-only risks — what the first real deploy is actually testing
 
