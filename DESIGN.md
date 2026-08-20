@@ -436,8 +436,9 @@ Second ("connected accounts") webhook secret in SSM, receiver verifies against e
 `Stripe-Account` header on the existing restricted key; partner list in `cfg#stripe`;
 coupon per partner account; `mintOnPartners()` after issue/approve, `syncCodes()` as the
 recovery path; `account` on every ledger entry and ref row; `acct#` totals rows moved in the
-same transaction; Setup step 4 (folded away for non-platforms); Ledger "Owed to you by
-developers". *Gate: a test-mode sale on a connected account credits the publisher and the
+same transaction; its own "Connected accounts" tab (founder, 2026-08-16: the poppy is
+sold to any merchant, so the UI says "connected account", never "developer" — the one
+exception is quoting Stripe's own menu path); Ledger "Owed back to you". *Gate: a test-mode sale on a connected account credits the publisher and the
 developer's figure; refund reverses both.*
 
 **P6 — Dogfood + listing.**

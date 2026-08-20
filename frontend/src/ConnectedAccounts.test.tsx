@@ -1,12 +1,13 @@
-// The optional platform card — P7. Two things matter: a merchant who is NOT a platform is
-// told so in one line and never sees the machinery, and a merchant who is gets the three
-// actions (second secret, add a developer, create missing codes) with honest outcomes.
+// The Connected accounts tab — P7. Two things matter: a merchant who is NOT a marketplace is
+// told in the first paragraph they can ignore the whole tab, and a merchant who is gets the
+// three actions (add an account, create missing codes, second secret) with honest outcomes —
+// in the product's own words, never AgentsPoppy's ("connected account", not "developer").
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "./api";
-import { Developers } from "./Developers";
+import { ConnectedAccounts } from "./ConnectedAccounts";
 import type { DeploymentStatus, ProgramConfig } from "./types";
 
 const status: DeploymentStatus = {
@@ -23,42 +24,49 @@ const config = (over: Partial<ProgramConfig["stripe"]> = {}, connect?: { stored:
 
 beforeEach(() => vi.restoreAllMocks());
 
-describe("for a merchant who isn't a platform", () => {
-  it("is one line and a button — the machinery stays folded away", () => {
-    render(<Developers status={status} config={config()} onChanged={vi.fn().mockResolvedValue(undefined)} />);
-    expect(screen.getByText(/if that isn't you, skip this/i)).toBeInTheDocument();
-    expect(screen.getByText("Not used")).toBeInTheDocument();
+describe("for a merchant who isn't a marketplace", () => {
+  it("says in the first paragraph that the whole tab can be ignored — and never says 'developer'", () => {
+    render(<ConnectedAccounts status={status} config={config()} onChanged={vi.fn().mockResolvedValue(undefined)} />);
+    expect(screen.getByText(/you can ignore this tab entirely/i)).toBeInTheDocument();
+    // The product's own voice: "connected account", never "developer" — the one exception is
+    // Stripe's menu path ("Developers → Webhooks"), which must be quoted as Stripe spells it.
+    const ownWords = (document.body.textContent ?? "").replace(/Developers → Webhooks/g, "");
+    expect(ownWords).not.toMatch(/developer/i);
+  });
+
+  it("asks for Stripe first when the programme isn't connected yet", () => {
+    const notReady = config({ couponId: "" });
+    render(<ConnectedAccounts status={status} config={notReady} onChanged={vi.fn().mockResolvedValue(undefined)} />);
+    expect(screen.getByText(/connect your stripe on the setup tab first/i)).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("acct_…")).not.toBeInTheDocument();
   });
 });
 
-describe("for a platform", () => {
-  it("adds a developer, creates the codes there, and says what happened", async () => {
+describe("for a marketplace", () => {
+  it("adds an account, creates the codes there, and says what happened", async () => {
     vi.spyOn(api, "addPartner").mockResolvedValue({
       partners: [{ account: "acct_1AbCdEfGhIjK", label: "Olly's Tools", couponId: "co_dev", couponPct: 5 }],
       sync: { minted: 3, failures: [] },
     });
     const changed = vi.fn().mockResolvedValue(undefined);
-    render(<Developers status={status} config={config()} onChanged={changed} />);
-    await userEvent.click(screen.getByRole("button", { name: /i run a platform/i }));
+    render(<ConnectedAccounts status={status} config={config()} onChanged={changed} />);
     await userEvent.type(screen.getByPlaceholderText("acct_…"), "acct_1AbCdEfGhIjK");
     await userEvent.type(screen.getByPlaceholderText(/olly's tools/i), "Olly's Tools");
-    await userEvent.click(screen.getByRole("button", { name: /add developer/i }));
+    await userEvent.click(screen.getByRole("button", { name: /add account/i }));
 
     expect(api.addPartner).toHaveBeenCalledWith("acct_1AbCdEfGhIjK", "Olly's Tools");
-    expect(await screen.findByText(/created 3 codes on developers' accounts/i)).toBeInTheDocument();
+    expect(await screen.findByText(/created 3 codes on your connected accounts/i)).toBeInTheDocument();
     expect(screen.getByText("Olly's Tools")).toBeInTheDocument();
     expect(changed).toHaveBeenCalled();
   });
 
-  it("names every code that could NOT be created, per developer — never a silent partial", async () => {
+  it("names every code that could NOT be created, per account — never a silent partial", async () => {
     vi.spyOn(api, "syncCodes").mockResolvedValue({
       minted: 1,
       failures: [{ account: "acct_1AbCdEfGhIjK", label: "Dev A", message: "This key can't act on that account.", affiliate: "Oliver" }],
     });
     const withPartner = config({ partners: [{ account: "acct_1AbCdEfGhIjK", label: "Dev A", couponId: "co_a", couponPct: 5 }] });
-    render(<Developers status={status} config={withPartner} onChanged={vi.fn().mockResolvedValue(undefined)} />);
-    await userEvent.click(screen.getByRole("button", { name: /manage developers/i }));
+    render(<ConnectedAccounts status={status} config={withPartner} onChanged={vi.fn().mockResolvedValue(undefined)} />);
     await userEvent.click(screen.getByRole("button", { name: /create any missing codes/i }));
     expect(await screen.findByText(/1 couldn't be created/i)).toBeInTheDocument();
     expect(screen.getByText(/this key can't act on that account/i)).toBeInTheDocument();
@@ -67,13 +75,12 @@ describe("for a platform", () => {
 
   it("explains the SECOND webhook is the connected-accounts kind, and saves its own secret", async () => {
     const save = vi.spyOn(api, "saveSecret").mockResolvedValue({ stored: true, hint: "…9" });
-    render(<Developers status={status} config={config()} onChanged={vi.fn().mockResolvedValue(undefined)} />);
-    await userEvent.click(screen.getByRole("button", { name: /i run a platform/i }));
+    render(<ConnectedAccounts status={status} config={config()} onChanged={vi.fn().mockResolvedValue(undefined)} />);
     expect(screen.getByText(/choose/i)).toBeInTheDocument();
     expect(screen.getAllByText("Connected accounts").length).toBeGreaterThan(0);
     // …and the key recipe is stated where the failure would otherwise happen — BOTH Connect
     // permissions, because Stripe's refusal named coupon_write as its own thing (live lesson).
-    expect(screen.getByText(/two extra permissions/i)).toBeInTheDocument();
+    expect(screen.getByText(/two permissions in its/i)).toBeInTheDocument();
     expect(screen.getByText("Promotion codes — Write")).toBeInTheDocument();
     expect(screen.getByText("Coupons — Write")).toBeInTheDocument();
     await userEvent.type(screen.getByPlaceholderText("whsec_…"), "whsec_connect");
@@ -81,12 +88,11 @@ describe("for a platform", () => {
     expect(save).toHaveBeenCalledWith("connectSecret", "whsec_connect");
   });
 
-  it("removing a developer keeps what they owe on the ledger, and says so", async () => {
+  it("removing an account keeps what it owes on the ledger, and says so", async () => {
     vi.spyOn(api, "removePartner").mockResolvedValue({ partners: [] });
     const withPartner = config({ partners: [{ account: "acct_1AbCdEfGhIjK", label: "Dev A", couponId: "co_a", couponPct: 5 }] });
-    render(<Developers status={status} config={withPartner} onChanged={vi.fn().mockResolvedValue(undefined)} />);
-    await userEvent.click(screen.getByRole("button", { name: /manage developers/i }));
+    render(<ConnectedAccounts status={status} config={withPartner} onChanged={vi.fn().mockResolvedValue(undefined)} />);
     await userEvent.click(screen.getByRole("button", { name: /^remove$/i }));
-    expect(await screen.findByText(/what they owe you stays on the ledger/i)).toBeInTheDocument();
+    expect(await screen.findByText(/anything it owes you stays on the ledger/i)).toBeInTheDocument();
   });
 });

@@ -147,24 +147,24 @@ describe("the export", () => {
   });
 });
 
-describe("what developers owe back (P7)", () => {
-  it("shows each developer's advanced commission — and nothing at all when there are none", async () => {
+describe("what connected accounts owe back (P7)", () => {
+  it("shows each account's advanced commission — and nothing at all when there are none", async () => {
     vi.spyOn(api, "partners").mockResolvedValue({
       partners: [],
       totals: [{ account: "acct_1AbCdEfGhIjK", label: "Olly's Tools", currency: "eur", advancedCents: 950 }],
     });
     render(<Ledger affiliates={[oliver]} loading={false} ready onChanged={vi.fn()} />);
-    expect(await screen.findByText(/owed to you by developers/i)).toBeInTheDocument();
+    expect(await screen.findByText(/owed back to you/i)).toBeInTheDocument();
     expect(screen.getByText("Olly's Tools")).toBeInTheDocument();
     expect(screen.getByText("€9.50")).toBeInTheDocument();
     // Reported, never collected — the sentence that keeps D12 honest.
     expect(screen.getByText(/collecting it is between you and them/i)).toBeInTheDocument();
   });
 
-  it("stays invisible for a merchant with no developers", async () => {
+  it("stays invisible for a merchant with no connected accounts", async () => {
     vi.spyOn(api, "partners").mockResolvedValue({ partners: [], totals: [] });
     render(<Ledger affiliates={[oliver]} loading={false} ready onChanged={vi.fn()} />);
     await screen.findByText(/who you owe/i);
-    expect(screen.queryByText(/owed to you by developers/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/owed back to you/i)).not.toBeInTheDocument();
   });
 });

@@ -97,11 +97,11 @@ export function Ledger(props: {
 
       {partnerTotals.some((t) => t.advancedCents !== 0) && (
         <div className="card stack">
-          <h2 className="section-title">Owed to you by developers</h2>
+          <h2 className="section-title">Owed back to you</h2>
           <p className="muted" style={{ margin: 0 }}>
-            Commission you're paying publishers on sales that landed on a developer's account. You pay the publisher
-            either way; this is what each developer owes you back. Reported here — collecting it is between you and
-            them.
+            Commission you're paying affiliates on sales that landed on one of your connected accounts. You pay the
+            affiliate either way; this is what each account owes you back. Reported here — collecting it is between
+            you and them.
           </p>
           {partnerTotals
             .filter((t) => t.advancedCents !== 0)

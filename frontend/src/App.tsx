@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Affiliates } from "./Affiliates";
 import { api } from "./api";
 import { Button } from "./Button";
+import { ConnectedAccounts } from "./ConnectedAccounts";
 import { Feedback } from "./Feedback";
 import { GettingStarted } from "./GettingStarted";
 import { host, type AccessState } from "./host";
@@ -31,6 +32,8 @@ const SECTIONS = [
   { key: "affiliates", label: "Affiliates" },
   { key: "setup", label: "Setup" },
   { key: "ledger", label: "Ledger" },
+  // Only for merchants running a Stripe platform; the tab itself says who can ignore it.
+  { key: "connected", label: "Connected accounts" },
   { key: "settings", label: "Settings" },
   { key: "remove", label: "Remove" },
   { key: "feedback", label: "Feedback" },
@@ -327,6 +330,19 @@ export function App() {
           ready={stackReady}
           onChanged={loadAffiliates}
         />
+      </div>
+      <div hidden={section !== "connected"}>
+        {stackReady ? (
+          <ConnectedAccounts
+            status={status}
+            config={config}
+            onChanged={async () => {
+              await loadConfig();
+            }}
+          />
+        ) : (
+          <NotYet what="Connected accounts appear here" />
+        )}
       </div>
       <div hidden={section !== "settings"}>
         {stackReady ? <Settings config={config} onSaved={loadConfig} /> : <NotYet what="Settings appear here" />}
