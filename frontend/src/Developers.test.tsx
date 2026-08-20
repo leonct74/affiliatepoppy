@@ -71,9 +71,11 @@ describe("for a platform", () => {
     await userEvent.click(screen.getByRole("button", { name: /i run a platform/i }));
     expect(screen.getByText(/choose/i)).toBeInTheDocument();
     expect(screen.getAllByText("Connected accounts").length).toBeGreaterThan(0);
-    // …and the key requirement is stated where the failure would otherwise happen.
-    expect(screen.getByText(/set/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/promotion codes/i).length).toBeGreaterThan(0);
+    // …and the key recipe is stated where the failure would otherwise happen — BOTH Connect
+    // permissions, because Stripe's refusal named coupon_write as its own thing (live lesson).
+    expect(screen.getByText(/two extra permissions/i)).toBeInTheDocument();
+    expect(screen.getByText("Promotion codes — Write")).toBeInTheDocument();
+    expect(screen.getByText("Coupons — Write")).toBeInTheDocument();
     await userEvent.type(screen.getByPlaceholderText("whsec_…"), "whsec_connect");
     await userEvent.click(screen.getByRole("button", { name: /save signing secret/i }));
     expect(save).toHaveBeenCalledWith("connectSecret", "whsec_connect");
