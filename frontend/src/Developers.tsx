@@ -129,9 +129,10 @@ export function Developers(props: {
           <div className="card card-2 stack">
             <strong style={{ fontSize: 13 }}>b. Which developers take part</strong>
             <p className="muted" style={{ margin: 0 }}>
-              Your restricted key needs one extra permission for this: when Stripe shows the key's permissions, there
-              is a separate <strong>Connected accounts</strong> column — set <strong>Promotion codes</strong> to{" "}
-              <strong>Write</strong> there too (a key without it can manage your account but not theirs).
+              Your restricted key needs two extra permissions for this, in the <strong>Connect</strong> column of the
+              key's permissions: <strong>Promotion codes — Write</strong> and <strong>Coupons — Write</strong> (Stripe
+              treats them as separate things on connected accounts). You can edit the existing key — its value
+              doesn't change.
             </p>
             <p className="muted" style={{ margin: 0 }}>
               Each developer opts in — add their connected account id (it starts with <span className="chip">acct_</span>;

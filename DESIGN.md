@@ -1102,9 +1102,12 @@ debit — stays platform billing and stays on the shelf):
   quotes Stripe verbatim). The reason, per Stripe's restricted-keys docs: a restricted key has
   a SEPARATE permission column for connected accounts (None/Read/Write per resource), and a key
   made with only the account-side "Promotion codes: Write" defaults to None on the Connect
-  side. So: a restricted key CAN act on connected accounts — D11 stands — but the key recipe
-  for a platform merchant is "Promotion codes: Write" in BOTH columns. The Developers card
-  says so.
+  side. Second refusal, verbatim thanks to the fix: connected-account coupon creation demands
+  its own `coupon_write` — on the merchant's OWN account the promotion-codes permission covers
+  coupons, on a connected account it does not. So: a restricted key CAN act on connected
+  accounts — D11 stands — and the platform recipe is "Promotion codes: Write" AND "Coupons:
+  Write" in the Connect column (the base recipe for ordinary merchants is unchanged). The
+  Developers card says so, and keys are editable in place — the value doesn't change.
 
 **D17b — adherence is contractual for AgentsPoppy's own use (founder, 2026-08-16):**
 *"developers should mandatorily adhere to join any affiliate programme from AgentsPoppy."*
