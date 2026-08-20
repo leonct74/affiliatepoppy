@@ -1089,6 +1089,11 @@ platform knows everything at creation time:
 - AffiliatePoppy's ledger stays the record: entries collected this way are settled at birth,
   not owed — the "Owed back to you" card is then only for typed-code/legacy sales, if any.
 
+**Timing consequence (founder, 2026-08-16):** with the money collected at the sale, D15d's
+debit run and its nine-day settlement gap disappear — the one remaining date is the payout:
+**sales in month M pay publishers on the 1st of M+2** (was the 10th). The clearing month is
+unchanged; it only ever existed for refunds. The payment-workflow PDF is revised accordingly.
+
 **Where it lives: agentspoppy-web** (whoever creates the checkout owns the fee). The poppy
 cannot do this for merchants whose sub-sellers make their own payment links — for them the
 report-and-collect card remains the product. What remains of D15c after D18: nothing, for
