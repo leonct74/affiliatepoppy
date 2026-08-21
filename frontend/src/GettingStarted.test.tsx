@@ -81,8 +81,16 @@ describe("as the merchant works through it", () => {
       stripe: { couponId: "co_1", lastEventAt: 0, livemode: false, partners: [] },
       branding: { merchantName: "Olly Digital", accentColor: "#bccf9e", logoDataUri: "", offerCopy: "", termsText: "" },
     });
-    render(<GettingStarted status={status({ phase: "ready" })} config={open} onGo={vi.fn()} />);
+    render(
+      <GettingStarted
+        status={status({ phase: "ready", portalUrl: "https://portal.lambda-url.eu-west-1.on.aws/" })}
+        config={open}
+        onGo={vi.fn()}
+      />,
+    );
     expect(screen.getByText(/this is it — the page anyone can join your affiliate programme on/i)).toBeInTheDocument();
+    expect(screen.getByText("https://portal.lambda-url.eu-west-1.on.aws/")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /open it/i })).toBeInTheDocument();
   });
 });
 
