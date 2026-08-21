@@ -54,6 +54,8 @@ export interface ProgramConfig {
   stripe: { couponId: string; lastEventAt: number; livemode: boolean; partners: Partner[] };
   offer: string;
   plan: { pro: boolean };
+  /** P10: the platform portal, when published ("" = not yet). */
+  portal: { slug: string; url: string };
   secrets: { webhookSecret: SecretStatus; apiKey: SecretStatus; connectSecret?: SecretStatus };
 }
 

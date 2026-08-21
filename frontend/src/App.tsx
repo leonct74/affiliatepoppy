@@ -336,7 +336,7 @@ export function App() {
             affiliates={affiliates}
             config={config}
             loading={loadingAffiliates && affiliates.length === 0}
-            {...(status?.portalUrl ? { portalUrl: status.portalUrl } : {})}
+            {...((config?.portal.url || status?.portalUrl) ? { portalUrl: config?.portal.url || status!.portalUrl! } : {})}
             onChanged={loadAffiliates}
           />
         )}

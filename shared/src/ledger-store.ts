@@ -36,6 +36,7 @@ import {
   PAYOUTS_PK,
   TOT_PK,
   CFG_SK_PLAN,
+  CFG_SK_PORTALPUB,
   acctTotSk,
   parseAcctTotSk,
   affPk,
@@ -147,6 +148,20 @@ export class DynamoLedger {
       new PutItemCommand({
         TableName: this.tableName,
         Item: { pk: S(CFG_PK), sk: S(CFG_SK_PLAN), pro: { BOOL: pro } },
+      }),
+    );
+  }
+
+  /** P10: the slug this programme is published under on the platform portal ("" = not published). */
+  async portalSlug(): Promise<string> {
+    return (await this.get(CFG_PK, CFG_SK_PORTALPUB))?.slug?.S ?? "";
+  }
+
+  async savePortalSlug(slug: string): Promise<void> {
+    await this.db.send(
+      new PutItemCommand({
+        TableName: this.tableName,
+        Item: { pk: S(CFG_PK), sk: S(CFG_SK_PORTALPUB), slug: S(slug) },
       }),
     );
   }

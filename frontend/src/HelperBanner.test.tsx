@@ -23,6 +23,7 @@ const config: ProgramConfig = {
   stripe: { couponId: "co_1", lastEventAt: 0, livemode: false, partners: [] },
   offer: "",
   plan: { pro: true },
+  portal: { slug: "", url: "" },
   secrets: { webhookSecret: { stored: true, hint: "…1" }, apiKey: { stored: true, hint: "…2" } },
 };
 

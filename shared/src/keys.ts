@@ -14,6 +14,8 @@ export const CFG_SK_PORTAL = "portal";
 export const CFG_SK_STRIPE = "stripe";
 /** The paid plan (D19c). One flag, honesty-enforced like every poppy tier. */
 export const CFG_SK_PLAN = "plan";
+/** P10: the published portal slug — the merchant's name on affiliates.agentspoppy.com. */
+export const CFG_SK_PORTALPUB = "portalpub";
 
 /** The affiliate directory — one thin row per affiliate, so the admin list is one Query. */
 export const DIR_PK = "dir";

@@ -21,7 +21,9 @@ import {
   type ProgramSettings,
 } from "../../shared/src/settings";
 import { StripeClient, permissionProblem } from "../../shared/src/stripe-api";
-import { readSecret } from "./secrets";
+import { publishPortal, pushPortalUpdate, type PortalPublishDeps } from "./portal-publish";
+import { putSecret, readSecret } from "./secrets";
+import type { AttributionContext } from "./tags";
 
 /** What syncCodes() did, and what it couldn't — shown to the merchant, never swallowed. */
 export interface SyncReport {
@@ -41,8 +43,28 @@ export class Program {
     db: DynamoDBClient,
     tableName: string,
     private readonly ssm: SSMClient,
+    private readonly attribution?: AttributionContext,
   ) {
     this.ledger = new DynamoLedger(db, tableName);
+  }
+
+  /** The publish/update flows' view of this install (portal-publish.ts). */
+  private portalDeps(): PortalPublishDeps {
+    return {
+      planPro: () => this.ledger.planPro(),
+      config: () => this.ledger.config(),
+      portalSlug: () => this.ledger.portalSlug(),
+      savePortalSlug: (slug) => this.ledger.savePortalSlug(slug),
+      saveToken: async (token) => {
+        await putSecret(this.ssm, "portalToken", token, this.attribution ?? { accountId: "", connectionId: "" });
+      },
+      readToken: () => readSecret(this.ssm, "portalToken"),
+    };
+  }
+
+  /** P10: claim a name on affiliates.agentspoppy.com and start feeding the page. */
+  async publishPortal(slug: string): Promise<{ slug: string; url: string }> {
+    return publishPortal(this.portalDeps(), slug);
   }
 
   /** A Stripe client using the merchant's stored key, or null when they haven't connected. */
@@ -59,13 +81,23 @@ export class Program {
     offer: string;
     /** D19c: the paid plan. Free = personalisation locked, portal carries the free-plan notice. */
     plan: { pro: boolean };
+    /** P10: the platform portal, when published. */
+    portal: { slug: string; url: string };
   }> {
-    const [{ settings, branding }, stripe, pro] = await Promise.all([
+    const [{ settings, branding }, stripe, pro, slug] = await Promise.all([
       this.ledger.config(),
       this.ledger.stripeState(),
       this.ledger.planPro(),
+      this.ledger.portalSlug(),
     ]);
-    return { settings, branding, stripe, offer: branding.offerCopy || defaultOfferCopy(settings), plan: { pro } };
+    return {
+      settings,
+      branding,
+      stripe,
+      offer: branding.offerCopy || defaultOfferCopy(settings),
+      plan: { pro },
+      portal: { slug, url: slug ? `https://affiliates.agentspoppy.com/${slug}` : "" },
+    };
   }
 
   /** Persist what the commerce plane said about the Pro purchase (the UI checks, we remember —
@@ -113,6 +145,8 @@ export class Program {
     // P7: the coupon on each developer's account must give the same discount — a changed
     // discount means a new coupon THERE too, and every code re-minted against it.
     if (stripe && state.partners.length) await this.ensurePartnerCoupons(stripe, settings, branding, state.partners);
+    // P10: keep the published page current. Best-effort — the merchant's save already succeeded.
+    await pushPortalUpdate(this.portalDeps());
     return { settings, branding, couponChanged };
   }
 

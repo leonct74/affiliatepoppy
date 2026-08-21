@@ -35,6 +35,7 @@ const config = (over: Partial<ProgramConfig> = {}): ProgramConfig => ({
   stripe: { couponId: "", lastEventAt: 0, livemode: false, partners: [] },
   offer: "Earn 10% of every sale you bring in.",
   plan: { pro: true },
+  portal: { slug: "", url: "" },
   secrets: { webhookSecret: { stored: false, hint: "" }, apiKey: { stored: false, hint: "" } },
   ...over,
 });
@@ -298,5 +299,30 @@ describe("the D19c lock on personalisation", () => {
     showSettings(config());
     expect(await screen.findByDisplayValue("5")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /unlock pro/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("publishing the permanent address (P10)", () => {
+  const showSettings = (c: ProgramConfig) => render(<Settings config={c} onSaved={vi.fn().mockResolvedValue(undefined)} />);
+
+  it("offers publishing to Pro merchants, claims the name, and reports the platform's words on failure", async () => {
+    const publish = vi.spyOn(api, "publishPortal").mockRejectedValue(new Error('"olly" is already taken — pick another name.'));
+    showSettings(config());
+    await userEvent.type(await screen.findByPlaceholderText("your-name"), "olly");
+    await userEvent.click(screen.getByRole("button", { name: /^publish$/i }));
+    expect(publish).toHaveBeenCalledWith("olly");
+    expect(await screen.findByText(/already taken/i)).toBeInTheDocument();
+  });
+
+  it("shows the permanent link once published, and stops offering the form", async () => {
+    showSettings({ ...config(), portal: { slug: "olly", url: "https://affiliates.agentspoppy.com/olly" } });
+    expect(await screen.findByText("https://affiliates.agentspoppy.com/olly")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("your-name")).not.toBeInTheDocument();
+  });
+
+  it("hides the whole card from free merchants — it is part of Pro", async () => {
+    showSettings({ ...config(), plan: { pro: false } });
+    expect(await screen.findByDisplayValue("5")).toBeInTheDocument();
+    expect(screen.queryByText(/permanent address/i)).not.toBeInTheDocument();
   });
 });

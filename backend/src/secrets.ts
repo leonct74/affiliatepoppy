@@ -27,6 +27,8 @@ export const SECRET_NAMES = {
   apiKey: SSM_API_KEY,
   /** P7, optional: the "connected accounts" endpoint's own signing secret. */
   connectSecret: SSM_CONNECT_WEBHOOK_SECRET,
+  /** P10, optional: the per-merchant token for the platform publisher portal (D19b). */
+  portalToken: "/affiliatepoppy/portal/token",
 } as const;
 export type SecretName = keyof typeof SECRET_NAMES;
 

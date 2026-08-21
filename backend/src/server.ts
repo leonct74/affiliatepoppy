@@ -31,7 +31,7 @@ const aws: AwsCtx = {
 };
 const db = new DynamoDBClient({ region, credentials });
 const lambda = new LambdaClient({ region, credentials });
-const program = new Program(db, tableName, aws.ssm);
+const program = new Program(db, tableName, aws.ssm, { accountId: boot.account.accountId, connectionId: boot.connectionId });
 /** Files waiting for the user's browser to collect them (downloads.ts). */
 const handoff = new DownloadHandoff();
 
@@ -136,6 +136,12 @@ const server = createServer(async (req, res) => {
       // exists — a wrong key must fail HERE, not later when an affiliate can't get a code.
       const connection = which === "apiKey" ? await program.connectStripe() : undefined;
       return json(res, 200, { ...status, connection });
+    }
+
+    // P10: publish this programme to affiliates.agentspoppy.com/<slug> (Pro only).
+    if (method === "POST" && parts[0] === "portal" && parts[1] === "publish") {
+      const body = (await readBody(req)) ?? {};
+      return json(res, 200, await program.publishPortal(str(body.slug)));
     }
 
     // D19c: the UI checked the Pro entitlement with the commerce plane; we persist the answer

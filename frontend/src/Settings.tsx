@@ -218,6 +218,8 @@ export function Settings(props: { config: ProgramConfig | null; onSaved: () => P
         <Preview branding={branding} settings={settings} fallbackOffer={props.config?.offer ?? ""} />
       </div>
 
+      {pro && <PortalPublish config={props.config} onPublished={props.onSaved} />}
+
       <div className="row">
         <Button className="btn btn-primary" busyLabel="Saving…" disabled={!branding.merchantName.trim()} onClick={save}>
           Save settings
@@ -362,6 +364,70 @@ function UnlockPro(props: { onUnlocked: () => Promise<void> }) {
           }}
         >
           Unlock Pro
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+
+/**
+ * P10: the permanent, friendly address — affiliates.agentspoppy.com/<name>. Pro-only (the
+ * paid plan is what pays for the hosting), and the poppy keeps the page fed automatically on
+ * every Settings save once published.
+ */
+function PortalPublish(props: { config: ProgramConfig | null; onPublished: () => Promise<void> }) {
+  const [slug, setSlug] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const published = props.config?.portal.slug ?? "";
+
+  if (published) {
+    return (
+      <div className="card stack">
+        <h2 className="section-title">Your permanent address</h2>
+        <p className="muted" style={{ margin: 0 }}>
+          This link never changes — share it instead of the AWS one. The page updates itself every time you save
+          these settings.
+        </p>
+        <div className="row">
+          <span className="chip" style={{ overflowWrap: "anywhere" }}>{props.config!.portal.url}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card stack">
+      <h2 className="section-title">Get your permanent address</h2>
+      <p className="muted" style={{ margin: 0 }}>
+        Publish your sign-up page to <span className="chip">affiliates.agentspoppy.com/your-name</span> — a friendly
+        link that survives anything (the AWS one changes if you ever rebuild). Lowercase letters, digits and
+        hyphens, 3–30 characters.
+      </p>
+      {error && <div className="banner err">{error}</div>}
+      <div className="row">
+        <input
+          className="input mono"
+          style={{ maxWidth: 220 }}
+          value={slug}
+          placeholder="your-name"
+          onChange={(e) => setSlug(e.target.value)}
+        />
+        <Button
+          className="btn btn-primary btn-sm"
+          busyLabel="Claiming the name…"
+          disabled={!slug.trim()}
+          onClick={async () => {
+            setError(null);
+            try {
+              await api.publishPortal(slug);
+              await props.onPublished();
+            } catch (e) {
+              setError((e as Error).message);
+            }
+          }}
+        >
+          Publish
         </Button>
       </div>
     </div>
