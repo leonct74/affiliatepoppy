@@ -149,9 +149,10 @@ export function ConnectedAccounts(props: {
           <div className="card stack">
             <h2 className="section-title">Add an account</h2>
             <p className="muted" style={{ margin: 0 }}>
-              Your restricted key needs two permissions in its <strong>Connect</strong> column for this:{" "}
-              <strong>Promotion codes — Write</strong> and <strong>Coupons — Write</strong>. You can edit the existing
-              key in Stripe — its value doesn't change.
+              Your restricted key needs one more thing for this: on Stripe's key page, the <strong>Billing</strong>{" "}
+              permission group has a second column, <strong>Connected accounts</strong> — set it to{" "}
+              <strong>Write</strong>. (It covers both coupons and promotion codes, which Stripe treats as separate
+              things on connected accounts.) You can edit the existing key — its value doesn't change.
             </p>
             <div className="grid-2">
               <label className="field">
