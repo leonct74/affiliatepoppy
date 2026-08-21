@@ -148,6 +148,7 @@ ${cfg.freePlan ? `<div class="planNote"><span>This programme runs on <strong>Aff
     <div class="card hide" id="verifyCard">
       <h2>Check your email</h2>
       <p class="mut" style="margin:0">We sent a 6-digit code to <span id="verifyWho"></span>. Enter it to finish.</p>
+      <p class="mut" style="margin:6px 0 0;font-size:12px">Not in your inbox after a minute? <strong>Check your junk or spam folder</strong> — the code comes from a plain no-reply address and filters sometimes grab it.</p>
       <div id="verifyMsg"></div>
       <form id="verifyForm">
         <label>Code<input id="vCode" inputmode="numeric" autocomplete="one-time-code" required></label>

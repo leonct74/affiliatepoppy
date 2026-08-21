@@ -442,3 +442,12 @@ describe("the free-plan notice (D19c)", () => {
     expect(res.body).not.toMatch(/AffiliatePoppy|AgentsPoppy/);
   });
 });
+
+describe("the verification screen", () => {
+  it("tells the publisher to check junk/spam — the code comes from a plain no-reply sender", async () => {
+    // Founder, live setup (2026-08-20): a publisher who never finds the code silently gives
+    // up on the MERCHANT's programme, and nobody learns why.
+    const res = await route({ method: "GET", path: "/", headers: {}, body: "", sourceIp: "" }, new FakeDeps());
+    expect(res.body).toContain("junk or spam folder");
+  });
+});
