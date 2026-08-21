@@ -120,7 +120,7 @@ td:last-child,th:last-child{text-align:right}
 </head>
 <body>
 <div class="wrap">
-${cfg.freePlan ? `<div class="planNote"><span>This programme runs on <strong>AffiliatePoppy Free</strong>. Sign-ups and earnings here are fully tracked and real. Upgrading to <strong>AffiliatePoppy Pro</strong> removes this notice and lets the programme carry its own brand.</span><a class="planBtn" href="https://agentspoppy.com/poppies" target="_blank" rel="noopener">Programme owner? Upgrade to Pro — in the app, under Settings</a></div>` : ""}
+${cfg.freePlan ? `<div class="planNote"><span>This programme runs on <strong>AffiliatePoppy Free</strong>. Sign-ups and earnings here are fully tracked and real. Upgrading to <strong>AffiliatePoppy Pro</strong> removes this notice and lets the programme carry its own brand.</span><a class="planBtn" href="https://agentspoppy.com/pro/affiliatepoppy" target="_blank" rel="noopener">Programme owner? Upgrade to Pro — in the app, under Settings</a></div>` : ""}
 
   <div id="public" class="hide">
     <div class="card">
