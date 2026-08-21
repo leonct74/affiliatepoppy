@@ -35,7 +35,7 @@ const config = (over: Partial<ProgramConfig> = {}): ProgramConfig => ({
   stripe: { couponId: "", lastEventAt: 0, livemode: false, partners: [] },
   offer: "Earn 10% of every sale you bring in.",
   plan: { pro: true },
-  portal: { slug: "", url: "" },
+  portal: { slug: "", url: "", feedUrl: "", feedDay: "" },
   secrets: { webhookSecret: { stored: false, hint: "" }, apiKey: { stored: false, hint: "" } },
   ...over,
 });
@@ -315,7 +315,7 @@ describe("publishing the permanent address (P10)", () => {
   });
 
   it("shows the permanent link once published, and stops offering the form", async () => {
-    showSettings({ ...config(), portal: { slug: "olly", url: "https://affiliates.agentspoppy.com/olly" } });
+    showSettings({ ...config(), portal: { slug: "olly", url: "https://affiliates.agentspoppy.com/olly", feedUrl: "https://agentspoppy.com/api/portal/stripe/olly", feedDay: "" } });
     expect(await screen.findByText("https://affiliates.agentspoppy.com/olly")).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("your-name")).not.toBeInTheDocument();
   });
@@ -324,5 +324,32 @@ describe("publishing the permanent address (P10)", () => {
     showSettings({ ...config(), plan: { pro: false } });
     expect(await screen.findByDisplayValue("5")).toBeInTheDocument();
     expect(screen.queryByText(/permanent address/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("the ledger feed (Q3)", () => {
+  const showSettings = (c: ProgramConfig) => render(<Settings config={c} onSaved={vi.fn().mockResolvedValue(undefined)} />);
+  const publishedAt = (feedDay: string): ProgramConfig => ({
+    ...config(),
+    portal: { slug: "olly", url: "https://affiliates.agentspoppy.com/olly", feedUrl: "https://agentspoppy.com/api/portal/stripe/olly", feedDay },
+  });
+
+  it("walks the merchant through the extra webhook and sends the pasted secret through", async () => {
+    const send = vi.spyOn(api, "portalFeedSecret").mockResolvedValue({ day: "2026-08-21" });
+    showSettings(publishedAt(""));
+    // Every question Stripe's form asks is answered here, like the Setup cards.
+    expect(await screen.findByText("https://agentspoppy.com/api/portal/stripe/olly")).toBeInTheDocument();
+    expect(screen.getByText(/"Your account"/)).toBeInTheDocument();
+    expect(screen.getByText("charge.refunded")).toBeInTheDocument();
+    await userEvent.type(screen.getByPlaceholderText("whsec_…"), "whsec_Abc123456789");
+    await userEvent.click(screen.getByRole("button", { name: /connect the feed/i }));
+    expect(send).toHaveBeenCalledWith("whsec_Abc123456789");
+  });
+
+  it("shows the connected state instead of the instructions once the feed is live", async () => {
+    showSettings(publishedAt("2026-08-21"));
+    expect(await screen.findByText(/ledger feed connected/i)).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("whsec_…")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /replace the signing secret/i })).toBeInTheDocument();
   });
 });

@@ -21,7 +21,8 @@ import {
   type ProgramSettings,
 } from "../../shared/src/settings";
 import { StripeClient, permissionProblem } from "../../shared/src/stripe-api";
-import { publishPortal, pushPortalUpdate, type PortalPublishDeps } from "./portal-publish";
+import { dayOf } from "../../shared/src/stripe-events";
+import { PORTAL_BASE, publishPortal, pushPortalUpdate, sendPortalWebhookSecret, type PortalPublishDeps } from "./portal-publish";
 import { putSecret, readSecret } from "./secrets";
 import type { AttributionContext } from "./tags";
 
@@ -67,6 +68,15 @@ export class Program {
     return publishPortal(this.portalDeps(), slug);
   }
 
+  /** Q3: hand the platform the signing secret of the merchant's ledger-feed webhook.
+   *  Pass-through — validated, delivered, and only a day-stamp kept here. */
+  async portalFeedSecret(secret: string): Promise<{ day: string }> {
+    await sendPortalWebhookSecret(this.portalDeps(), secret);
+    const day = dayOf(Math.floor(Date.now() / 1000));
+    await this.ledger.savePortalFeedDay(day);
+    return { day };
+  }
+
   /** A Stripe client using the merchant's stored key, or null when they haven't connected. */
   private async stripe(): Promise<StripeClient | null> {
     const apiKey = await readSecret(this.ssm, "apiKey");
@@ -81,14 +91,15 @@ export class Program {
     offer: string;
     /** D19c: the paid plan. Free = personalisation locked, portal carries the free-plan notice. */
     plan: { pro: boolean };
-    /** P10: the platform portal, when published. */
-    portal: { slug: string; url: string };
+    /** P10: the platform portal, when published; feed* is the Q3 Stripe-fed ledger state. */
+    portal: { slug: string; url: string; feedUrl: string; feedDay: string };
   }> {
-    const [{ settings, branding }, stripe, pro, slug] = await Promise.all([
+    const [{ settings, branding }, stripe, pro, slug, feedDay] = await Promise.all([
       this.ledger.config(),
       this.ledger.stripeState(),
       this.ledger.planPro(),
       this.ledger.portalSlug(),
+      this.ledger.portalFeedDay(),
     ]);
     return {
       settings,
@@ -96,7 +107,12 @@ export class Program {
       stripe,
       offer: branding.offerCopy || defaultOfferCopy(settings),
       plan: { pro },
-      portal: { slug, url: slug ? `https://affiliates.agentspoppy.com/${slug}` : "" },
+      portal: {
+        slug,
+        url: slug ? `https://affiliates.agentspoppy.com/${slug}` : "",
+        feedUrl: slug ? `${PORTAL_BASE}/api/portal/stripe/${slug}` : "",
+        feedDay,
+      },
     };
   }
 

@@ -473,13 +473,24 @@ developer's figure; refund reverses both.*
   *Founder action before live publishers:* add `affiliates.agentspoppy.com` to Firebase Auth
   → Settings → Authorized domains (sign-up/sign-in runs there now), and if the web API key
   has HTTP-referrer restrictions, allow the subdomain there too.
-- **Q3 — The Stripe-fed ledger (the guarantee).** Per-merchant intake:
-  `/api/portal/stripe/<merchantId>`, verified with that merchant's own signing secret (the
+- **Q3 — The Stripe-fed ledger (the guarantee). ✅ BUILT 2026-08-21.** Per-merchant intake:
+  `POST /api/portal/stripe/<slug>`, verified with that merchant's own signing secret (the
   merchant adds ONE more webhook endpoint in their Stripe pointing at the platform — same
-  gesture as the poppy's own). The platform computes publisher earnings ITSELF (port of the
-  poppy's parser rules: sale/renewal/link/refund, same idempotency) into
-  `portalLedger/{merchant}/{entries}`. Falsifying the publisher's view now requires falsifying
-  Stripe — §12.5a's witness, real.
+  gesture as the poppy's own; the poppy's Settings card walks through it: scope "Your
+  account", version `2026-07-29.dahlia`, the three events, endpoint URL with copy button).
+  The secret is a PASS-THROUGH: pasted in the poppy, PUT to the platform token-authenticated,
+  never stored in the merchant's AWS, never echoed — only a `feedDay` marker kept. The
+  platform computes publisher earnings ITSELF: `parser.ts`/`money.ts` are VENDORED PORTS of
+  the poppy's shared modules (rule changes must land in both repos together — recorded in
+  both file headers), `apply.ts` is the attribute layer keyed by Firebase uid. Storage under
+  `portalMerchants/{slug}`: entries under `signups/{uid}/entries` (publisher isolation in the
+  storage shape; no composite index), `refs/{id}` for refund matching, `subs/{id}` for
+  renewals, totals moved atomically with each entry; redelivery no-ops, repeated
+  `charge.refunded` converges. Publisher dashboard shows totals + history from `/api/portal/me`.
+  Per-publisher rate overrides (D9): `pctOverride` on the signup, to be pushed by Q4's mint
+  postback; until then the programme rate applies. Falsifying the publisher's view now
+  requires falsifying Stripe — §12.5a's witness, real. *Live verification happens at Q6
+  dogfood (needs Q4's minted codes to attribute real events).*
 - **Q4 — The minting handshake.** DECIDED: the poppy polls (keys never leave the merchant's
   AWS). Platform queues approved signups; the poppy's backend polls every 60s while the app
   runs, mints via the merchant's own key (existing issueCodeFor + partners), POSTs back

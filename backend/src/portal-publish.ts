@@ -70,6 +70,39 @@ export async function publishPortal(deps: PortalPublishDeps, rawSlug: string): P
 }
 
 /**
+ * Q3: hand the platform the signing secret for THIS programme's ledger feed — the extra
+ * webhook endpoint the merchant created in their own Stripe, pointing at the platform.
+ * Pass-through only: the secret is never stored in the merchant's AWS and never echoed
+ * back; the platform holds it to verify the events that feed the publishers' independent
+ * ledger (D19b's guarantee).
+ */
+export async function sendPortalWebhookSecret(deps: PortalPublishDeps, rawSecret: string): Promise<void> {
+  const secret = rawSecret.trim();
+  if (!/^whsec_[A-Za-z0-9]{8,128}$/.test(secret)) {
+    throw new Error('That doesn\'t look like a Stripe signing secret — it starts with "whsec_". Copy it from the webhook destination you just created.');
+  }
+  const slug = await deps.portalSlug();
+  if (!slug) throw new Error("Publish your portal first — the feed belongs to your permanent address.");
+  const token = await deps.readToken();
+  if (!token) throw new Error("This install has no portal token. Publish your portal again and retry.");
+
+  const doFetch = deps.fetchImpl ?? fetch;
+  let res: Response;
+  try {
+    res = await doFetch(`${PORTAL_BASE}/api/portal/merchant`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ slug, token, webhookSecret: secret }),
+    });
+  } catch (e) {
+    throw new Error(`Couldn't reach agentspoppy.com (${(e as Error).message}). Nothing changed — try again.`);
+  }
+  if (res.status === 422) throw new Error("The platform refused that secret — copy the whole whsec_… value and try again.");
+  if (res.status === 403) throw new Error("The platform didn't recognise this programme's token — if you rebuilt your storage, publish the portal again first.");
+  if (!res.ok) throw new Error("The portal service refused the request — try again in a moment.");
+}
+
+/**
  * Push the current branding/deal to the published page. Called after every Settings save;
  * best-effort BY DESIGN — a platform hiccup must never fail the merchant's own save. The
  * next save (or publish) tries again.

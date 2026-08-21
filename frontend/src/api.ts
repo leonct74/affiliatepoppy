@@ -88,6 +88,10 @@ export const api = {
   publishPortal: (slug: string): Promise<{ slug: string; url: string }> =>
     host.invokeBackend({ method: "POST", path: "/portal/publish", body: { slug } }, 60_000),
 
+  /** Q3: hand the platform the ledger-feed webhook's signing secret (pass-through). */
+  portalFeedSecret: (secret: string): Promise<{ day: string }> =>
+    host.invokeBackend({ method: "POST", path: "/portal/feed-secret", body: { secret } }, 60_000),
+
   /** Persist what the commerce plane said about Pro, so the portal Lambda knows (D19c). */
   setPlan: (pro: boolean): Promise<{ pro: boolean }> =>
     host.invokeBackend({ method: "PUT", path: "/plan", body: { pro } }),

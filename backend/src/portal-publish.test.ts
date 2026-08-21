@@ -6,7 +6,7 @@
 // background update never breaks the merchant's own save.
 
 import { describe, expect, it } from "vitest";
-import { publishPortal, pushPortalUpdate, type PortalPublishDeps } from "./portal-publish";
+import { publishPortal, pushPortalUpdate, sendPortalWebhookSecret, type PortalPublishDeps } from "./portal-publish";
 
 function deps(over: Partial<PortalPublishDeps> = {}, replies: { status: number; body?: unknown }[] = []) {
   const calls: { url: string; body: Record<string, unknown> }[] = [];
@@ -62,6 +62,38 @@ describe("publishing", () => {
     const bad = deps({}, [{ status: 422, body: { error: "bad_slug" } }]);
     await expect(publishPortal(bad.d, "x")).rejects.toThrow(/lowercase letters, digits and hyphens/);
     expect(taken.saved).toEqual([]); // nothing persisted on failure
+  });
+});
+
+describe("the ledger-feed secret (Q3)", () => {
+  it("passes the secret straight through with slug and token — and ONLY those fields", async () => {
+    const { d, calls, state } = deps();
+    state.slug = "olly";
+    state.token = "apt_x";
+    await sendPortalWebhookSecret(d, "  whsec_Abc123456789  ");
+    expect(calls[0]!.url).toContain("/api/portal/merchant");
+    expect(calls[0]!.body).toEqual({ slug: "olly", token: "apt_x", webhookSecret: "whsec_Abc123456789" });
+    // No branding/deal riding along: a secret delivery must never blank the page.
+    expect(calls[0]!.body).not.toHaveProperty("branding");
+  });
+
+  it("refuses things that are not signing secrets, before any network call", async () => {
+    const { d, calls, state } = deps();
+    state.slug = "olly";
+    state.token = "apt_x";
+    for (const bad of ["", "sk_live_abc12345", "whsec_", "whsec_has spaces"]) {
+      await expect(sendPortalWebhookSecret(d, bad)).rejects.toThrow(/whsec_/);
+    }
+    expect(calls).toHaveLength(0);
+  });
+
+  it("demands a published portal first, and turns platform refusals into words", async () => {
+    const unpublished = deps();
+    await expect(sendPortalWebhookSecret(unpublished.d, "whsec_Abc123456789")).rejects.toThrow(/Publish your portal first/);
+    const badToken = deps({}, [{ status: 403, body: { error: "bad_token" } }]);
+    badToken.state.slug = "olly";
+    badToken.state.token = "apt_x";
+    await expect(sendPortalWebhookSecret(badToken.d, "whsec_Abc123456789")).rejects.toThrow(/didn't recognise/);
   });
 });
 

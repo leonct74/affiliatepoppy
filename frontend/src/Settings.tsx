@@ -9,8 +9,10 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import { Button } from "./Button";
+import { CopyButton } from "./CopyButton";
 import { host } from "./host";
 import { defaultTermsText } from "../../shared/src/settings";
+import { WEBHOOK_API_VERSION } from "../../shared/src/stripe-events";
 import type { PortalBranding, ProgramConfig, ProgramSettings } from "./types";
 
 const LOGO_MAX_BYTES = 100_000;
@@ -392,6 +394,7 @@ function PortalPublish(props: { config: ProgramConfig | null; onPublished: () =>
         <div className="row">
           <span className="chip" style={{ overflowWrap: "anywhere" }}>{props.config!.portal.url}</span>
         </div>
+        <PortalFeed portal={props.config!.portal} onConnected={props.onPublished} />
       </div>
     );
   }
@@ -430,6 +433,94 @@ function PortalPublish(props: { config: ProgramConfig | null; onPublished: () =>
           Publish
         </Button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Q3: connect the merchant's Stripe to the platform ledger, so their public page's numbers
+ * are computed by AgentsPoppy from Stripe's own events — the third-party guarantee the paid
+ * portal is sold on. One more webhook, the same gesture as Setup step 2; the secret passes
+ * straight through to the platform and is never kept in the merchant's AWS.
+ */
+function PortalFeed(props: {
+  portal: { feedUrl: string; feedDay: string };
+  onConnected: () => Promise<void>;
+}) {
+  const [secret, setSecret] = useState("");
+  const [rotating, setRotating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const send = async () => {
+    setError(null);
+    try {
+      await api.portalFeedSecret(secret);
+      setSecret("");
+      setRotating(false);
+      await props.onConnected();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const form = (
+    <>
+      {error && <div className="banner err">{error}</div>}
+      <div className="row">
+        <input
+          className="input mono"
+          style={{ maxWidth: 320 }}
+          type="password"
+          value={secret}
+          placeholder="whsec_…"
+          onChange={(e) => setSecret(e.target.value)}
+        />
+        <Button className="btn btn-primary btn-sm" busyLabel="Connecting…" disabled={!secret.trim()} onClick={send}>
+          Connect the feed
+        </Button>
+      </div>
+    </>
+  );
+
+  if (props.portal.feedDay && !rotating) {
+    return (
+      <div className="stack" style={{ borderTop: "1px solid var(--poppy-border)", paddingTop: 10 }}>
+        <p className="muted" style={{ margin: 0 }}>
+          <span className="badge ok"><span className="dot" /> Ledger feed connected</span>{" "}
+          since {props.portal.feedDay}. Your publishers' earnings on the page are computed by AgentsPoppy directly
+          from Stripe's events — independently of this app.
+        </p>
+        <div className="row">
+          <button className="btn btn-sm btn-ghost" onClick={() => setRotating(true)}>
+            Replace the signing secret
+          </button>
+        </div>
+        {rotating && form}
+      </div>
+    );
+  }
+
+  return (
+    <div className="stack" style={{ borderTop: "1px solid var(--poppy-border)", paddingTop: 10 }}>
+      <strong style={{ fontSize: 13 }}>One more step: feed the page's ledger</strong>
+      <p className="muted" style={{ margin: 0 }}>
+        Right now your page shows no earnings. Add <strong>one more webhook</strong> in Stripe — same gesture as
+        Setup step 2 — and AgentsPoppy will compute your publishers' earnings straight from Stripe's events, as an
+        independent record they can trust. In Stripe: <strong>Developers → Webhooks → Add destination</strong>,
+        scope <strong>"Your account"</strong>, API version <span className="chip">{WEBHOOK_API_VERSION}</span>,
+        events <span className="chip">checkout.session.completed</span>{" "}
+        <span className="chip">invoice.paid</span> <span className="chip">charge.refunded</span>, and this
+        endpoint URL:
+      </p>
+      <div className="row">
+        <span className="chip" style={{ overflowWrap: "anywhere" }}>{props.portal.feedUrl}</span>
+        <CopyButton text={props.portal.feedUrl} label="endpoint URL" />
+      </div>
+      <p className="muted" style={{ margin: 0 }}>
+        Then paste the destination's <strong>signing secret</strong> here. It goes straight to AgentsPoppy — it is
+        not kept in your AWS.
+      </p>
+      {form}
     </div>
   );
 }

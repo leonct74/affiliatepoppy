@@ -158,10 +158,28 @@ export class DynamoLedger {
   }
 
   async savePortalSlug(slug: string): Promise<void> {
+    // Full replace on purpose: a fresh publish means a fresh platform record, so the feed
+    // marker (below) correctly resets to "not connected yet".
     await this.db.send(
       new PutItemCommand({
         TableName: this.tableName,
         Item: { pk: S(CFG_PK), sk: S(CFG_SK_PORTALPUB), slug: S(slug) },
+      }),
+    );
+  }
+
+  /** Q3: the day the merchant connected their Stripe feed to the platform ledger ("" = not yet).
+   *  A display marker only — the secret itself goes straight to the platform, never stored here. */
+  async portalFeedDay(): Promise<string> {
+    return (await this.get(CFG_PK, CFG_SK_PORTALPUB))?.feedDay?.S ?? "";
+  }
+
+  async savePortalFeedDay(day: string): Promise<void> {
+    const current = await this.get(CFG_PK, CFG_SK_PORTALPUB);
+    await this.db.send(
+      new PutItemCommand({
+        TableName: this.tableName,
+        Item: { pk: S(CFG_PK), sk: S(CFG_SK_PORTALPUB), slug: S(current?.slug?.S ?? ""), feedDay: S(day) },
       }),
     );
   }
