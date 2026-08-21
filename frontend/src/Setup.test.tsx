@@ -62,8 +62,13 @@ describe("the guided path", () => {
     expect(screen.queryByPlaceholderText("whsec_…")).not.toBeInTheDocument();
   });
 
-  it("gives the merchant the exact webhook address and the events to tick", () => {
+  it("answers every question Stripe asks during webhook creation — scope, API version, events, address", () => {
+    // Founder, live setup (2026-08-20): "it doesn't say what API version to choose, it
+    // doesn't say what event scope to select". Stripe's creation flow asks both; a merchant
+    // who has never done this stalls exactly there.
     setup();
+    expect(screen.getByText('"Your account"')).toBeInTheDocument();
+    expect(screen.getByText(/keep the one stripe suggests/i)).toBeInTheDocument();
     expect(screen.getByText("https://abc123.lambda-url.eu-west-1.on.aws/")).toBeInTheDocument();
     expect(screen.getByText("checkout.session.completed")).toBeInTheDocument();
     expect(screen.getByText("invoice.paid")).toBeInTheDocument();

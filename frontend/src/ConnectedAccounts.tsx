@@ -192,8 +192,10 @@ export function ConnectedAccounts(props: {
             </div>
             <p className="muted" style={{ margin: 0 }}>
               Stripe only sends a connected account's sales to a webhook made for them. In Stripe →{" "}
-              <strong>Developers → Webhooks → Add destination</strong>, choose <strong>Connected accounts</strong> (not
-              "Your account"), the same three events as Setup step 2, and the same address:
+              <strong>Developers → Webhooks → Add destination</strong>: when it asks whose events, choose{" "}
+              <strong>Connected accounts</strong> (not "Your account") — that choice is what makes this endpoint
+              different. Keep the suggested (latest) API version, tick the same three events as Setup step 2, and use
+              the same address:
             </p>
             {status?.receiverUrl && (
               <div className="row">
