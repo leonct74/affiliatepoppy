@@ -448,16 +448,31 @@ developer's figure; refund reverses both.*
 **P10 — D19b: the platform publisher portal (`affiliates.agentspoppy.com`). Phased plan
 (2026-08-20; build order, each phase independently shippable):**
 
-- **Q1 — Merchant registration (platform + poppy).** Firestore model: `portalMerchants/{slug}`
-  (slug rules: lowercase, 3–30 chars, reserved words blocked), holding mirrored
-  branding/settings, a per-merchant API token (poppy↔platform auth), and a per-merchant Stripe
-  webhook secret (empty until Q3). Poppy side: a Pro-gated "Publish your portal" card — picks
-  the slug, pushes branding/settings on every save, shows the friendly link. Platform API:
-  register/update, token-authenticated.
-- **Q2 — The portal pages.** Host rewrite (`affiliates.agentspoppy.com` → `/portal/*` via
-  next.config `has: host` rules, zero cost to the main site). `affiliates.agentspoppy.com/<slug>`:
-  the merchant-branded signup page (Firebase Auth email+password, email verification),
-  publisher dashboard shell. AgentsPoppy footer = the witness identity, deliberately visible.
+- **Q1 — Merchant registration (platform + poppy). ✅ BUILT 2026-08-21.** Firestore model:
+  `portalMerchants/{slug}` (slug rules: lowercase, 3–30 chars, reserved words blocked), holding
+  mirrored branding/settings, a per-merchant API token (poppy↔platform auth), and a per-merchant
+  Stripe webhook secret (empty until Q3). Poppy side: a Pro-gated "Publish your portal" card —
+  picks the slug, pushes branding/settings on every save, shows the friendly link. Platform API:
+  register/update, token-authenticated (token sha256-hashed at rest, returned exactly once;
+  poppy saves it to SSM BEFORE the slug so a half-publish is recoverable).
+- **Q2 — The portal pages. ✅ BUILT 2026-08-21.** Host rewrite (`affiliates.agentspoppy.com` →
+  `/portal/*` via next.config `has: host` rules, zero cost to the main site — NOT middleware).
+  `affiliates.agentspoppy.com/<slug>`: the merchant-branded page server-rendered from the
+  registry (accent bar, logo, offer, deal sentence) + client join flow (Firebase Auth
+  email+password, email verification with the junk-folder warning, sign-in, reset), publisher
+  dashboard shell (code card with honest pending / being-prepared / active states, earnings
+  placeholder, terms). AgentsPoppy footer = the witness identity, deliberately visible.
+  Signups: `portalMerchants/{slug}/signups/{uid}` — create-if-absent; status starts `pending`
+  or `approved` by the merchant's autoApprove at join time; `active` once Q4 mints the code.
+  APIs `POST /api/portal/signup` + `GET /api/portal/me` verify the Firebase ID token
+  server-side and require `email_verified` (a signup eventually earns money — it must belong
+  to a mailbox the person owns). *Build lessons:* (1) Next `beforeFiles` rewrites CASCADE —
+  the `/`→`/portal` landing rewrite got re-matched by the slug rule as `/portal/portal`; the
+  slug pattern now excludes the literal `portal`. (2) A Firestore hiccup on a merchant page
+  renders "try again in a minute", never a raw 500 — only a confirmed miss 404s.
+  *Founder action before live publishers:* add `affiliates.agentspoppy.com` to Firebase Auth
+  → Settings → Authorized domains (sign-up/sign-in runs there now), and if the web API key
+  has HTTP-referrer restrictions, allow the subdomain there too.
 - **Q3 — The Stripe-fed ledger (the guarantee).** Per-merchant intake:
   `/api/portal/stripe/<merchantId>`, verified with that merchant's own signing secret (the
   merchant adds ONE more webhook endpoint in their Stripe pointing at the platform — same
