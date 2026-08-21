@@ -445,6 +445,37 @@ sold to any merchant, so the UI says "connected account", never "developer" — 
 exception is quoting Stripe's own menu path); Ledger "Owed back to you". *Gate: a test-mode sale on a connected account credits the publisher and the
 developer's figure; refund reverses both.*
 
+**P10 — D19b: the platform publisher portal (`affiliates.agentspoppy.com`). Phased plan
+(2026-08-20; build order, each phase independently shippable):**
+
+- **Q1 — Merchant registration (platform + poppy).** Firestore model: `portalMerchants/{slug}`
+  (slug rules: lowercase, 3–30 chars, reserved words blocked), holding mirrored
+  branding/settings, a per-merchant API token (poppy↔platform auth), and a per-merchant Stripe
+  webhook secret (empty until Q3). Poppy side: a Pro-gated "Publish your portal" card — picks
+  the slug, pushes branding/settings on every save, shows the friendly link. Platform API:
+  register/update, token-authenticated.
+- **Q2 — The portal pages.** Host rewrite (`affiliates.agentspoppy.com` → `/portal/*` via
+  next.config `has: host` rules, zero cost to the main site). `affiliates.agentspoppy.com/<slug>`:
+  the merchant-branded signup page (Firebase Auth email+password, email verification),
+  publisher dashboard shell. AgentsPoppy footer = the witness identity, deliberately visible.
+- **Q3 — The Stripe-fed ledger (the guarantee).** Per-merchant intake:
+  `/api/portal/stripe/<merchantId>`, verified with that merchant's own signing secret (the
+  merchant adds ONE more webhook endpoint in their Stripe pointing at the platform — same
+  gesture as the poppy's own). The platform computes publisher earnings ITSELF (port of the
+  poppy's parser rules: sale/renewal/link/refund, same idempotency) into
+  `portalLedger/{merchant}/{entries}`. Falsifying the publisher's view now requires falsifying
+  Stripe — §12.5a's witness, real.
+- **Q4 — The minting handshake.** DECIDED: the poppy polls (keys never leave the merchant's
+  AWS). Platform queues approved signups; the poppy's backend polls every 60s while the app
+  runs, mints via the merchant's own key (existing issueCodeFor + partners), POSTs back
+  code+promotion ids. The portal shows "your code is being prepared" honestly in between.
+- **Q5 — Web checkout with purchase code.** The portal's upgrade button becomes a real
+  checkout: web purchase mints a claim code shown on purchase-complete; the poppy's Settings
+  gains "bought on the web? paste your code", which binds the entitlement to the install.
+- **Q6 — Cutover + dogfood.** Poppy Setup/step-4/Affiliates surfaces show the friendly link
+  when published; the founder's own programme moves onto it (D14); payment-workflow PDF and
+  helper prompt updated; screenshots.
+
 **P6 — Dogfood + listing.**
 Founder installs in his own AWS; agentspoppy-web one-liner (§7) ships; platform webhook
 added; a real (test-mode first, then live) AgentsPoppy sale credits a real affiliate.
