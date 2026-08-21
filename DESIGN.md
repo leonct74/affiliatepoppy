@@ -491,10 +491,19 @@ developer's figure; refund reverses both.*
   postback; until then the programme rate applies. Falsifying the publisher's view now
   requires falsifying Stripe — §12.5a's witness, real. *Live verification happens at Q6
   dogfood (needs Q4's minted codes to attribute real events).*
-- **Q4 — The minting handshake.** DECIDED: the poppy polls (keys never leave the merchant's
-  AWS). Platform queues approved signups; the poppy's backend polls every 60s while the app
-  runs, mints via the merchant's own key (existing issueCodeFor + partners), POSTs back
-  code+promotion ids. The portal shows "your code is being prepared" honestly in between.
+- **Q4 — The minting handshake. ✅ BUILT 2026-08-21.** DECIDED: the poppy polls (keys never
+  leave the merchant's AWS). Platform queues signups; the poppy's backend polls every 60s
+  while the app runs (`portal-sync.ts`, kicked 5 s after boot), imports them as ordinary
+  affiliates (`affId = pp_<firebase-uid>` — the prefix IS the source marker, zero schema
+  change; Affiliates tab shows "via your public page"), mints through the EXISTING approve
+  path (issueCodeFor + mintOnPartners) when allowed — merchant's autoApprove, platform-side
+  approved, or manual approval in the poppy — and POSTs back code + promotion ids +
+  pctOverride via `/api/portal/publisher` (sanitised field-by-field, never an upsert).
+  The merchant's affiliate cap applies to platform signups exactly as to the poppy's own.
+  Approve/retire/setRate write through to the platform so the witness never drifts (retired
+  publishers see "ended — your earnings stay recorded"); a missed write-back reconciles on
+  the next pass instead of re-minting. The portal shows "your code is being prepared"
+  honestly in between.
 - **Q5 — Web checkout with purchase code.** The portal's upgrade button becomes a real
   checkout: web purchase mints a claim code shown on purchase-complete; the poppy's Settings
   gains "bought on the web? paste your code", which binds the entitlement to the install.

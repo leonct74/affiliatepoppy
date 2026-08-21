@@ -67,8 +67,9 @@ export function Affiliates(props: {
           {pending.map((a) => (
             <div key={a.affId} className="spread" style={{ borderTop: "1px solid var(--poppy-border)", paddingTop: 10 }}>
               <div>
-                <div>
+                <div className="row">
                   <strong>{a.displayName}</strong>
+                  {a.affId.startsWith("pp_") && <span className="badge">via your public page</span>}
                 </div>
                 <div className="muted" style={{ fontSize: 12 }}>
                   {a.email} · applied {a.createdDay}
@@ -152,6 +153,7 @@ function Row(props: {
         <div>
           <div className="row">
             <strong>{a.displayName}</strong>
+            {a.affId.startsWith("pp_") && <span className="badge">via your public page</span>}
             {a.status === "retired" && <span className="badge">Retired</span>}
           </div>
           <div className="muted" style={{ fontSize: 12 }}>

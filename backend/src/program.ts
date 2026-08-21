@@ -23,6 +23,7 @@ import {
 import { StripeClient, permissionProblem } from "../../shared/src/stripe-api";
 import { dayOf } from "../../shared/src/stripe-events";
 import { PORTAL_BASE, publishPortal, pushPortalUpdate, sendPortalWebhookSecret, type PortalPublishDeps } from "./portal-publish";
+import { activePatch, platformUid, postPublisherPatch, syncPlatformSignups, type SyncReport } from "./portal-sync";
 import { putSecret, readSecret } from "./secrets";
 import type { AttributionContext } from "./tags";
 
@@ -75,6 +76,33 @@ export class Program {
     const day = dayOf(Math.floor(Date.now() / 1000));
     await this.ledger.savePortalFeedDay(day);
     return { day };
+  }
+
+  /** Q4: tell the platform what happened to one of ITS publishers (mint, rate, retirement).
+   *  Best-effort — the poll loop reconciles anything missed. */
+  private async postPlatformPatch(affId: string, patch: Record<string, unknown>): Promise<void> {
+    const uid = platformUid(affId);
+    if (!uid) return; // an ordinary Lambda-portal affiliate — nothing to sync
+    await postPublisherPatch(this.portalDeps(), uid, patch);
+  }
+
+  /** Q4: one pass of the minting handshake — poll the platform for sign-ups, import them,
+   *  mint where allowed, write results back. Called by the server's minute loop. */
+  async syncPlatformPortal(): Promise<SyncReport | null> {
+    const base = this.portalDeps();
+    return syncPlatformSignups({
+      portalSlug: base.portalSlug,
+      readToken: base.readToken,
+      settings: async () => {
+        const { settings } = await this.ledger.config();
+        return { autoApprove: settings.autoApprove, maxAffiliates: settings.maxAffiliates };
+      },
+      affiliate: (affId) => this.ledger.affiliate(affId),
+      countAffiliates: async () => (await this.ledger.listAffiliates()).length,
+      createAffiliate: (profile) => this.ledger.createAffiliate(profile),
+      approve: (affId) => this.approve(affId),
+      today: () => dayOf(Math.floor(Date.now() / 1000)),
+    });
   }
 
   /** A Stripe client using the merchant's stored key, or null when they haven't connected. */
@@ -381,7 +409,10 @@ export class Program {
     // is reported through syncCodes() — the affiliate's own code is already working.
     const { partners } = await this.ledger.stripeState();
     if (partners.length) await mintOnPartners({ affId, code, partners, already: {}, stripe, registry: this.ledger });
-    return (await this.ledger.affiliate(affId))!;
+    const approved = (await this.ledger.affiliate(affId))!;
+    // Q4: a publisher from the published portal sees their code the moment it exists.
+    await this.postPlatformPatch(affId, activePatch(approved));
+    return approved;
   }
 
   /**
@@ -411,6 +442,8 @@ export class Program {
       }
     }
     await this.ledger.updateAffiliate(affId, { status: "retired" });
+    // Q4: the publisher's page says "ended" honestly rather than showing a dead code.
+    await this.postPlatformPatch(affId, { status: "retired" });
     return (await this.ledger.affiliate(affId))!;
   }
 
@@ -421,6 +454,8 @@ export class Program {
     await this.ledger.updateAffiliate(affId, { pctOverride: clean as number | undefined });
     const profile = await this.ledger.affiliate(affId);
     if (!profile) throw new Error("That affiliate isn't in your programme.");
+    // Q4: the platform ledger computes with the same rate, or the witness would drift.
+    await this.postPlatformPatch(affId, { pctOverride: clean });
     return profile;
   }
 

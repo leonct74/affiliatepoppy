@@ -272,3 +272,24 @@ server.listen(port, "127.0.0.1", () => {
   const actual = typeof addr === "object" && addr ? addr.port : port;
   console.log(`[affiliatepoppy] backend listening on 127.0.0.1:${actual} (region ${boot.account.region})`);
 });
+
+// Q4: the minting handshake — while the app runs, pick up sign-ups from the published
+// portal every minute (DESIGN.md P10-Q4: the poppy polls; keys never leave this AWS).
+// A no-op for unpublished installs (the pass exits on the missing slug before any network).
+const PORTAL_SYNC_MS = 60_000;
+const portalSyncPass = () => {
+  void program
+    .syncPlatformPortal()
+    .then((r) => {
+      if (r && (r.imported || r.minted || r.errors.length)) {
+        console.log(
+          `[affiliatepoppy] portal sync: ${r.imported} imported, ${r.minted} minted` +
+            (r.skippedFull ? `, ${r.skippedFull} waiting (programme full)` : "") +
+            (r.errors.length ? `; failed: ${r.errors.join(" | ")}` : ""),
+        );
+      }
+    })
+    .catch((e) => console.warn("[affiliatepoppy] portal sync failed:", errorMessage(e)));
+};
+setTimeout(portalSyncPass, 5_000); // shortly after boot, so a waiting publisher isn't a minute behind
+setInterval(portalSyncPass, PORTAL_SYNC_MS);
