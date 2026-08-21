@@ -70,13 +70,15 @@ describe("the guided path", () => {
     expect(screen.getByText("charge.refunded")).toBeInTheDocument();
   });
 
-  it("says up front that test and live are separate worlds", () => {
-    // Founder question, first test run: "I need to create a testing webhook, don't I?" Yes —
-    // and nobody should have to ask. Stripe keeps the two modes entirely apart, so a merchant
-    // must pick one deliberately, and know that going live is a redo, not a switch.
+  it("says up front that test and live are one-at-a-time, and names the way between them", () => {
+    // Founder, after doing the real switch (2026-08-20): the old wording explained the
+    // separation but not the ACTION. What a merchant needs to know is: practise in test if
+    // you like, and TEAR DOWN before going live — the poppy keeps one ledger, and mixing
+    // pretend commissions with real ones would make it worthless.
     setup();
-    expect(screen.getByText(/test mode or live mode — pick one and stay in it/i)).toBeInTheDocument();
-    expect(screen.getByText(/codes issued in test mode don't carry over/i)).toBeInTheDocument();
+    expect(screen.getByText(/test mode or in live mode — one at a time, never both/i)).toBeInTheDocument();
+    expect(screen.getByText(/first tear the test setup down/i)).toBeInTheDocument();
+    expect(screen.getByText(/mixing pretend commissions with real ones/i)).toBeInTheDocument();
   });
 
   it("asks for a key that can do ONE thing, and says so", () => {

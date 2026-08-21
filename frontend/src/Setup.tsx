@@ -177,11 +177,12 @@ function StripeConnect(props: {
       {/* Stripe keeps test and live completely separate — a fact people discover the hard
           way. Say it once, up front, so the merchant picks a mode on purpose. */}
       <div className="banner info">
-        <strong>Test mode or live mode — pick one and stay in it.</strong> Stripe keeps them completely
-        separate: a webhook, a secret and a key made in test mode only work with test-mode payments, and vice
-        versa. To try things out safely, switch the Stripe dashboard to <strong>Test mode</strong> first (top
-        right) and create both items there. Going live later means creating both again in live mode — codes
-        issued in test mode don't carry over.
+        <strong>You can set this up in Stripe's test mode or in live mode — one at a time, never both.</strong>{" "}
+        To practise safely, switch Stripe to <strong>Test mode</strong> (top right) and do every step there:
+        sales are made with fake cards and nothing real moves. When you're ready for real money, first tear the
+        test setup down on the <strong>Remove</strong> tab, then start again here in live mode with fresh keys
+        and webhooks. The teardown matters because this poppy keeps one ledger — mixing pretend commissions
+        with real ones would make it worthless as your record.
       </div>
 
       <div className="card card-2 stack">
