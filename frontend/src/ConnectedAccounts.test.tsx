@@ -80,9 +80,9 @@ describe("for a marketplace", () => {
     expect(screen.getAllByText("Connected accounts").length).toBeGreaterThan(0);
     // …and the key recipe is stated where the failure would otherwise happen — BOTH Connect
     // permissions, because Stripe's refusal named coupon_write as its own thing (live lesson).
-    expect(screen.getByText(/two permissions in its/i)).toBeInTheDocument();
-    expect(screen.getByText("Promotion codes — Write")).toBeInTheDocument();
-    expect(screen.getByText("Coupons — Write")).toBeInTheDocument();
+    // "second column" spans <strong> boundaries — assert on the whole card's text instead.
+    expect(document.body.textContent).toMatch(/second column/i);
+    expect(document.body.textContent).toMatch(/Billing/);
     await userEvent.type(screen.getByPlaceholderText("whsec_…"), "whsec_connect");
     await userEvent.click(screen.getByRole("button", { name: /save signing secret/i }));
     expect(save).toHaveBeenCalledWith("connectSecret", "whsec_connect");

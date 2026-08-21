@@ -86,17 +86,16 @@ describe("the guided path", () => {
     expect(screen.getByText(/mixing pretend commissions with real ones/i)).toBeInTheDocument();
   });
 
-  it("asks for a key that can do ONE thing, and says so", () => {
+  it("asks for a key that can do ONE narrow group of things, and says so", () => {
     // The merchant is being asked for API access to their own payment processor. The honest
-    // framing — one permission, cannot move money — is what makes that reasonable.
+    // framing — one permission group, cannot move money — is what makes that reasonable.
+    // The recipe matches Stripe's REAL key page (live, 2026-08-20): resources come grouped,
+    // granular rows grey out, Billing is the group — and the marketplace column is named.
     setup();
-    // Stripe's create-key flow is three screens, and a merchant stalled on the first run:
-    // made the key, pasted it, and only then discovered there had been a permissions step. So
-    // the tab walks all three, and says the permission is the one that can't be fixed later.
-    expect(screen.getByText(/providing this key to a third-party application/i)).toBeInTheDocument();
-    expect(screen.getByText(/each with none \/ read \/ write/i)).toBeInTheDocument();
-    expect(screen.getByText(/can't be edited/i)).toBeInTheDocument();
-    expect(screen.getByText("Promotion codes — Write")).toBeInTheDocument();
+    expect(screen.getByText(/for my own use/i)).toBeInTheDocument();
+    expect(screen.getByText(/greyed out; that's normal/i)).toBeInTheDocument();
+    expect(screen.getByText("Billing — Write")).toBeInTheDocument();
+    expect(screen.getByText(/charges, refunds and payouts are separate groups/i)).toBeInTheDocument();
     expect(screen.getByText(/cannot move money, read customers, or refund anything/i)).toBeInTheDocument();
   });
 
@@ -143,13 +142,13 @@ describe("handing over a secret", () => {
         ok: false,
         livemode: false,
         message:
-          'That key can\'t create discount codes. Stripe keys can\'t be edited afterwards, so make a NEW restricted key with "Promotion codes" set to Write (everything else None) and paste that one.',
+          'That key can\'t create discount codes. In Stripe, edit the key (or make a new one) and set the "Billing" permission group to Write — it covers coupons and promotion codes and cannot move money. Then save the key here again.',
       },
     });
     setup();
     await userEvent.type(screen.getByPlaceholderText("rk_…"), "rk_test_noperms");
     await userEvent.click(screen.getByRole("button", { name: /save key/i }));
-    expect(await screen.findByText(/make a new restricted key with "promotion codes" set to write/i)).toBeInTheDocument();
+    expect(await screen.findByText(/set the "billing" permission group to write/i)).toBeInTheDocument();
     expect(screen.queryByText(/your key works/i)).not.toBeInTheDocument();
   });
 

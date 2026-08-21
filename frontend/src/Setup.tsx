@@ -18,8 +18,10 @@ import { host } from "./host";
 import { ago } from "./money";
 import type { DeploymentStatus, ProgramConfig } from "./types";
 
-/** The restricted key's permission, spelled exactly as Stripe's own UI spells it. */
-const KEY_PERMISSION = "Promotion codes — Write";
+/** The restricted key's permission, as Stripe's key page groups it (live lesson, 2026-08-20:
+ *  the page groups resources and greys the granular rows — Billing is the group that holds
+ *  coupons and promotion codes, and it contains nothing that can move money). */
+const KEY_PERMISSION = "Billing — Write";
 
 export function Setup(props: {
   status: DeploymentStatus | null;
@@ -247,22 +249,23 @@ function StripeConnect(props: {
         </p>
         <ol className="muted" style={{ margin: 0, paddingLeft: 18 }}>
           <li>
-            <strong>How will you use it?</strong> — pick <em>"Providing this key to a third-party application"</em>.
+            <strong>How will you use it?</strong> — pick the <em>"for my own use"</em> option (no website needed).
           </li>
           <li>
-            <strong>Website details</strong> — enter <span className="chip">AffiliatePoppy</span> and{" "}
-            <span className="chip">https://github.com/leonct74/affiliatepoppy</span>. That's only for Stripe's
-            own records.
+            <strong>Permissions</strong> — the resources come in groups, and single rows like "Promotion codes" may
+            be greyed out; that's normal. Set the <strong>Billing</strong> group to <strong>Write</strong> — it holds
+            the two things this app uses (discount coupons and promotion codes) and nothing that can move money:
+            charges, refunds and payouts are separate groups that stay at "None", like everything else.
           </li>
           <li>
-            <strong>Permissions</strong> — a long list of resources, each with None / Read / Write. Find{" "}
-            <strong>Promotion codes</strong> and set it to <strong>Write</strong>. Leave every other line at "None".
-            This is the step that matters — a key created without it can't be fixed afterwards (Stripe keys
-            can't be edited), you'd make a new one.
+            <strong>Only if you run a marketplace</strong> (the Connected accounts tab): the Billing group has a
+            second column, <strong>Connected accounts</strong> — set that to Write too, so your codes can be created
+            on your sellers' accounts. A key can be edited later in Stripe if you're unsure — its value doesn't
+            change.
           </li>
         </ol>
         <p className="muted" style={{ margin: 0 }}>
-          The one permission, spelled the way Stripe spells it:
+          The one permission group, spelled the way Stripe spells it:
         </p>
         <div className="row">
           <span className="chip">{KEY_PERMISSION}</span>
