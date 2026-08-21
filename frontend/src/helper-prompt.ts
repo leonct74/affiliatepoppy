@@ -10,6 +10,7 @@
 // separate Connected-accounts column, the connected-accounts webhook scope, and the
 // tear-down-before-going-live rule.
 
+import { WEBHOOK_API_VERSION } from "../../shared/src/stripe-events";
 import type { DeploymentStatus, ProgramConfig } from "./types";
 
 export function buildHelperPrompt(status: DeploymentStatus | null, config: ProgramConfig | null): string {
@@ -40,7 +41,7 @@ THE SETUP, IN ORDER (the app's Setup tab shows the same steps):
 
 2. TEST OR LIVE — ONE AT A TIME. Everything in Stripe below can be done in test mode (fake cards, nothing real) or live mode; the dashboard's test toggle decides. If I practise in test mode, I must tear everything down (the app's Remove tab) before setting up live — the app keeps one ledger, and mixing pretend commissions with real ones would ruin it as a record. Keep me consistent: every Stripe step below must happen in the SAME mode.
 
-3. THE STRIPE WEBHOOK(S). In Stripe: Developers → Webhooks → Add destination. Stripe asks a few questions on the way: if it asks which API VERSION, keep the one it suggests (the latest); name and description are just labels, anything works.
+3. THE STRIPE WEBHOOK(S). In Stripe: Developers → Webhooks → Add destination. Stripe asks a few questions on the way: when it asks which API VERSION, pick ${WEBHOOK_API_VERSION} — the version this app is tested against (an endpoint keeps its version forever; "latest" would freeze an untested one). Name and description are just labels, anything works.
    - Scope "Your account", events exactly: checkout.session.completed, invoice.paid, charge.refunded. Endpoint URL = my webhook address above. Stripe then shows a signing secret (whsec_…) — I paste it into the app's Setup step 2.
    - ONLY IF I run a Stripe platform (a marketplace where others sell through connected accounts under me): a SECOND destination, identical, but scope "Connected accounts". Its own whsec_… goes into the app's "Connected accounts" tab. If I'm not a platform, skip this and the whole Connected accounts tab.
 

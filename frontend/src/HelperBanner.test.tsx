@@ -40,6 +40,9 @@ describe("the helper prompt", () => {
     expect(p).toMatch(/scope "Connected accounts"/);
     expect(p).toMatch(/tear everything down|tear it all down|Remove tab\) before setting up live|must tear/i);
     expect(p).toMatch(/checkout\.session\.completed, invoice\.paid, charge\.refunded/);
+    // The pinned webhook version — "latest" would freeze whatever Stripe shipped last month,
+    // untested (founder's catch, 2026-08-20).
+    expect(p).toContain("2026-07-29.dahlia");
   });
 
   it("tells the AI where the merchant actually is, and never promises money movement", () => {

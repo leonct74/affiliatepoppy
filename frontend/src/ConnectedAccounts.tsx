@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import { Button } from "./Button";
 import { CopyButton } from "./CopyButton";
+import { WEBHOOK_API_VERSION } from "../../shared/src/stripe-events";
 import type { DeploymentStatus, Partner, ProgramConfig, SyncReport } from "./types";
 
 export function ConnectedAccounts(props: {
@@ -194,8 +195,9 @@ export function ConnectedAccounts(props: {
               Stripe only sends a connected account's sales to a webhook made for them. In Stripe →{" "}
               <strong>Developers → Webhooks → Add destination</strong>: when it asks whose events, choose{" "}
               <strong>Connected accounts</strong> (not "Your account") — that choice is what makes this endpoint
-              different. Keep the suggested (latest) API version, tick the same three events as Setup step 2, and use
-              the same address:
+              different. Pick API version{" "}
+              <span className="chip">{WEBHOOK_API_VERSION}</span> (the tested one, same as Setup step 2), tick the same
+              three events, and use the same address:
             </p>
             {status?.receiverUrl && (
               <div className="row">

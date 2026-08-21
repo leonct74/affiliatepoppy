@@ -37,6 +37,16 @@ function num(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+/**
+ * The Stripe API version a merchant should pick when CREATING a webhook endpoint — the one
+ * this receiver's parser was built and LIVE-verified against (both endpoints of the first
+ * real setup ran it). Stripe freezes an endpoint's version at creation, so "latest" would
+ * mean every future merchant freezes a version this code has never seen; naming one means
+ * every install sends shapes we have tests for. Bump ONLY after re-running the event-shape
+ * tests against the newer version's payloads.
+ */
+export const WEBHOOK_API_VERSION = "2026-07-29.dahlia";
+
 /** What the receiver should do about one event. */
 export type Instruction =
   | { kind: "ignore"; reason: string }

@@ -13,6 +13,7 @@ import { useState } from "react";
 import { api } from "./api";
 import { Button } from "./Button";
 import { CopyButton } from "./CopyButton";
+import { WEBHOOK_API_VERSION } from "../../shared/src/stripe-events";
 import { host } from "./host";
 import { ago } from "./money";
 import type { DeploymentStatus, ProgramConfig } from "./types";
@@ -197,7 +198,9 @@ function StripeConnect(props: {
           type it) → <strong>Webhooks</strong> → <strong>Add destination</strong>. Stripe asks a few questions along the way —
           here is every answer: when it asks whose events to listen to, choose <strong>"Your account"</strong> (the
           "Connected accounts" kind is only for marketplaces — it has its own card on the Connected accounts tab). When it
-          asks which <strong>API version</strong>, keep the one Stripe suggests (the latest). Choose the events{" "}
+          asks which <strong>API version</strong>, pick <span className="chip">{WEBHOOK_API_VERSION}</span> — the
+          version this app is tested against (an endpoint keeps its version forever, so this is a one-time choice, and
+          "latest" would mean an untested one). Choose the events{" "}
           <span className="chip">checkout.session.completed</span>, <span className="chip">invoice.paid</span> and{" "}
           <span className="chip">charge.refunded</span>, and paste this address as the endpoint URL. Name and description
           are just labels for your own dashboard — write anything. Stripe then shows you a signing secret starting with{" "}

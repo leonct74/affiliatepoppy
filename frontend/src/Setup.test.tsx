@@ -68,7 +68,7 @@ describe("the guided path", () => {
     // who has never done this stalls exactly there.
     setup();
     expect(screen.getByText('"Your account"')).toBeInTheDocument();
-    expect(screen.getByText(/keep the one stripe suggests/i)).toBeInTheDocument();
+    expect(screen.getByText("2026-07-29.dahlia")).toBeInTheDocument();
     expect(screen.getByText("https://abc123.lambda-url.eu-west-1.on.aws/")).toBeInTheDocument();
     expect(screen.getByText("checkout.session.completed")).toBeInTheDocument();
     expect(screen.getByText("invoice.paid")).toBeInTheDocument();
