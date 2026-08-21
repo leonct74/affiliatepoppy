@@ -9,6 +9,7 @@
 // which only exists after Setup step 1 has run. So the honest order is storage → Stripe →
 // your deal → share the link, and this card says exactly that.
 
+import { HelperBanner } from "./HelperBanner";
 import type { DeploymentStatus, ProgramConfig } from "./types";
 
 export type GoTo = "setup" | "settings";
@@ -26,7 +27,9 @@ export function GettingStarted(props: {
   const dealDecided = !!config?.settings && !!config?.branding.merchantName;
 
   return (
-    <div className="card stack">
+    <div className="stack">
+      <HelperBanner status={props.status} config={props.config} />
+      <div className="card stack">
       <div>
         <strong>Nobody has joined yet — here's how to open your programme.</strong>
         <p className="muted" style={{ margin: "4px 0 0" }}>
@@ -72,6 +75,7 @@ export function GettingStarted(props: {
         onGo={props.onGo}
         blocked={!(deployed && stripeDone)}
       />
+      </div>
     </div>
   );
 }
