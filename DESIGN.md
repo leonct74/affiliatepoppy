@@ -474,6 +474,11 @@ listing + the poppy's own price decided.*
 
 ## 11. Open items for the founder (blocking only where marked)
 
+- **Screenshots, twice, after release:** the catalogue listing needs them (P6), and the
+  product page `agentspoppy.com/affiliatepoppy` shipped deliberately without any (2026-08-20)
+  — real, unretouched captures once the live programme has content, served as WebP with
+  width/height set (the CrewPoppy page's recipe).
+
 1. ~~Name + id~~ — **decided 2026-08-14: AffiliatePoppy / `com.affiliatepoppy.desktop`,
    final.** See the header note.
 2. **The poppy's own price** (free-while-proving vs paid day one; premium tier price) —
