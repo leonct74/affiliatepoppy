@@ -24,7 +24,12 @@ export function GettingStarted(props: {
   const stripeDone = !!config?.secrets.webhookSecret.stored && !!config?.stripe.couponId;
   // "Decided" = they saved Settings at least once. Until then the programme runs on defaults,
   // which is fine to run on — but a merchant should choose their own numbers deliberately.
-  const dealDecided = !!config?.settings && !!config?.branding.merchantName;
+  // "The deal" is done when the merchant has a NAME on the page as well as numbers — a
+  // portal greeting publishers with no merchant name isn't a decided deal. The detail below
+  // says which half is missing (live lesson, 2026-08-20: the founder saved percentages,
+  // left the name empty, and had to ask why the step stayed open).
+  const nameMissing = !config?.branding.merchantName;
+  const dealDecided = !!config?.settings && !nameMissing;
 
   return (
     <div className="stack">
@@ -58,7 +63,11 @@ export function GettingStarted(props: {
         n={3}
         done={dealDecided}
         title="Decide your deal"
-        detail="Your customer's discount, your affiliate's commission, and how the page your partners see should look."
+        detail={
+          deployed && nameMissing && !!config?.settings
+            ? 'Almost there — the numbers are saved. What\'s missing is "Your name, as your partners know it" in Settings: it\'s the name your sign-up page greets people with.'
+            : "Your customer's discount, your affiliate's commission, and the name your partners will see."
+        }
         action={deployed && !dealDecided ? { label: "Go to Settings", tab: "settings" } : undefined}
         onGo={props.onGo}
         blocked={!deployed}

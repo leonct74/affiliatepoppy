@@ -85,3 +85,17 @@ describe("as the merchant works through it", () => {
     expect(screen.getByText(/it's on the setup tab\. anyone who opens it can apply to join your affiliate programme/i)).toBeInTheDocument();
   });
 });
+
+describe("step 3 says which half of the deal is missing", () => {
+  it("points at the empty merchant name once numbers exist — never leaves the merchant guessing", () => {
+    // Live lesson (2026-08-20): percentages saved, name empty, step silently stayed open.
+    render(<GettingStarted status={status({ phase: "ready" })} config={config()} onGo={vi.fn()} />);
+    expect(screen.getByText(/what's missing is "your name, as your partners know it"/i)).toBeInTheDocument();
+  });
+
+  it("completes once the name is filled in", () => {
+    const named = config({ branding: { merchantName: "Olly Digital", accentColor: "#bccf9e", logoDataUri: "", offerCopy: "", termsText: "" } });
+    render(<GettingStarted status={status({ phase: "ready" })} config={named} onGo={vi.fn()} />);
+    expect(screen.queryByText(/what's missing is/i)).not.toBeInTheDocument();
+  });
+});
