@@ -202,7 +202,8 @@ function StripeConnect(props: {
           version this app is tested against (an endpoint keeps its version forever, so this is a one-time choice, and
           "latest" would mean an untested one). Choose the events{" "}
           <span className="chip">checkout.session.completed</span>, <span className="chip">invoice.paid</span> and{" "}
-          <span className="chip">charge.refunded</span>, and paste this address as the endpoint URL. Name and description
+          <span className="chip">charge.refunded</span>. Into the field Stripe calls <strong>"Endpoint URL"</strong>,
+          paste exactly this address (the copy button below puts it on your clipboard): Name and description
           are just labels for your own dashboard — write anything. Stripe then shows you a signing secret starting with{" "}
           <span className="chip">whsec_</span> — paste that below.
         </p>
