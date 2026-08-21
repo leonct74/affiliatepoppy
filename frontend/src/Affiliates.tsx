@@ -17,6 +17,8 @@ export function Affiliates(props: {
   affiliates: Affiliate[];
   config: ProgramConfig | null;
   loading: boolean;
+  /** The sign-up page — shown at the top of the list because the link IS the product. */
+  portalUrl?: string;
   onChanged: () => Promise<void>;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +46,15 @@ export function Affiliates(props: {
 
   return (
     <div className="stack">
+      {props.portalUrl && (
+        <div className="card row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+          <span className="muted" style={{ fontSize: 12 }}>Your sign-up link — share it anywhere:</span>
+          <span className="row">
+            <span className="chip" style={{ overflowWrap: "anywhere" }}>{props.portalUrl}</span>
+            <CopyButton text={props.portalUrl} label="affiliate link" />
+          </span>
+        </div>
+      )}
       {error && <div className="banner err">{error}</div>}
 
       {pending.length > 0 && (

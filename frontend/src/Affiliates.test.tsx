@@ -159,3 +159,19 @@ describe("an empty programme", () => {
     expect(screen.getByText(/share the link from the setup tab/i)).toBeInTheDocument();
   });
 });
+
+describe("the sign-up link on the list (the link is the product)", () => {
+  it("sits at the top with a copy button whenever it exists", () => {
+    render(
+      <Affiliates
+        affiliates={[affiliate()]}
+        config={null}
+        loading={false}
+        portalUrl="https://portal.lambda-url.eu-west-1.on.aws/"
+        onChanged={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("https://portal.lambda-url.eu-west-1.on.aws/")).toBeInTheDocument();
+    expect(screen.getByText(/share it anywhere/i)).toBeInTheDocument();
+  });
+});

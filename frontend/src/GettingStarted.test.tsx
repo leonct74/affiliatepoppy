@@ -75,14 +75,14 @@ describe("as the merchant works through it", () => {
     expect(screen.getAllByText(/^Done$/)).toHaveLength(2 + 1); // +1 from the first render above
   });
 
-  it("says where the link is once the programme is open", () => {
+  it("SHOWS the link once the programme is open — the link is the product, never a hop away", () => {
     const open = config({
       secrets: { webhookSecret: { stored: true, hint: "…1" }, apiKey: { stored: true, hint: "…2" } },
       stripe: { couponId: "co_1", lastEventAt: 0, livemode: false, partners: [] },
       branding: { merchantName: "Olly Digital", accentColor: "#bccf9e", logoDataUri: "", offerCopy: "", termsText: "" },
     });
     render(<GettingStarted status={status({ phase: "ready" })} config={open} onGo={vi.fn()} />);
-    expect(screen.getByText(/it's on the setup tab\. anyone who opens it can apply to join your affiliate programme/i)).toBeInTheDocument();
+    expect(screen.getByText(/this is it — the page anyone can join your affiliate programme on/i)).toBeInTheDocument();
   });
 });
 

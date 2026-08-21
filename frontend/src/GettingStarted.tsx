@@ -9,7 +9,9 @@
 // which only exists after Setup step 1 has run. So the honest order is storage → Stripe →
 // your deal → share the link, and this card says exactly that.
 
+import { CopyButton } from "./CopyButton";
 import { HelperBanner } from "./HelperBanner";
+import { host } from "./host";
 import type { DeploymentStatus, ProgramConfig } from "./types";
 
 export type GoTo = "setup" | "settings";
@@ -77,13 +79,24 @@ export function GettingStarted(props: {
         done={false}
         title="Share your link"
         detail={
-          deployed && stripeDone
-            ? "It's on the Setup tab. Anyone who opens it can apply to join your affiliate programme and get their own code."
-            : "Appears on the Setup tab once steps 1 and 2 are done."
+          deployed && stripeDone && status?.portalUrl
+            ? "This is it — the page anyone can join your affiliate programme on. Put it wherever your would-be partners are."
+            : "Appears here once steps 1 and 2 are done."
         }
         onGo={props.onGo}
         blocked={!(deployed && stripeDone)}
       />
+      {/* The link IS the product (founder, 2026-08-20) — it lives here in full, not behind
+          a "go to Setup" hop. */}
+      {deployed && stripeDone && status?.portalUrl && (
+        <div className="row" style={{ paddingLeft: 4 }}>
+          <span className="chip" style={{ overflowWrap: "anywhere" }}>{status.portalUrl}</span>
+          <CopyButton text={status.portalUrl} label="affiliate link" />
+          <button className="btn btn-sm" onClick={() => void host.openExternal(status.portalUrl!)}>
+            Open it
+          </button>
+        </div>
+      )}
       </div>
     </div>
   );
