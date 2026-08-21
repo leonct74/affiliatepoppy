@@ -218,10 +218,15 @@ export function Settings(props: { config: ProgramConfig | null; onSaved: () => P
         <Preview branding={branding} settings={settings} fallbackOffer={props.config?.offer ?? ""} />
       </div>
 
-      <div>
-        <Button className="btn btn-primary" busyLabel="Saving…" onClick={save}>
+      <div className="row">
+        <Button className="btn btn-primary" busyLabel="Saving…" disabled={!branding.merchantName.trim()} onClick={save}>
           Save settings
         </Button>
+        {!branding.merchantName.trim() && (
+          <span className="muted" style={{ fontSize: 12 }}>
+            Fill in your name first (under "How your page looks") — it's what your sign-up page greets people with.
+          </span>
+        )}
       </div>
     </div>
   );

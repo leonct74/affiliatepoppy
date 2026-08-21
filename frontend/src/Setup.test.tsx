@@ -285,6 +285,15 @@ describe("the D19c lock on personalisation", () => {
     expect(persist).not.toHaveBeenCalled();
   });
 
+  it("won't save without a name, and says why — the sign-up page greets people with it", async () => {
+    // Founder, live (2026-08-20): saved percentages with no name, step 3 never ticked, and
+    // nothing said the name was the missing piece. Mandatory means the button says so.
+    const noName = config({ branding: { merchantName: "", accentColor: "#bccf9e", logoDataUri: "", offerCopy: "", termsText: "" } });
+    render(<Settings config={noName} onSaved={vi.fn().mockResolvedValue(undefined)} />);
+    expect(await screen.findByRole("button", { name: /save settings/i })).toBeDisabled();
+    expect(screen.getByText(/fill in your name first/i)).toBeInTheDocument();
+  });
+
   it("shows no lock at all on Pro", async () => {
     showSettings(config());
     expect(await screen.findByDisplayValue("5")).toBeInTheDocument();

@@ -68,6 +68,13 @@ label.field > span { display: block; font-size: 12px; color: var(--poppy-muted-2
 }
 textarea.input { font-family: var(--poppy-font-mono); font-size: 13px; min-height: 72px; resize: vertical; }
 .input:focus, .select:focus, textarea.input:focus { outline: 2px solid var(--poppy-accent); outline-offset: -1px; border-color: transparent; }
+/* A locked field must LOOK locked (founder, 2026-08-20: "difficult to see which field is
+   locked and which not"): dimmed, hatched, and the cursor says no. */
+.input:disabled, .select:disabled, textarea.input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background-image: repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(128, 128, 128, 0.08) 6px, rgba(128, 128, 128, 0.08) 12px);
+}
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
 @media (max-width: 540px) { .grid-2 { grid-template-columns: 1fr; } }
 
