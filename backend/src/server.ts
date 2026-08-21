@@ -138,6 +138,13 @@ const server = createServer(async (req, res) => {
       return json(res, 200, { ...status, connection });
     }
 
+    // D19c: the UI checked the Pro entitlement with the commerce plane; we persist the answer
+    // where the portal Lambda can read it.
+    if (method === "PUT" && parts[0] === "plan" && parts.length === 1) {
+      const body = (await readBody(req)) ?? {};
+      return json(res, 200, await program.setPlan(body.pro === true));
+    }
+
     if (method === "POST" && parts[0] === "stripe" && parts[1] === "check") {
       return json(res, 200, await program.connectStripe());
     }

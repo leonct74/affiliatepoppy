@@ -57,9 +57,22 @@ export class Program {
     stripe: { couponId: string; lastEventAt: number; livemode: boolean; partners: Partner[] };
     /** The offer as affiliates will actually read it — generated when the merchant left it blank. */
     offer: string;
+    /** D19c: the paid plan. Free = personalisation locked, portal carries the free-plan notice. */
+    plan: { pro: boolean };
   }> {
-    const [{ settings, branding }, stripe] = await Promise.all([this.ledger.config(), this.ledger.stripeState()]);
-    return { settings, branding, stripe, offer: branding.offerCopy || defaultOfferCopy(settings) };
+    const [{ settings, branding }, stripe, pro] = await Promise.all([
+      this.ledger.config(),
+      this.ledger.stripeState(),
+      this.ledger.planPro(),
+    ]);
+    return { settings, branding, stripe, offer: branding.offerCopy || defaultOfferCopy(settings), plan: { pro } };
+  }
+
+  /** Persist what the commerce plane said about the Pro purchase (the UI checks, we remember —
+   *  the portal Lambda has no way to ask the store, so this row is how it knows). */
+  async setPlan(pro: boolean): Promise<{ pro: boolean }> {
+    await this.ledger.savePlan(pro);
+    return { pro };
   }
 
   /**
@@ -77,7 +90,13 @@ export class Program {
   }> {
     const current = await this.ledger.config();
     const settings = sanitizeSettings(input.settings ?? current.settings);
-    const branding = sanitizeBranding(input.branding ?? current.branding);
+    let branding = sanitizeBranding(input.branding ?? current.branding);
+    // D19c: personalisation is the paid half. On the free plan the merchant's NAME still saves
+    // (a portal reading "Your name here" would punish the publisher, not the merchant) — the
+    // rest of the look stays at its current values whatever the client sent. UI says why.
+    if (!(await this.ledger.planPro())) {
+      branding = { ...current.branding, merchantName: branding.merchantName };
+    }
     await this.ledger.saveConfig(settings, branding);
 
     let couponChanged = false;

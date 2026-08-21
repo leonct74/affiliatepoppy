@@ -12,6 +12,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "./api";
+import { host } from "./host";
 import { Settings } from "./Settings";
 import { Setup } from "./Setup";
 import type { DeploymentStatus, ProgramConfig } from "./types";
@@ -33,6 +34,7 @@ const config = (over: Partial<ProgramConfig> = {}): ProgramConfig => ({
   branding: { merchantName: "Olly Digital", accentColor: "#bccf9e", logoDataUri: "", offerCopy: "", termsText: "" },
   stripe: { couponId: "", lastEventAt: 0, livemode: false, partners: [] },
   offer: "Earn 10% of every sale you bring in.",
+  plan: { pro: true },
   secrets: { webhookSecret: { stored: false, hint: "" }, apiKey: { stored: false, hint: "" } },
   ...over,
 });
@@ -241,5 +243,51 @@ describe("the settings the founder insisted on owning", () => {
     const preview = (await screen.findByLabelText(/preview of your affiliate page/i)) as HTMLElement;
     expect(preview).toHaveTextContent("Olly Digital");
     expect(preview).toHaveTextContent("Earn 20% forever");
+  });
+});
+
+describe("the D19c lock on personalisation", () => {
+  const freeConfig = (): ProgramConfig => ({ ...config(), plan: { pro: false } });
+  const showSettings = (c: ProgramConfig) => render(<Settings config={c} onSaved={vi.fn().mockResolvedValue(undefined)} />);
+
+  it("keeps the fields VISIBLE but disabled — a locked form is a demo, not a wall", async () => {
+    vi.spyOn(host, "purchaseInfo").mockResolvedValue({ productId: "pro", name: "Pro", price: { amountMinor: 900, currency: "eur", kind: "subscription", interval: "month" }, owned: false });
+    showSettings(freeConfig());
+    const offer = (await screen.findByRole("textbox", { name: /your offer/i })) as HTMLTextAreaElement;
+    expect(offer).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: /your terms/i })).toBeDisabled();
+    // The name and the deal stay FREE: a portal saying "Your name here" punishes the
+    // publisher, and a locked deal would make the free tier useless rather than motivating.
+    expect(screen.getByDisplayValue("Olly Digital")).toBeEnabled();
+    expect(screen.getByDisplayValue("5")).toBeEnabled();
+    // And it says what unlocking buys, with the live price.
+    expect(await screen.findByText(/€9\.00\/mo/)).toBeInTheDocument();
+    expect(screen.getByText(/removes the "affiliatepoppy free" notice/i)).toBeInTheDocument();
+  });
+
+  it("buys through the host bridge and persists the plan, in that order", async () => {
+    vi.spyOn(host, "purchaseInfo").mockResolvedValue({ productId: "pro", name: "Pro", price: null, owned: false });
+    const buy = vi.spyOn(host, "buyProduct").mockResolvedValue({ owned: true });
+    const persist = vi.spyOn(api, "setPlan").mockResolvedValue({ pro: true });
+    showSettings(freeConfig());
+    await userEvent.click(await screen.findByRole("button", { name: /unlock pro/i }));
+    expect(buy).toHaveBeenCalledWith("pro");
+    expect(persist).toHaveBeenCalledWith(true);
+  });
+
+  it("says plainly when the payment didn't complete — and persists nothing", async () => {
+    vi.spyOn(host, "purchaseInfo").mockResolvedValue({ productId: "pro", name: "Pro", price: null, owned: false });
+    vi.spyOn(host, "buyProduct").mockResolvedValue({ owned: false });
+    const persist = vi.spyOn(api, "setPlan");
+    showSettings(freeConfig());
+    await userEvent.click(await screen.findByRole("button", { name: /unlock pro/i }));
+    expect(await screen.findByText(/didn't complete — nothing was charged/i)).toBeInTheDocument();
+    expect(persist).not.toHaveBeenCalled();
+  });
+
+  it("shows no lock at all on Pro", async () => {
+    showSettings(config());
+    expect(await screen.findByDisplayValue("5")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /unlock pro/i })).not.toBeInTheDocument();
   });
 });

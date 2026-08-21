@@ -23,6 +23,13 @@ export interface PageConfig {
   offer: string;
   /** True once the merchant's Stripe is connected — otherwise signups can't get a code yet. */
   stripeReady: boolean;
+  /**
+   * D19c: true on the free plan → the plan notice renders on every view. The wording is
+   * deliberate: it names the FREE PLAN and vouches for the NUMBERS — a notice that read
+   * "testing" would make publishers doubt their earnings are real, which hurts the merchant
+   * far more than it motivates them.
+   */
+  freePlan: boolean;
 }
 
 /**
@@ -71,6 +78,9 @@ export function portalHtml(cfg: PageConfig): string {
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 .wrap{max-width:640px;margin:0 auto;padding:24px 16px 64px}
+.planNote{border:1px solid var(--warn);background:rgba(210,153,34,.08);color:var(--mut);border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:flex;flex-direction:column;gap:8px}
+.planNote strong{color:var(--fg)}
+.planBtn{align-self:flex-start;background:var(--acc);color:#0d1117;border-radius:8px;padding:7px 12px;font-weight:600;text-decoration:none;font-size:13px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px}
 h1{font-size:22px;margin:0 0 6px}
 h2{font-size:13px;margin:0 0 12px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
@@ -110,6 +120,7 @@ td:last-child,th:last-child{text-align:right}
 </head>
 <body>
 <div class="wrap">
+${cfg.freePlan ? `<div class="planNote"><span>This programme runs on <strong>AffiliatePoppy Free</strong>. Sign-ups and earnings here are fully tracked and real. Upgrading to <strong>AffiliatePoppy Pro</strong> removes this notice and lets the programme carry its own brand.</span><a class="planBtn" href="https://agentspoppy.com/poppies" target="_blank" rel="noopener">Programme owner? Upgrade to Pro — in the app, under Settings</a></div>` : ""}
 
   <div id="public" class="hide">
     <div class="card">

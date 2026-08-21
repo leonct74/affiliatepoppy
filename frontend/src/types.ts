@@ -53,6 +53,7 @@ export interface ProgramConfig {
   branding: PortalBranding;
   stripe: { couponId: string; lastEventAt: number; livemode: boolean; partners: Partner[] };
   offer: string;
+  plan: { pro: boolean };
   secrets: { webhookSecret: SecretStatus; apiKey: SecretStatus; connectSecret?: SecretStatus };
 }
 

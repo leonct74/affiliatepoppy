@@ -58,9 +58,16 @@ export const host = {
   /** Opens a URL in the system browser — a sandboxed frame cannot (window.open no-ops). */
   openExternal: (url: string): Promise<void> => call("openExternal", [url]),
   notify: (n: { title: string; body?: string }): Promise<void> => call("notify", [n]),
+  // Commerce (capability commerce:purchase) — the D19c Pro tier. The entitlement lives with
+  // the PLATFORM, keyed to this install's buyer id; the poppy only asks and remembers.
+  purchaseInfo: (productId: string): Promise<{ productId: string; name: string; price: { amountMinor: number; currency: string; kind: string; interval?: string } | null; owned: boolean }> =>
+    call("purchaseInfo", [productId]),
+  /** Opens hosted Checkout in the system browser and resolves once the entitlement lands (~2 min max). */
+  buyProduct: (productId: string): Promise<{ owned: boolean }> => call("buyProduct", [productId], 3 * 60_000),
+  isPurchased: (productId: string): Promise<boolean> => call("isPurchased", [productId]),
+  manageSubscription: (): Promise<void> => call("manageSubscription", []),
 };
 
-// NOTE: no commerce methods here, on purpose. The premium tier (the portal on the merchant's
-// own domain, D13) isn't built yet, and AGENTS.md is explicit that `capabilities` lists only
-// what the frontend actually calls — so `commerce:purchase` gets declared in the same change
-// that adds the buy button, never before it.
+// The commerce methods above exist because Settings' unlock button calls them (D19c) — the
+// manifest declares `commerce:purchase` in the same change, per AGENTS.md ("capabilities list
+// only what the frontend actually calls").

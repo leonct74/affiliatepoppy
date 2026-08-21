@@ -12,6 +12,8 @@
 export const CFG_PK = "cfg";
 export const CFG_SK_PORTAL = "portal";
 export const CFG_SK_STRIPE = "stripe";
+/** The paid plan (D19c). One flag, honesty-enforced like every poppy tier. */
+export const CFG_SK_PLAN = "plan";
 
 /** The affiliate directory — one thin row per affiliate, so the admin list is one Query. */
 export const DIR_PK = "dir";

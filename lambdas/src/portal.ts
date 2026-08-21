@@ -62,6 +62,8 @@ export interface PortalDeps {
   settings(): Promise<ProgramSettings>;
   /** The programme's coupon id, empty until the merchant connects Stripe. */
   couponId(): Promise<string>;
+  /** D19c: paid plan? Free renders the plan notice on every page. */
+  planPro(): Promise<boolean>;
   affiliate(affId: string): Promise<AffiliateProfile | undefined>;
   countAffiliates(): Promise<number>;
   createAffiliate(profile: AffiliateProfile): Promise<void>;
@@ -92,7 +94,12 @@ export async function route(req: HttpRequest, deps: PortalDeps): Promise<HttpRes
   // The page is public: it has to load before anyone can sign up. It carries the merchant's
   // offer and terms — never a number belonging to anybody.
   if (req.method === "GET" && !path.startsWith("/api/") && path !== "/favicon.ico") {
-    const [branding, settings, couponId] = await Promise.all([deps.branding(), deps.settings(), deps.couponId()]);
+    const [branding, settings, couponId, pro] = await Promise.all([
+      deps.branding(),
+      deps.settings(),
+      deps.couponId(),
+      deps.planPro(),
+    ]);
     return {
       statusCode: 200,
       headers: {
@@ -110,6 +117,7 @@ export async function route(req: HttpRequest, deps: PortalDeps): Promise<HttpRes
         settings,
         offer: branding.offerCopy || defaultOfferCopy(settings),
         stripeReady: !!couponId,
+        freePlan: !pro,
       }),
     };
   }
@@ -290,6 +298,7 @@ const liveDeps: PortalDeps = {
   async couponId() {
     return (await config(CFG_SK_STRIPE)).couponId?.S ?? "";
   },
+  planPro: () => ledger.planPro(),
   affiliate: (affId) => ledger.affiliate(affId),
   createAffiliate: (profile) => ledger.createAffiliate(profile),
   totalsFor: (affId) => ledger.totalsFor(affId),

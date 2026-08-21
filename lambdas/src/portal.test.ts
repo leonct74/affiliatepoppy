@@ -18,6 +18,10 @@ const OLIVER: AffiliateClaims = { sub: "aff-oliver", email: "oliver@example.com"
 const MARIA: AffiliateClaims = { sub: "aff-maria", email: "maria@example.com", name: "Maria", exp: 0, tokenUse: "id" };
 
 class FakeDeps implements PortalDeps {
+  pro = false;
+  async planPro() {
+    return this.pro;
+  }
   region = "eu-west-1";
   clientId = "client-123";
   settingsValue: ProgramSettings = { ...DEFAULT_SETTINGS };
@@ -128,16 +132,14 @@ describe("the page's own script", () => {
 });
 
 describe("the public page", () => {
-  it("wears the merchant's name and offer — never ours (D10)", async () => {
-    deps.brandingValue = { ...deps.brandingValue, offerCopy: "Earn 10% forever", accentColor: "#ff6600" };
-    const res = await route(request(), deps);
-    const doc = new JSDOM(res.body).window.document;
-    expect(res.statusCode).toBe(200);
-    expect(doc.querySelector("h1")?.textContent).toBe("Olly Digital");
-    expect(doc.getElementById("offer")).toBeTruthy();
-    expect(res.body).toContain("Earn 10% forever");
-    expect(res.body).toContain("#ff6600");
-    expect(res.body).not.toMatch(/AffiliatePoppy|AgentsPoppy/);
+  it("wears the merchant's name and offer — ours appears ONLY as the free-plan notice (D10 + D19c)", async () => {
+    // D10 (white label) and D19c (the free-plan banner) collide by design: the one place our
+    // name may appear on a free merchant's page is the plan notice — that pressure is the
+    // conversion lever. On the PAID plan, D10 holds absolutely (asserted in the D19c tests).
+    const deps = new FakeDeps();
+    const res = await route({ method: "GET", path: "/", headers: {}, body: "", sourceIp: "" }, deps);
+    const withoutNotice = res.body.replace(/<div class="planNote">.*?<\/div>/s, "");
+    expect(withoutNotice).not.toMatch(/AffiliatePoppy|AgentsPoppy/);
   });
 
   it("carries no affiliate's data at all, signed out or not", async () => {
@@ -418,3 +420,25 @@ function entry(affId: string, ledgerId: string, amountCents: number): LedgerEntr
     day: "2026-08-01",
   };
 }
+
+describe("the free-plan notice (D19c)", () => {
+  it("names the free plan, vouches for the numbers, and offers the owner the upgrade", async () => {
+    const deps = new FakeDeps();
+    const res = await route({ method: "GET", path: "/", headers: {}, body: "", sourceIp: "" }, deps);
+    expect(res.body).toContain("AffiliatePoppy Free");
+    // The one sentence that must never disappear: publishers reading this notice must not
+    // doubt their earnings — "testing" wording cost that trust, so we vouch explicitly.
+    expect(res.body).toContain("fully tracked and real");
+    expect(res.body).toContain("Programme owner? Upgrade to Pro");
+  });
+
+  it("disappears entirely on the paid plan", async () => {
+    const deps = new FakeDeps();
+    deps.pro = true;
+    const res = await route({ method: "GET", path: "/", headers: {}, body: "", sourceIp: "" }, deps);
+    expect(res.body).not.toContain("AffiliatePoppy Free");
+    expect(res.body).not.toContain('<div class="planNote">');
+    // …and with the notice gone, the white label is absolute: no trace of us anywhere.
+    expect(res.body).not.toMatch(/AffiliatePoppy|AgentsPoppy/);
+  });
+});

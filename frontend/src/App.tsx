@@ -139,6 +139,23 @@ export function App() {
     void loadAffiliates();
   }, [phase, status?.phase, loadConfig, loadAffiliates]);
 
+  // D19c: reconcile the persisted Pro flag with the commerce plane once per mount — a
+  // subscription cancelled (or bought on another day) must change the portal's banner without
+  // the merchant hunting for a refresh button. Quiet, one-shot, fail-silent.
+  useEffect(() => {
+    if (phase !== "ready" || status?.phase !== "ready" || !config) return;
+    void host
+      .isPurchased("pro")
+      .then(async (owned) => {
+        if (owned !== config.plan.pro) {
+          await api.setPlan(owned);
+          await loadConfig();
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, status?.phase, config?.plan.pro]);
+
   // Once the programme is open, the numbers move because of things that happen in STRIPE —
   // a sale, a refund — not in this window. So refresh them quietly every half minute, and
   // the moment the merchant comes back to the app (live lesson: the founder refunded a test

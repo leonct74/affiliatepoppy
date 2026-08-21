@@ -22,6 +22,7 @@ const config: ProgramConfig = {
   branding: { merchantName: "Olly", accentColor: "#bccf9e", logoDataUri: "", offerCopy: "", termsText: "" },
   stripe: { couponId: "co_1", lastEventAt: 0, livemode: false, partners: [] },
   offer: "",
+  plan: { pro: true },
   secrets: { webhookSecret: { stored: true, hint: "…1" }, apiKey: { stored: true, hint: "…2" } },
 };
 

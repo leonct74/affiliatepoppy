@@ -35,6 +35,7 @@ import {
   MAP_SK,
   PAYOUTS_PK,
   TOT_PK,
+  CFG_SK_PLAN,
   acctTotSk,
   parseAcctTotSk,
   affPk,
@@ -132,6 +133,20 @@ export class DynamoLedger {
           ":s": S(JSON.stringify(settings)),
           ":b": S(JSON.stringify(branding)),
         },
+      }),
+    );
+  }
+
+  /** D19c: is this install on the paid plan? Read by the poppy AND the portal Lambda. */
+  async planPro(): Promise<boolean> {
+    return (await this.get(CFG_PK, CFG_SK_PLAN))?.pro?.BOOL ?? false;
+  }
+
+  async savePlan(pro: boolean): Promise<void> {
+    await this.db.send(
+      new PutItemCommand({
+        TableName: this.tableName,
+        Item: { pk: S(CFG_PK), sk: S(CFG_SK_PLAN), pro: { BOOL: pro } },
       }),
     );
   }

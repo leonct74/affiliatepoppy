@@ -19,6 +19,7 @@ const config = (over: Partial<ProgramConfig["stripe"]> = {}, connect?: { stored:
   branding: { merchantName: "Olly", accentColor: "#bccf9e", logoDataUri: "", offerCopy: "", termsText: "" },
   stripe: { couponId: "co_1", lastEventAt: 0, livemode: false, partners: [], ...over },
   offer: "",
+  plan: { pro: true },
   secrets: { webhookSecret: { stored: true, hint: "…1" }, apiKey: { stored: true, hint: "…2" }, ...(connect ? { connectSecret: connect } : {}) },
 });
 

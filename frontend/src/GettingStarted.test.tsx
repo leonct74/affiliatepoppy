@@ -25,6 +25,7 @@ const config = (over: Partial<ProgramConfig> = {}): ProgramConfig => ({
   branding: { merchantName: "", accentColor: "#bccf9e", logoDataUri: "", offerCopy: "", termsText: "" },
   stripe: { couponId: "", lastEventAt: 0, livemode: false, partners: [] },
   offer: "",
+  plan: { pro: true },
   secrets: { webhookSecret: { stored: false, hint: "" }, apiKey: { stored: false, hint: "" } },
   ...over,
 });

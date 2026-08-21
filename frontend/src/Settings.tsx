@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import { Button } from "./Button";
+import { host } from "./host";
 import { defaultTermsText } from "../../shared/src/settings";
 import type { PortalBranding, ProgramConfig, ProgramSettings } from "./types";
 
@@ -19,6 +20,7 @@ export function Settings(props: { config: ProgramConfig | null; onSaved: () => P
   const [branding, setBranding] = useState<PortalBranding | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const pro = props.config?.plan.pro ?? false;
 
   // Reload the form whenever the underlying config changes (including after a save), so the
   // fields always show what is actually stored rather than a stale draft.
@@ -142,10 +144,14 @@ export function Settings(props: { config: ProgramConfig | null; onSaved: () => P
       </div>
 
       <div className="card stack">
-        <h2 className="section-title">How your page looks</h2>
+        <div className="spread">
+          <h2 className="section-title" style={{ margin: 0 }}>How your page looks</h2>
+          {!pro && <span className="badge"><span className="dot" /> Pro</span>}
+        </div>
         <p className="muted" style={{ margin: 0 }}>
           This is the page people see when you share your link. It's yours — your name, your colour, your words.
         </p>
+        {!pro && <UnlockPro onUnlocked={props.onSaved} />}
         <div className="grid-2">
           <label className="field">
             <span>Your name, as your partners know it</span>
@@ -162,11 +168,12 @@ export function Settings(props: { config: ProgramConfig | null; onSaved: () => P
               className="input"
               type="color"
               value={branding.accentColor}
+              disabled={!pro}
               onChange={(e) => setBranding({ ...branding, accentColor: e.target.value })}
             />
           </label>
         </div>
-        <LogoField branding={branding} onChange={setBranding} onError={setError} />
+        <LogoField branding={branding} onChange={setBranding} onError={setError} disabled={!pro} />
         <label className="field">
           <span>Your offer, in one sentence (leave empty for a sentence built from the numbers above)</span>
           <textarea
@@ -174,6 +181,7 @@ export function Settings(props: { config: ProgramConfig | null; onSaved: () => P
             value={branding.offerCopy}
             maxLength={400}
             placeholder={props.config?.offer}
+            disabled={!pro}
             onChange={(e) => setBranding({ ...branding, offerCopy: e.target.value })}
           />
         </label>
@@ -187,6 +195,7 @@ export function Settings(props: { config: ProgramConfig | null; onSaved: () => P
             style={{ minHeight: 160 }}
             value={branding.termsText}
             maxLength={4000}
+            disabled={!pro}
             placeholder={"e.g. You earn 10% of every sale made with your code, paid monthly by bank transfer once you're owed at least €25. Refunds are deducted. Don't buy with your own code or bid on our brand name in ads. Either of us can end this at any time…"}
             onChange={(e) => setBranding({ ...branding, termsText: e.target.value })}
           />
@@ -195,6 +204,7 @@ export function Settings(props: { config: ProgramConfig | null; onSaved: () => P
           <div>
             <button
               className="btn btn-sm"
+              disabled={!pro}
               onClick={() => setBranding({ ...branding, termsText: defaultTermsText(settings, branding.merchantName) })}
             >
               Give me a starting point
@@ -227,6 +237,7 @@ function LogoField(props: {
   branding: PortalBranding;
   onChange: (b: PortalBranding) => void;
   onError: (message: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="stack">
@@ -236,6 +247,7 @@ function LogoField(props: {
           className="input"
           type="file"
           accept="image/png,image/jpeg,image/svg+xml,image/webp"
+          disabled={props.disabled}
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (!file) return;
@@ -288,6 +300,64 @@ function Preview(props: { branding: PortalBranding; settings: ProgramSettings; f
         >
           Create my account
         </span>
+      </div>
+    </div>
+  );
+}
+
+
+/**
+ * The D19c unlock. The fields above stay VISIBLE — a locked form the merchant can read is a
+ * demo of what they'd get — and this card is the one place the purchase starts. It also names
+ * the other half of the deal: the free-plan notice on their public page goes away.
+ */
+function UnlockPro(props: { onUnlocked: () => Promise<void> }) {
+  const [price, setPrice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void host
+      .purchaseInfo("pro")
+      .then((info) => {
+        if (info.price) {
+          const major = (info.price.amountMinor / 100).toFixed(2);
+          const amount = `${info.price.currency === "eur" ? "€" : info.price.currency === "usd" ? "$" : info.price.currency.toUpperCase() + " "}${major}`;
+          setPrice(info.price.kind === "one_time" ? amount : `${amount}/${info.price.interval === "year" ? "yr" : "mo"}`);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  return (
+    <div className="banner info stack" style={{ gap: 8 }}>
+      <div>
+        <strong>Personalisation is part of AffiliatePoppy Pro{price ? ` — ${price}` : ""}.</strong> Unlocking it lets
+        you set the logo, colour, offer and terms below — and removes the "AffiliatePoppy Free" notice your
+        affiliates currently see on your sign-up page. Everything else, including your numbers and your name, works
+        in full without it.
+      </div>
+      {error && <div className="banner err">{error}</div>}
+      <div>
+        <Button
+          className="btn btn-primary btn-sm"
+          busyLabel="Waiting for the payment…"
+          onClick={async () => {
+            setError(null);
+            try {
+              const { owned } = await host.buyProduct("pro");
+              if (!owned) {
+                setError("The payment didn't complete — nothing was charged. Try again whenever you like.");
+                return;
+              }
+              await api.setPlan(true);
+              await props.onUnlocked();
+            } catch (e) {
+              setError((e as Error).message);
+            }
+          }}
+        >
+          Unlock Pro
+        </Button>
       </div>
     </div>
   );

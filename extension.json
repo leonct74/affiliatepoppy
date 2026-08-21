@@ -165,6 +165,7 @@
     "aws:credentials",
     "connection:read",
     "backend:invoke",
-    "host:openExternal"
+    "host:openExternal",
+    "commerce:purchase"
   ]
 }

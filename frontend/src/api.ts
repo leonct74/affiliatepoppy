@@ -84,6 +84,10 @@ export const api = {
   exportCsv: (): Promise<{ rows: number; files: { token: string; filename: string }[] }> =>
     host.invokeBackend({ method: "POST", path: "/export" }, 5 * 60_000),
 
+  /** Persist what the commerce plane said about Pro, so the portal Lambda knows (D19c). */
+  setPlan: (pro: boolean): Promise<{ pro: boolean }> =>
+    host.invokeBackend({ method: "PUT", path: "/plan", body: { pro } }),
+
   // ── P7: developers selling through the merchant's Stripe platform ───────────────────
   partners: (): Promise<{ partners: Partner[]; totals: PartnerTotal[] }> =>
     host.invokeBackend({ method: "GET", path: "/partners" }),
