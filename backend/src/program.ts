@@ -22,7 +22,7 @@ import {
 } from "../../shared/src/settings";
 import { StripeClient, permissionProblem } from "../../shared/src/stripe-api";
 import { dayOf } from "../../shared/src/stripe-events";
-import { PORTAL_BASE, publishPortal, pushPortalUpdate, sendPortalWebhookSecret, type PortalPublishDeps } from "./portal-publish";
+import { PORTAL_BASE, publishPortal, pushPortalUpdate, renamePortal, sendPortalWebhookSecret, type PortalPublishDeps } from "./portal-publish";
 import { activePatch, platformUid, postPublisherPatch, syncPlatformSignups, type SyncReport as PortalSyncReport } from "./portal-sync";
 import { describeSecrets, putSecret, readSecret } from "./secrets";
 import { ensureWebhooks, rotateWebhooks, type EnsureWebhooksReport, type WebhookPlanItem } from "./webhook-setup";
@@ -68,6 +68,11 @@ export class Program {
   /** P10: claim a name on affiliates.agentspoppy.com and start feeding the page. */
   async publishPortal(slug: string): Promise<{ slug: string; url: string }> {
     return publishPortal(this.portalDeps(), slug);
+  }
+
+  /** Change the address (only while nobody joined; the old one redirects forever). */
+  async renamePortal(slug: string): Promise<{ slug: string; url: string }> {
+    return renamePortal(this.portalDeps(), slug);
   }
 
   /** Q3: hand the platform the signing secret of the merchant's ledger-feed webhook.

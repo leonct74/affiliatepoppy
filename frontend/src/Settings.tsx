@@ -406,6 +406,7 @@ function PortalPublish(props: { config: ProgramConfig | null; onPublished: () =>
         <div className="row">
           <span className="chip" style={{ overflowWrap: "anywhere" }}>{props.config!.portal.url}</span>
         </div>
+        <PortalRename current={published} onRenamed={props.onPublished} />
         <PortalFeed portal={props.config!.portal} onConnected={props.onPublished} />
       </div>
     );
@@ -562,6 +563,72 @@ function PortalFeed(props: {
           {form}
         </div>
       </details>
+    </div>
+  );
+}
+
+/**
+ * Change the address (2026-08-23, from the founder's own first claim). Possible only while
+ * nobody has joined — the platform enforces it and answers in a sentence — and the old
+ * address forwards to the new one forever, so "permanent" survives the rename. After a
+ * rename the ledger feed follows with one press (its webhook URL contains the address).
+ */
+function PortalRename(props: { current: string; onRenamed: () => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [slug, setSlug] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const slugValid = SLUG_OK.test(slug) && slug !== props.current;
+
+  if (!open) {
+    return (
+      <div className="row">
+        <button className="btn btn-sm btn-ghost" onClick={() => setOpen(true)}>
+          Change the address
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+        Possible while nobody has joined yet. The old address keeps working — it forwards to the new one. If the
+        ledger feed was connected, press its button again afterwards (the feed follows the address).
+      </p>
+      {error && <div className="banner err">{error}</div>}
+      <div className="row">
+        <input
+          className="input mono"
+          style={{ maxWidth: 220 }}
+          value={slug}
+          placeholder="new-name"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          onChange={(e) => setSlug(normalizeSlugInput(e.target.value))}
+        />
+        <Button
+          className="btn btn-primary btn-sm"
+          busyLabel="Moving…"
+          disabled={!slugValid}
+          onClick={async () => {
+            setError(null);
+            try {
+              await api.renamePortal(slug);
+              setOpen(false);
+              setSlug("");
+              await props.onRenamed();
+            } catch (e) {
+              setError((e as Error).message);
+            }
+          }}
+        >
+          Move to this name
+        </Button>
+        <button className="btn btn-sm btn-ghost" onClick={() => { setOpen(false); setError(null); }}>
+          Keep it
+        </button>
+      </div>
     </div>
   );
 }

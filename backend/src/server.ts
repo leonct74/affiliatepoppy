@@ -144,6 +144,12 @@ const server = createServer(async (req, res) => {
       return json(res, 200, await program.publishPortal(str(body.slug)));
     }
 
+    // Change the published address (platform refuses once publishers exist).
+    if (method === "POST" && parts[0] === "portal" && parts[1] === "rename") {
+      const body = (await readBody(req)) ?? {};
+      return json(res, 200, await program.renamePortal(str(body.slug)));
+    }
+
     // Q3: pass the ledger-feed webhook's signing secret through to the platform. Never
     // stored here, never echoed back — the response carries only the day it connected.
     if (method === "POST" && parts[0] === "portal" && parts[1] === "feed-secret") {

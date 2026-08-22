@@ -62,6 +62,27 @@ export async function ensureWebhooks(stripe: StripeClient, plan: WebhookPlanItem
   for (const item of plan) {
     const label = ROLE_LABEL[item.role];
     const mine = existing.find((w) => w.metadata?.affiliatepoppy === item.role && w.status !== "disabled");
+    if (mine && mine.url !== item.url) {
+      // An app-created destination pointing at an OUTDATED address (the merchant renamed
+      // their portal, so the feed URL moved). Replace it — same motion as a rotation.
+      try {
+        await stripe.deleteWebhookEndpoint(mine.id);
+        const created = await stripe.createWebhookEndpoint({
+          url: item.url,
+          events: WEBHOOK_EVENTS,
+          apiVersion: WEBHOOK_API_VERSION,
+          description: `AffiliatePoppy — ${label}`,
+          role: item.role,
+          connect: item.connect,
+        });
+        if (!created.secret) throw new StripeApiError("Stripe sent no signing secret for the new destination.", 0, "no_secret");
+        await item.store(created.secret);
+        report.created.push(`${label}: moved to the new address and reconnected.`);
+      } catch (e) {
+        report.problems.push(`${label}: ${permissionSentence(e)} — press the button again to finish the move.`);
+      }
+      continue;
+    }
     if (mine) {
       if (item.stored) {
         report.skipped.push(`${label}: already set up.`);

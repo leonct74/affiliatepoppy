@@ -70,6 +70,42 @@ export async function publishPortal(deps: PortalPublishDeps, rawSlug: string): P
 }
 
 /**
+ * Change the programme's address. The platform allows it only while nobody has joined —
+ * publishers' links and logins live under the address — and leaves the old one redirecting
+ * forever. The token is unchanged; locally only the slug moves, and the feed marker resets
+ * because the feed webhook's URL contains the address (one press of the webhook button
+ * moves it).
+ */
+export async function renamePortal(deps: PortalPublishDeps, rawSlug: string): Promise<{ slug: string; url: string }> {
+  const newSlug = rawSlug.trim().toLowerCase();
+  if (!newSlug) throw new Error("Type the new name first.");
+  const [slug, token] = await Promise.all([deps.portalSlug(), deps.readToken()]);
+  if (!slug || !token) throw new Error("Nothing is published yet — claim your address first.");
+
+  const doFetch = deps.fetchImpl ?? fetch;
+  let res: Response;
+  try {
+    res = await doFetch(`${PORTAL_BASE}/api/portal/rename`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ slug, token, newSlug }),
+    });
+  } catch (e) {
+    throw new Error(`Couldn't reach agentspoppy.com (${(e as Error).message}). Nothing changed — try again.`);
+  }
+  const body = (await res.json().catch(() => ({}))) as { error?: string; slug?: string; url?: string };
+  if (res.status === 409 && body.error === "has_publishers") {
+    throw new Error("People have already joined through this address — changing it now would break the links they're sharing, so it stays.");
+  }
+  if (res.status === 409) throw new Error(`"${newSlug}" is already taken — pick another name.`);
+  if (res.status === 422) throw new Error("That name can't be used: lowercase letters, digits and hyphens, 3–30 characters.");
+  if (res.status === 403) throw new Error("The platform didn't recognise this programme's token — if you rebuilt your storage, publish again first.");
+  if (!res.ok || !body.slug) throw new Error("The portal service refused the request — try again in a moment.");
+  await deps.savePortalSlug(body.slug); // resets the feed marker on purpose — the feed URL moved
+  return { slug: body.slug, url: body.url ?? `https://affiliates.agentspoppy.com/${body.slug}` };
+}
+
+/**
  * Q3: hand the platform the signing secret for THIS programme's ledger feed — the extra
  * webhook endpoint the merchant created in their own Stripe, pointing at the platform.
  * Pass-through only: the secret is never stored in the merchant's AWS and never echoed

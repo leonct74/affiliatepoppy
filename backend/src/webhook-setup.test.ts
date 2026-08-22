@@ -129,6 +129,32 @@ describe("ensureWebhooks", () => {
   });
 });
 
+describe("a renamed address", () => {
+  it("replaces an app-created destination whose URL went stale — the feed follows the address", async () => {
+    const created: Array<Record<string, unknown>> = [];
+    const deleted: string[] = [];
+    const stripe = {
+      async listWebhookEndpoints() {
+        return [{ id: "we_old", url: "https://agentspoppy.com/api/portal/stripe/affiliates-portal", metadata: { affiliatepoppy: "feed" } }];
+      },
+      async deleteWebhookEndpoint(id: string) {
+        deleted.push(id);
+        return { id, deleted: true };
+      },
+      async createWebhookEndpoint(args: Record<string, unknown>) {
+        created.push(args);
+        return { id: "we_new", url: String(args.url), secret: "whsec_fresh" };
+      },
+    } as unknown as StripeClient;
+    const feed = item("feed", { stored: true, url: "https://agentspoppy.com/api/portal/stripe/olly-digital" });
+    const report = await ensureWebhooks(stripe, [feed]);
+    expect(deleted).toEqual(["we_old"]);
+    expect(created[0]).toMatchObject({ url: "https://agentspoppy.com/api/portal/stripe/olly-digital" });
+    expect(feed.secrets).toEqual(["whsec_fresh"]);
+    expect(report.created).toEqual(["Public page ledger feed: moved to the new address and reconnected."]);
+  });
+});
+
 describe("rotateWebhooks", () => {
   const withDelete = (opts: Parameters<typeof fakeStripe>[0] & { deleteError?: Error } = {}) => {
     const base = fakeStripe(opts);

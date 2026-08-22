@@ -6,7 +6,7 @@
 // background update never breaks the merchant's own save.
 
 import { describe, expect, it } from "vitest";
-import { publishPortal, pushPortalUpdate, sendPortalWebhookSecret, type PortalPublishDeps } from "./portal-publish";
+import { publishPortal, pushPortalUpdate, renamePortal, sendPortalWebhookSecret, type PortalPublishDeps } from "./portal-publish";
 
 function deps(over: Partial<PortalPublishDeps> = {}, replies: { status: number; body?: unknown }[] = []) {
   const calls: { url: string; body: Record<string, unknown> }[] = [];
@@ -64,6 +64,39 @@ describe("publishing", () => {
     const bad = deps({}, [{ status: 422, body: { error: "bad_slug" } }]);
     await expect(publishPortal(bad.d, "x")).rejects.toThrow(/lowercase letters, digits and hyphens/);
     expect(taken.saved).toEqual([]); // nothing persisted on failure
+  });
+});
+
+describe("renaming the address", () => {
+  it("moves the slug locally only after the platform said yes, keeping the token", async () => {
+    const { d, calls, state } = deps({}, [{ status: 200, body: { slug: "olly-digital", url: "https://affiliates.agentspoppy.com/olly-digital" } }]);
+    state.slug = "affiliates-portal";
+    state.token = "apt_x";
+    const out = await renamePortal(d, " Olly-Digital ");
+    expect(calls[0]!.url).toContain("/api/portal/rename");
+    expect(calls[0]!.body).toEqual({ slug: "affiliates-portal", token: "apt_x", newSlug: "olly-digital" });
+    expect(state.slug).toBe("olly-digital");
+    expect(state.token).toBe("apt_x"); // unchanged — the poppy keeps its stored token
+    expect(out.url).toBe("https://affiliates.agentspoppy.com/olly-digital");
+  });
+
+  it("the platform's refusals become sentences — especially the one that protects publishers", async () => {
+    const busy = deps({}, [{ status: 409, body: { error: "has_publishers" } }]);
+    busy.state.slug = "olly";
+    busy.state.token = "apt_x";
+    await expect(renamePortal(busy.d, "new-name")).rejects.toThrow(/already joined through this address/);
+    expect(busy.state.slug).toBe("olly"); // nothing moved locally
+
+    const taken = deps({}, [{ status: 409, body: { error: "slug_taken" } }]);
+    taken.state.slug = "olly";
+    taken.state.token = "apt_x";
+    await expect(renamePortal(taken.d, "new-name")).rejects.toThrow(/already taken/);
+  });
+
+  it("demands an existing publication first", async () => {
+    const { d, calls } = deps();
+    await expect(renamePortal(d, "new-name")).rejects.toThrow(/claim your address first/);
+    expect(calls).toHaveLength(0);
   });
 });
 

@@ -97,6 +97,10 @@ export const api = {
   publishPortal: (slug: string): Promise<{ slug: string; url: string }> =>
     invoke({ method: "POST", path: "/portal/publish", body: { slug } }, 60_000),
 
+  /** Change the published address — refused once publishers exist; the old one redirects. */
+  renamePortal: (slug: string): Promise<{ slug: string; url: string }> =>
+    invoke({ method: "POST", path: "/portal/rename", body: { slug } }, 60_000),
+
   /** Q3: hand the platform the ledger-feed webhook's signing secret (pass-through). */
   portalFeedSecret: (secret: string): Promise<{ day: string }> =>
     invoke({ method: "POST", path: "/portal/feed-secret", body: { secret } }, 60_000),
