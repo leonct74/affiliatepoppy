@@ -3,6 +3,7 @@ import { Affiliates } from "./Affiliates";
 import { api } from "./api";
 import { Button } from "./Button";
 import { ConnectedAccounts } from "./ConnectedAccounts";
+import { ExternalLink } from "./ExternalLink";
 import { Feedback } from "./Feedback";
 import { GettingStarted } from "./GettingStarted";
 import { host, type AccessState } from "./host";
@@ -428,11 +429,8 @@ export function App() {
           malfunctions or wrong use are not something Olly Digital answers for. */}
       <p className="muted" style={{ fontSize: 11.5, marginTop: 12 }}>
         AffiliatePoppy runs in your own AWS and Stripe accounts and is provided &ldquo;as is&rdquo; under
-        the{" "}
-        <a href="https://agentspoppy.com/terms" target="_blank" rel="noopener noreferrer">
-          AgentsPoppy Terms
-        </a>
-        . Its ledger and reports are working records for you to review — paying your affiliates, and what
+        the <ExternalLink href="https://agentspoppy.com/terms">AgentsPoppy Terms</ExternalLink>. Its
+        ledger and reports are working records for you to review — paying your affiliates, and what
         you decide on those numbers, stays with you.
       </p>
     </div>

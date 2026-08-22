@@ -11,6 +11,7 @@ import { api } from "./api";
 import { AutoWebhooks } from "./AutoWebhooks";
 import { Button } from "./Button";
 import { CopyButton } from "./CopyButton";
+import { ExternalLink } from "./ExternalLink";
 import { host } from "./host";
 import { defaultTermsText } from "../../shared/src/settings";
 import { WEBHOOK_API_VERSION } from "../../shared/src/stripe-events";
@@ -463,10 +464,8 @@ function PortalPublish(props: { config: ProgramConfig | null; onPublished: () =>
           approvals and the paying stay the merchant's own. */}
       <p className="muted" style={{ margin: 0, fontSize: 12 }}>
         By publishing you accept the{" "}
-        <a href="https://affiliates.agentspoppy.com/terms" target="_blank" rel="noopener noreferrer">
-          hosting terms
-        </a>
-        : AffiliatePoppy hosts your page and its earnings record as a neutral service — the
+        <ExternalLink href="https://affiliates.agentspoppy.com/terms">hosting terms</ExternalLink>:
+        AffiliatePoppy hosts your page and its earnings record as a neutral service — the
         programme itself, who's in it and paying your partners stay yours.
       </p>
     </div>
