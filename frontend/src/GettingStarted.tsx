@@ -32,6 +32,8 @@ export function GettingStarted(props: {
   // left the name empty, and had to ask why the step stayed open).
   const nameMissing = !config?.branding.merchantName;
   const dealDecided = !!config?.settings && !nameMissing;
+  // D20: the permanent address is THE link once claimed; the AWS one is the pre-claim fallback.
+  const shareLink = config?.portal.url || status?.portalUrl || "";
 
   return (
     <div className="stack">
@@ -79,20 +81,23 @@ export function GettingStarted(props: {
         done={false}
         title="Share your link"
         detail={
-          deployed && stripeDone && status?.portalUrl
-            ? "This is it — the page anyone can join your affiliate programme on. Put it wherever your would-be partners are."
-            : "Appears here once steps 1 and 2 are done."
+          deployed && stripeDone && !config?.portal.slug
+            ? "Your page already works at the link below — but claim your free permanent address (affiliates.agentspoppy.com/your-name) in Settings first: it never changes, and your partners' earnings on it are recorded independently."
+            : deployed && stripeDone && shareLink
+              ? "This is it — the page anyone can join your affiliate programme on. Put it wherever your would-be partners are."
+              : "Appears here once steps 1 and 2 are done."
         }
+        action={deployed && stripeDone && !config?.portal.slug ? { label: "Claim your address", tab: "settings" } : undefined}
         onGo={props.onGo}
         blocked={!(deployed && stripeDone)}
       />
       {/* The link IS the product (founder, 2026-08-20) — it lives here in full, not behind
-          a "go to Setup" hop. */}
-      {deployed && stripeDone && status?.portalUrl && (
+          a "go to Setup" hop. Since D20 the permanent address is the link for every plan. */}
+      {deployed && stripeDone && shareLink && (
         <div className="row" style={{ paddingLeft: 4 }}>
-          <span className="chip" style={{ overflowWrap: "anywhere" }}>{status.portalUrl}</span>
-          <CopyButton text={status.portalUrl} label="affiliate link" />
-          <button className="btn btn-sm" onClick={() => void host.openExternal(status.portalUrl!)}>
+          <span className="chip" style={{ overflowWrap: "anywhere" }}>{shareLink}</span>
+          <CopyButton text={shareLink} label="affiliate link" />
+          <button className="btn btn-sm" onClick={() => void host.openExternal(shareLink)}>
             Open it
           </button>
         </div>

@@ -89,9 +89,30 @@ describe("as the merchant works through it", () => {
         onGo={vi.fn()}
       />,
     );
-    expect(screen.getByText(/this is it — the page anyone can join your affiliate programme on/i)).toBeInTheDocument();
+    // D20: unclaimed → the AWS link works, and the step pushes claiming the permanent address.
+    expect(screen.getByText(/claim your free permanent address/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /claim your address/i })).toBeInTheDocument();
     expect(screen.getByText("https://portal.lambda-url.eu-west-1.on.aws/")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /open it/i })).toBeInTheDocument();
+  });
+
+  it("once the address is claimed, the permanent link IS the link — no more nudge", () => {
+    const open = config({
+      secrets: { webhookSecret: { stored: true, hint: "…1" }, apiKey: { stored: true, hint: "…2" } },
+      stripe: { couponId: "co_1", lastEventAt: 0, livemode: false, partners: [] },
+      branding: { merchantName: "Olly Digital", accentColor: "#bccf9e", logoDataUri: "", offerCopy: "", termsText: "" },
+      portal: { slug: "olly", url: "https://affiliates.agentspoppy.com/olly", feedUrl: "", feedDay: "" },
+    });
+    render(
+      <GettingStarted
+        status={status({ phase: "ready", portalUrl: "https://portal.lambda-url.eu-west-1.on.aws/" })}
+        config={open}
+        onGo={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/this is it — the page anyone can join your affiliate programme on/i)).toBeInTheDocument();
+    expect(screen.getByText("https://affiliates.agentspoppy.com/olly")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /claim your address/i })).not.toBeInTheDocument();
   });
 });
 

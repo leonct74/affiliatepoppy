@@ -148,6 +148,9 @@ export class Program {
    *  the portal Lambda has no way to ask the store, so this row is how it knows). */
   async setPlan(pro: boolean): Promise<{ pro: boolean }> {
     await this.ledger.savePlan(pro);
+    // D20: the published page's banner follows the plan — flip it now, not at the next save.
+    // Best-effort like every push; the next save reconciles a miss.
+    await pushPortalUpdate(this.portalDeps());
     return { pro };
   }
 

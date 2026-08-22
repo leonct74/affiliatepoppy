@@ -6,8 +6,9 @@
 // later update presents it. Nothing else leaves the merchant's AWS in Q1 — publishers,
 // codes and the ledger stay here until the later phases move the publisher-facing view.
 //
-// Pro-gated in the BACKEND as well as the UI (same as the branding gate): the paid plan is
-// what pays for the platform hosting the page.
+// Open to every plan since D20 (2026-08-22): the free page carries the AffiliatePoppy Free
+// notice — the banner is the conversion engine, so free publishing is what SELLS Pro. The
+// plan rides on every register/update so the platform knows which face to render.
 
 export interface PortalPublishDeps {
   planPro(): Promise<boolean>;
@@ -25,7 +26,7 @@ export interface PortalPublishDeps {
 /** Overridable for tests and for a future self-hosted portal; the default is the platform. */
 export const PORTAL_BASE = process.env.AFFILIATEPOPPY_PORTAL_BASE?.trim() || "https://agentspoppy.com";
 
-function payload(cfg: Awaited<ReturnType<PortalPublishDeps["config"]>>): Record<string, unknown> {
+function payload(cfg: Awaited<ReturnType<PortalPublishDeps["config"]>>, pro: boolean): Record<string, unknown> {
   return {
     branding: cfg.branding,
     deal: {
@@ -34,13 +35,12 @@ function payload(cfg: Awaited<ReturnType<PortalPublishDeps["config"]>>): Record<
       firstPaymentOnly: cfg.settings.firstPaymentOnly,
       autoApprove: cfg.settings.autoApprove,
     },
+    // D20: every plan publishes; the platform renders the free-plan notice from this.
+    plan: pro ? "pro" : "free",
   };
 }
 
 export async function publishPortal(deps: PortalPublishDeps, rawSlug: string): Promise<{ slug: string; url: string }> {
-  if (!(await deps.planPro())) {
-    throw new Error("Publishing your portal is part of AffiliatePoppy Pro — unlock it in Settings first.");
-  }
   const slug = rawSlug.trim().toLowerCase();
   if (!slug) throw new Error("Pick a name for your portal address first.");
   const cfg = await deps.config();
@@ -52,7 +52,7 @@ export async function publishPortal(deps: PortalPublishDeps, rawSlug: string): P
     res = await doFetch(`${PORTAL_BASE}/api/portal/register`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ slug, ...payload(cfg) }),
+      body: JSON.stringify({ slug, ...payload(cfg, await deps.planPro()) }),
     });
   } catch (e) {
     throw new Error(`Couldn't reach agentspoppy.com (${(e as Error).message}). Nothing was published — try again.`);
@@ -117,7 +117,7 @@ export async function pushPortalUpdate(deps: PortalPublishDeps): Promise<boolean
     const res = await doFetch(`${PORTAL_BASE}/api/portal/merchant`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ slug, token, ...payload(await deps.config()) }),
+      body: JSON.stringify({ slug, token, ...payload(await deps.config(), await deps.planPro()) }),
     });
     if (!res.ok) console.warn(`[affiliatepoppy] portal update refused (${res.status}) for ${slug}`);
     return res.ok;

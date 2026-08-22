@@ -47,13 +47,15 @@ describe("publishing", () => {
     expect(calls[0]!.body.slug).toBe("olly");
     expect(calls[0]!.body).toHaveProperty("branding");
     expect(calls[0]!.body).toHaveProperty("deal");
+    expect(calls[0]!.body.plan).toBe("pro");
     expect(saved).toEqual(["token:apt_x", "slug:olly"]);
     expect(out.url).toBe("https://affiliates.agentspoppy.com/olly");
   });
 
-  it("is Pro-gated in the backend, with a sentence", async () => {
-    const { d } = deps({ planPro: async () => false });
-    await expect(publishPortal(d, "olly")).rejects.toThrow(/part of AffiliatePoppy Pro/);
+  it("D20: free installs publish too — the register carries plan 'free' so the page gets its banner", async () => {
+    const { d, calls } = deps({ planPro: async () => false });
+    await publishPortal(d, "olly");
+    expect(calls[0]!.body.plan).toBe("free");
   });
 
   it("turns the platform's refusals into words: taken names and bad names", async () => {

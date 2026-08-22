@@ -220,7 +220,8 @@ export function Settings(props: { config: ProgramConfig | null; onSaved: () => P
         <Preview branding={branding} settings={settings} fallbackOffer={props.config?.offer ?? ""} />
       </div>
 
-      {pro && <PortalPublish config={props.config} onPublished={props.onSaved} />}
+      {/* D20: everyone claims their address — the free page's banner is what sells Pro. */}
+      <PortalPublish config={props.config} onPublished={props.onSaved} />
 
       <div className="row">
         <Button className="btn btn-primary" busyLabel="Saving…" disabled={!branding.merchantName.trim()} onClick={save}>
@@ -414,8 +415,10 @@ function PortalPublish(props: { config: ProgramConfig | null; onPublished: () =>
       <h2 className="section-title">Get your permanent address</h2>
       <p className="muted" style={{ margin: 0 }}>
         Publish your sign-up page to <span className="chip">affiliates.agentspoppy.com/your-name</span> — a friendly
-        link that survives anything (the AWS one changes if you ever rebuild). Lowercase letters, digits and
-        hyphens, 3–30 characters.
+        link that survives anything (the AWS one changes if you ever rebuild), free on every plan. Your publishers'
+        earnings on it are computed independently, straight from Stripe — proof you can't cook their numbers.
+        Free pages carry a small "runs on AffiliatePoppy Free" notice; Pro removes it and puts your brand on the
+        page. Lowercase letters, digits and hyphens, 3–30 characters.
       </p>
       {error && <div className="banner err">{error}</div>}
       <div className="row">

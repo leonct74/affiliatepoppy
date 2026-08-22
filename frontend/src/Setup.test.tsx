@@ -334,10 +334,10 @@ describe("publishing the permanent address (P10)", () => {
     expect(screen.queryByPlaceholderText("your-name")).not.toBeInTheDocument();
   });
 
-  it("hides the whole card from free merchants — it is part of Pro", async () => {
+  it("D20: the card is there for free merchants too, and says what the free page carries", async () => {
     showSettings({ ...config(), plan: { pro: false } });
-    expect(await screen.findByDisplayValue("5")).toBeInTheDocument();
-    expect(screen.queryByText(/permanent address/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(/permanent address/i)).toBeInTheDocument();
+    expect(screen.getByText(/runs on AffiliatePoppy Free/i)).toBeInTheDocument();
   });
 });
 
