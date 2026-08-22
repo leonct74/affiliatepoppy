@@ -36,6 +36,8 @@ export function Setup(props: {
   const deployed = status?.phase === "ready";
   const stripeConnected = !!config?.secrets.apiKey.stored && !!config?.stripe.couponId;
   const webhookSaved = !!config?.secrets.webhookSecret.stored;
+  // D20: the permanent address is THE link once claimed; the Lambda URL is the fallback.
+  const shareLink = config?.portal.url || status?.portalUrl || "";
 
   return (
     <div className="stack">
@@ -70,18 +72,28 @@ export function Setup(props: {
       <Step
         n={3}
         title="Share the link with people who want to promote you"
-        done={deployed && !!status?.portalUrl && stripeConnected}
+        done={deployed && !!shareLink && stripeConnected}
         note="Anyone with this link can apply to join your affiliate programme. They get their own code, and can check what they've earned at any time — you don't have to build a page or send anything by hand."
       >
-        {status?.portalUrl ? (
+        {shareLink ? (
           <>
             <div className="row">
-              <span className="chip" style={{ overflowWrap: "anywhere" }}>{status.portalUrl}</span>
-              <CopyButton text={status.portalUrl} label="affiliate link" />
-              <button className="btn btn-sm" onClick={() => void host.openExternal(status.portalUrl!)}>
+              <span className="chip" style={{ overflowWrap: "anywhere" }}>{shareLink}</span>
+              <CopyButton text={shareLink} label="affiliate link" />
+              <button className="btn btn-sm" onClick={() => void host.openExternal(shareLink)}>
                 Open it
               </button>
             </div>
+            {/* D20: once the permanent address exists, IT is the link — everywhere. Until
+                then, say so instead of letting the raw Lambda URL look like the product
+                (founder, 2026-08-22: "it still shows the random lambda link"). */}
+            {!config?.portal.slug && (
+              <p className="muted" style={{ margin: "8px 0 0" }}>
+                This is the technical address — it works, but it's ugly and changes if you ever rebuild. Claim your
+                free permanent one (affiliates.agentspoppy.com/your-name) in <strong>Settings → Get your permanent
+                address</strong>; it will replace this link everywhere.
+              </p>
+            )}
             {!stripeConnected && (
               <p className="muted" style={{ margin: "8px 0 0" }}>
                 People can sign up already — they'll get their code as soon as Stripe is connected.

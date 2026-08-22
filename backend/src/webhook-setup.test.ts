@@ -57,6 +57,21 @@ describe("ensureWebhooks", () => {
     expect(feed.secrets).toEqual(["whsec_feed"]);
   });
 
+  it("NEVER creates over a hand-made setup: a stored secret with no stamped endpoint is left untouched", async () => {
+    // The founder's live install (2026-08-22): webhooks made manually before the button
+    // existed. Creating "our" endpoint would duplicate deliveries and overwrite the stored
+    // secret, breaking the original destination silently.
+    const { stripe, created } = fakeStripe({
+      existing: [{ id: "we_manual", url: "https://recv.example/" }], // no metadata stamp
+    });
+    const receiver = item("receiver", { stored: true });
+    const report = await ensureWebhooks(stripe, [receiver]);
+    expect(created).toHaveLength(0);
+    expect(receiver.secrets).toEqual([]);
+    expect(report.skipped[0]).toMatch(/set up by hand earlier/);
+    expect(report.skipped[0]).toMatch(/left untouched/);
+  });
+
   it("recognises its own earlier work by the metadata stamp and skips it", async () => {
     const { stripe, created } = fakeStripe({
       existing: [{ id: "we_1", url: "https://recv.example/", metadata: { affiliatepoppy: "receiver" } }],

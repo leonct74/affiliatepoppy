@@ -72,6 +72,13 @@ export async function ensureWebhooks(stripe: StripeClient, plan: WebhookPlanItem
       }
       continue;
     }
+    // A stored secret with no stamped endpoint = the merchant set this up BY HAND before the
+    // button existed. That pipeline works; creating "our" endpoint over it would duplicate
+    // deliveries and orphan their original destination's secret. Leave it alone.
+    if (item.stored) {
+      report.skipped.push(`${label}: already connected (set up by hand earlier) — left untouched.`);
+      continue;
+    }
     try {
       const created = await stripe.createWebhookEndpoint({
         url: item.url,
