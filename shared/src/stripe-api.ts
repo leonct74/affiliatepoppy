@@ -5,10 +5,12 @@
 // megabyte of dependency inside a Lambda zip and a supply-chain surface on a path that holds
 // the merchant's API key. Node 20 has fetch; the whole client is below.
 //
-// THE KEY: a RESTRICTED key with write access to promotion codes and nothing else (D11). It
-// lives in the merchant's own SSM parameter store, is read only by the Lambda that needs it,
-// and is never returned to any UI. If this file ever needs a broader permission, that is a
-// design change to argue in DESIGN.md — not a scope to widen quietly.
+// THE KEY: a RESTRICTED key (D11). Its scope is argued in DESIGN.md, never widened quietly:
+// write to promotion codes/coupons (the Billing group), and — since D20's webhook automation
+// (2026-08-22) — write to webhook endpoints, so setup can create the destinations itself
+// instead of walking the merchant through Stripe's form three times. Neither permission can
+// move money. The key lives in the merchant's own SSM parameter store, is read only by the
+// code that needs it, and is never returned to any UI.
 
 const API_BASE = "https://api.stripe.com/v1";
 
@@ -70,6 +72,16 @@ export interface PromotionCode {
   active: boolean;
   /** Since 2025-09-30.clover a code points at a "promotion", of which a coupon is one kind. */
   promotion?: { type: "coupon"; coupon: string };
+}
+
+export interface WebhookEndpoint {
+  id: string;
+  url: string;
+  status?: string;
+  description?: string | null;
+  /** Present ONLY in the creation response. */
+  secret?: string;
+  metadata?: Record<string, string>;
 }
 
 export class StripeClient {
@@ -178,6 +190,39 @@ export class StripeClient {
   async findPromotionCode(code: string): Promise<PromotionCode | undefined> {
     const list = await this.call<{ data?: PromotionCode[] }>("GET", "/promotion_codes", { code, limit: 1 });
     return list.data?.[0];
+  }
+
+  /**
+   * D20 webhook automation: create one webhook destination. The `secret` comes back ONLY on
+   * this call — Stripe never reveals it again — so the caller must store it immediately.
+   * `role` lands in metadata as `affiliatepoppy=<role>`, which is how a later run recognises
+   * endpoints it already created (the reliable marker; URLs can repeat across roles).
+   * Requires the key to have webhook-endpoints write permission — refusals surface verbatim.
+   */
+  createWebhookEndpoint(opts: {
+    url: string;
+    events: string[];
+    apiVersion: string;
+    description: string;
+    role: string;
+    /** true = listen to CONNECTED accounts' events (the "Connected accounts" scope). */
+    connect?: boolean;
+  }): Promise<WebhookEndpoint> {
+    const params: Record<string, string | number | boolean | undefined> = {
+      url: opts.url,
+      api_version: opts.apiVersion,
+      description: opts.description,
+      "metadata[affiliatepoppy]": opts.role,
+    };
+    opts.events.forEach((event, i) => (params[`enabled_events[${i}]`] = event));
+    if (opts.connect) params.connect = true;
+    return this.call<WebhookEndpoint>("POST", "/webhook_endpoints", params);
+  }
+
+  /** Every webhook destination on the account (first 100 — nobody has more). */
+  async listWebhookEndpoints(): Promise<WebhookEndpoint[]> {
+    const list = await this.call<{ data?: WebhookEndpoint[] }>("GET", "/webhook_endpoints", { limit: 100 });
+    return list.data ?? [];
   }
 
   /**

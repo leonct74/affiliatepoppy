@@ -302,6 +302,28 @@ describe("the D19c lock on personalisation", () => {
   });
 });
 
+describe("webhook automation (D20)", () => {
+  it("offers the one-click path first, runs it, and shows the report in sentences", async () => {
+    const auto = vi.spyOn(api, "autoWebhooks").mockResolvedValue({
+      created: ["Sales tracking (your account): created and connected."],
+      skipped: [],
+      problems: ["Public page ledger feed: Stripe wouldn't let your key manage webhooks: \"no access\" — edit your restricted key…"],
+    });
+    setup();
+    await userEvent.click(await screen.findByRole("button", { name: /create the webhooks for me/i }));
+    expect(auto).toHaveBeenCalled();
+    expect(await screen.findByText(/created and connected/i)).toBeInTheDocument();
+    expect(screen.getByText(/wouldn't let your key manage webhooks/i)).toBeInTheDocument();
+  });
+
+  it("keeps the manual path reachable as the fallback, with the key card asking for both permissions", async () => {
+    setup();
+    expect(await screen.findByText("Billing — Write")).toBeInTheDocument();
+    expect(screen.getByText("Webhook Endpoints — Write")).toBeInTheDocument();
+    expect(screen.getByText(/prefer to do it by hand/i)).toBeInTheDocument();
+  });
+});
+
 describe("publishing the permanent address (P10)", () => {
   const showSettings = (c: ProgramConfig) => render(<Settings config={c} onSaved={vi.fn().mockResolvedValue(undefined)} />);
 

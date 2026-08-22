@@ -101,6 +101,10 @@ export const api = {
   portalFeedSecret: (secret: string): Promise<{ day: string }> =>
     invoke({ method: "POST", path: "/portal/feed-secret", body: { secret } }, 60_000),
 
+  /** D20: create the Stripe webhook destinations with the merchant's own key — no forms. */
+  autoWebhooks: (): Promise<{ created: string[]; skipped: string[]; problems: string[] }> =>
+    invoke({ method: "POST", path: "/webhooks/auto" }, 2 * 60_000),
+
   /** Persist what the commerce plane said about Pro, so the portal Lambda knows (D19c). */
   setPlan: (pro: boolean): Promise<{ pro: boolean }> =>
     invoke({ method: "PUT", path: "/plan", body: { pro } }),

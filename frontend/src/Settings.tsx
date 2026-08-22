@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "./api";
+import { AutoWebhooks } from "./AutoWebhooks";
 import { Button } from "./Button";
 import { CopyButton } from "./CopyButton";
 import { host } from "./host";
@@ -530,23 +531,34 @@ function PortalFeed(props: {
     <div className="stack" style={{ borderTop: "1px solid var(--poppy-border)", paddingTop: 10 }}>
       <strong style={{ fontSize: 13 }}>One more step: feed the page's ledger</strong>
       <p className="muted" style={{ margin: 0 }}>
-        Right now your page shows no earnings. Add <strong>one more webhook</strong> in Stripe — same gesture as
-        Setup step 2 — and AgentsPoppy will compute your publishers' earnings straight from Stripe's events, as an
-        independent record they can trust. In Stripe: <strong>Developers → Webhooks → Add destination</strong>,
-        scope <strong>"Your account"</strong>, API version <span className="chip">{WEBHOOK_API_VERSION}</span>,
-        events <span className="chip">checkout.session.completed</span>{" "}
-        <span className="chip">invoice.paid</span> <span className="chip">charge.refunded</span>, and this
-        endpoint URL:
+        Right now your page shows no earnings. One more webhook in your Stripe fixes that: your publishers'
+        earnings get computed straight from Stripe's events, as an independent record they can trust. The button
+        creates it for you — and quietly fixes any Setup-tab webhook that's missing, while it's there:
       </p>
-      <div className="row">
-        <span className="chip" style={{ overflowWrap: "anywhere" }}>{props.portal.feedUrl}</span>
-        <CopyButton text={props.portal.feedUrl} label="endpoint URL" />
-      </div>
-      <p className="muted" style={{ margin: 0 }}>
-        Then paste the destination's <strong>signing secret</strong> here. It goes straight to AgentsPoppy — it is
-        not kept in your AWS.
-      </p>
-      {form}
+      <AutoWebhooks label="Create the feed webhook for me" onDone={props.onConnected} />
+      <details>
+        <summary className="muted" style={{ cursor: "pointer", fontSize: 12 }}>
+          Prefer to do it by hand? The manual steps
+        </summary>
+        <div className="stack" style={{ marginTop: 10 }}>
+          <p className="muted" style={{ margin: 0 }}>
+            In Stripe: <strong>Developers → Webhooks → Add destination</strong>, scope{" "}
+            <strong>"Your account"</strong>, API version <span className="chip">{WEBHOOK_API_VERSION}</span>,
+            events <span className="chip">checkout.session.completed</span>{" "}
+            <span className="chip">invoice.paid</span> <span className="chip">charge.refunded</span>, and this
+            endpoint URL:
+          </p>
+          <div className="row">
+            <span className="chip" style={{ overflowWrap: "anywhere" }}>{props.portal.feedUrl}</span>
+            <CopyButton text={props.portal.feedUrl} label="endpoint URL" />
+          </div>
+          <p className="muted" style={{ margin: 0 }}>
+            Then paste the destination's <strong>signing secret</strong> here. It goes straight to AgentsPoppy — it
+            is not kept in your AWS.
+          </p>
+          {form}
+        </div>
+      </details>
     </div>
   );
 }

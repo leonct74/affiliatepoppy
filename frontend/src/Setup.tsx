@@ -11,6 +11,7 @@
 
 import { useState } from "react";
 import { api } from "./api";
+import { AutoWebhooks } from "./AutoWebhooks";
 import { Button } from "./Button";
 import { CopyButton } from "./CopyButton";
 import { WEBHOOK_API_VERSION } from "../../shared/src/stripe-events";
@@ -22,6 +23,8 @@ import type { DeploymentStatus, ProgramConfig } from "./types";
  *  the page groups resources and greys the granular rows — Billing is the group that holds
  *  coupons and promotion codes, and it contains nothing that can move money). */
 const KEY_PERMISSION = "Billing — Write";
+/** D20: the second group, which lets the app create its webhooks itself (step b's one click). */
+const WEBHOOK_KEY_PERMISSION = "Webhook Endpoints — Write";
 
 export function Setup(props: {
   status: DeploymentStatus | null;
@@ -190,55 +193,7 @@ function StripeConnect(props: {
 
       <div className="card card-2 stack">
         <div className="spread">
-          <strong style={{ fontSize: 13 }}>a. The webhook address</strong>
-          <span className={`badge${config?.secrets.webhookSecret.stored ? " ok" : ""}`}>
-            <span className="dot" /> {config?.secrets.webhookSecret.stored ? "Saved" : "Needed"}
-          </span>
-        </div>
-        <p className="muted" style={{ margin: 0 }}>
-          In Stripe, open <strong>Developers</strong> (bottom-left of the sidebar, or press <span className="chip">⌘/</span> and
-          type it) → <strong>Webhooks</strong> → <strong>Add destination</strong>. Stripe asks a few questions along the way —
-          here is every answer: when it asks whose events to listen to, choose <strong>"Your account"</strong> (the
-          "Connected accounts" kind is only for marketplaces — it has its own card on the Connected accounts tab). When it
-          asks which <strong>API version</strong>, pick <span className="chip">{WEBHOOK_API_VERSION}</span> — the
-          version this app is tested against (an endpoint keeps its version forever, so this is a one-time choice, and
-          "latest" would mean an untested one). Choose the events{" "}
-          <span className="chip">checkout.session.completed</span>, <span className="chip">invoice.paid</span> and{" "}
-          <span className="chip">charge.refunded</span>. Into the field Stripe calls <strong>"Endpoint URL"</strong>,
-          paste exactly this address (the copy button below puts it on your clipboard): Name and description
-          are just labels for your own dashboard — write anything. Stripe then shows you a signing secret starting with{" "}
-          <span className="chip">whsec_</span> — paste that below.
-        </p>
-        {status?.receiverUrl && (
-          <div className="row">
-            <span className="chip" style={{ overflowWrap: "anywhere" }}>{status.receiverUrl}</span>
-            <CopyButton text={status.receiverUrl} label="webhook address" />
-          </div>
-        )}
-        <label className="field">
-          <span>Signing secret{config?.secrets.webhookSecret.hint ? ` (saved, ends ${config.secrets.webhookSecret.hint})` : ""}</span>
-          <input
-            className="input mono"
-            value={webhookSecret}
-            placeholder="whsec_…"
-            onChange={(e) => setWebhookSecret(e.target.value)}
-          />
-        </label>
-        <div>
-          <Button
-            className="btn btn-primary btn-sm"
-            busyLabel="Saving…"
-            disabled={!webhookSecret.trim()}
-            onClick={() => save("webhookSecret", webhookSecret, () => setWebhookSecret(""))}
-          >
-            Save signing secret
-          </Button>
-        </div>
-      </div>
-
-      <div className="card card-2 stack">
-        <div className="spread">
-          <strong style={{ fontSize: 13 }}>b. A restricted key, so codes can be created</strong>
+          <strong style={{ fontSize: 13 }}>a. A restricted key — the one thing to fetch from Stripe</strong>
           <span className={`badge${config?.secrets.apiKey.stored ? " ok" : ""}`}>
             <span className="dot" /> {config?.secrets.apiKey.stored ? "Saved" : "Needed"}
           </span>
@@ -253,27 +208,30 @@ function StripeConnect(props: {
           </li>
           <li>
             <strong>Permissions</strong> — the resources come in groups, and single rows like "Promotion codes" may
-            be greyed out; that's normal. Set the <strong>Billing</strong> group to <strong>Write</strong> — it holds
-            the two things this app uses (discount coupons and promotion codes) and nothing that can move money:
-            charges, refunds and payouts are separate groups that stay at "None", like everything else.
+            be greyed out; that's normal. Set the <strong>Billing</strong> group to <strong>Write</strong> (it holds
+            the discount coupons and promotion codes this app creates), and set <strong>Webhook Endpoints</strong> to{" "}
+            <strong>Write</strong> too — that second one lets the app set up its webhooks for you in step b, with no
+            forms. Nothing that can move money: charges, refunds and payouts are separate groups that stay at
+            "None", like everything else.
           </li>
           <li>
-            <strong>Only if you run a marketplace</strong> (the Connected accounts tab): the Billing group has a
-            second column, <strong>Connected accounts</strong> — set that to Write too, so your codes can be created
-            on your sellers' accounts. A key can be edited later in Stripe if you're unsure — its value doesn't
-            change.
+            <strong>Only if you run a marketplace</strong> (the Connected accounts tab): both groups have a
+            second column, <strong>Connected accounts</strong> — set the Billing one to Write too, so your codes can
+            be created on your sellers' accounts. A key can be edited later in Stripe if you're unsure — its value
+            doesn't change.
           </li>
         </ol>
         <p className="muted" style={{ margin: 0 }}>
-          The one permission group, spelled the way Stripe spells it:
+          The two permission groups, spelled the way Stripe spells them:
         </p>
         <div className="row">
           <span className="chip">{KEY_PERMISSION}</span>
-          <CopyButton text={KEY_PERMISSION} label="permission name" />
+          <span className="chip">{WEBHOOK_KEY_PERMISSION}</span>
         </div>
         <p className="muted" style={{ margin: 0 }}>
-          That key can create discount codes and nothing else — it cannot move money, read customers, or refund
-          anything. It's kept encrypted in your own AWS account, and it is never shown again once saved.
+          That key can create discount codes and manage its own webhooks, nothing else — it cannot move money, read
+          customers, or refund anything. It's kept encrypted in your own AWS account, and it is never shown again
+          once saved.
         </p>
         <label className="field">
           <span>
@@ -321,6 +279,71 @@ function StripeConnect(props: {
             it.
           </p>
         )}
+      </div>
+
+      <div className="card card-2 stack">
+        <div className="spread">
+          <strong style={{ fontSize: 13 }}>b. The webhooks — one click, if your key allows it</strong>
+          <span className={`badge${config?.secrets.webhookSecret.stored ? " ok" : ""}`}>
+            <span className="dot" /> {config?.secrets.webhookSecret.stored ? "Saved" : "Needed"}
+          </span>
+        </div>
+        <p className="muted" style={{ margin: 0 }}>
+          Webhooks are how Stripe tells this app about every sale and refund. With the key from step a saved, the
+          app creates them itself — the right scope, the right API version, the right events — and stores each
+          signing secret where it belongs. It also covers the connected-accounts one (once you add sellers) and
+          your public page's independent ledger feed (once you claim your address).
+        </p>
+        <AutoWebhooks onDone={props.onSaved} />
+        <details>
+          <summary className="muted" style={{ cursor: "pointer", fontSize: 12 }}>
+            Prefer to do it by hand (or your key has no webhook permission)? The full manual steps
+          </summary>
+          <div className="stack" style={{ marginTop: 10 }}>
+            <p className="muted" style={{ margin: 0 }}>
+              In Stripe, open <strong>Developers</strong> (bottom-left of the sidebar, or press <span className="chip">⌘/</span> and
+              type it) → <strong>Webhooks</strong> → <strong>Add destination</strong>. Stripe asks a few questions along the way —
+              here is every answer: when it asks whose events to listen to, choose <strong>"Your account"</strong> (the
+              "Connected accounts" kind is only for marketplaces — it has its own card on the Connected accounts tab). When it
+              asks which <strong>API version</strong>, pick <span className="chip">{WEBHOOK_API_VERSION}</span> — the
+              version this app is tested against (an endpoint keeps its version forever, so this is a one-time choice, and
+              "latest" would mean an untested one). Choose the events{" "}
+              <span className="chip">checkout.session.completed</span>, <span className="chip">invoice.paid</span> and{" "}
+              <span className="chip">charge.refunded</span>. Into the field Stripe calls <strong>"Endpoint URL"</strong>,
+              paste exactly this address (the copy button below puts it on your clipboard): Name and description
+              are just labels for your own dashboard — write anything. Stripe then shows you a signing secret starting with{" "}
+              <span className="chip">whsec_</span> — paste that below.
+            </p>
+            {status?.receiverUrl && (
+              <div className="row">
+                <span className="chip" style={{ overflowWrap: "anywhere" }}>{status.receiverUrl}</span>
+                <CopyButton text={status.receiverUrl} label="webhook address" />
+              </div>
+            )}
+            <label className="field">
+              <span>Signing secret{config?.secrets.webhookSecret.hint ? ` (saved, ends ${config.secrets.webhookSecret.hint})` : ""}</span>
+              <input
+                className="input mono"
+                value={webhookSecret}
+                placeholder="whsec_…"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                onChange={(e) => setWebhookSecret(e.target.value)}
+              />
+            </label>
+            <div>
+              <Button
+                className="btn btn-primary btn-sm"
+                busyLabel="Saving…"
+                disabled={!webhookSecret.trim()}
+                onClick={() => save("webhookSecret", webhookSecret, () => setWebhookSecret(""))}
+              >
+                Save signing secret
+              </Button>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
   );

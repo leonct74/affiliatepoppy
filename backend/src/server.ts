@@ -151,6 +151,11 @@ const server = createServer(async (req, res) => {
       return json(res, 200, await program.portalFeedSecret(str(body.secret)));
     }
 
+    // D20: create the webhook destinations with the merchant's own key — no Stripe forms.
+    if (method === "POST" && parts[0] === "webhooks" && parts[1] === "auto") {
+      return json(res, 200, await program.autoWebhooks(await liveUrl("AffiliatePoppyReceiver")));
+    }
+
     // D19c: the UI checked the Pro entitlement with the commerce plane; we persist the answer
     // where the portal Lambda can read it.
     if (method === "PUT" && parts[0] === "plan" && parts.length === 1) {

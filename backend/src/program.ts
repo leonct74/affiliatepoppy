@@ -24,7 +24,8 @@ import { StripeClient, permissionProblem } from "../../shared/src/stripe-api";
 import { dayOf } from "../../shared/src/stripe-events";
 import { PORTAL_BASE, publishPortal, pushPortalUpdate, sendPortalWebhookSecret, type PortalPublishDeps } from "./portal-publish";
 import { activePatch, platformUid, postPublisherPatch, syncPlatformSignups, type SyncReport as PortalSyncReport } from "./portal-sync";
-import { putSecret, readSecret } from "./secrets";
+import { describeSecrets, putSecret, readSecret } from "./secrets";
+import { ensureWebhooks, type EnsureWebhooksReport, type WebhookPlanItem } from "./webhook-setup";
 import type { AttributionContext } from "./tags";
 
 /** What syncCodes() did, and what it couldn't — shown to the merchant, never swallowed. */
@@ -76,6 +77,62 @@ export class Program {
     const day = dayOf(Math.floor(Date.now() / 1000));
     await this.ledger.savePortalFeedDay(day);
     return { day };
+  }
+
+  /**
+   * D20: create the Stripe webhook destinations with the merchant's own key — the receiver's,
+   * the connected-accounts one (only once partners exist; Stripe refuses `connect` endpoints
+   * on non-platform accounts), and the platform ledger feed (only once published). Idempotent;
+   * every refusal comes back as a sentence in the report, never as a thrown wire error.
+   */
+  async autoWebhooks(receiverUrl: string): Promise<EnsureWebhooksReport> {
+    const stripe = await this.stripe();
+    if (!stripe) {
+      return { created: [], skipped: [], problems: ["Save your Stripe key first (the card above) — the destinations are created with it."] };
+    }
+    const [secrets, { partners }, slug, feedDay] = await Promise.all([
+      describeSecrets(this.ssm),
+      this.ledger.stripeState(),
+      this.ledger.portalSlug(),
+      this.ledger.portalFeedDay(),
+    ]);
+    const attribution = this.attribution ?? { accountId: "", connectionId: "" };
+    const plan: WebhookPlanItem[] = [];
+    if (receiverUrl) {
+      plan.push({
+        role: "receiver",
+        url: receiverUrl,
+        connect: false,
+        stored: secrets.webhookSecret.stored,
+        store: async (secret) => {
+          await putSecret(this.ssm, "webhookSecret", secret, attribution);
+        },
+      });
+      if (partners.length) {
+        plan.push({
+          role: "connect",
+          url: receiverUrl,
+          connect: true,
+          stored: secrets.connectSecret.stored,
+          store: async (secret) => {
+            await putSecret(this.ssm, "connectSecret", secret, attribution);
+          },
+        });
+      }
+    }
+    if (slug) {
+      plan.push({
+        role: "feed",
+        url: `${PORTAL_BASE}/api/portal/stripe/${slug}`,
+        connect: false,
+        stored: !!feedDay,
+        store: async (secret) => {
+          await sendPortalWebhookSecret(this.portalDeps(), secret);
+          await this.ledger.savePortalFeedDay(dayOf(Math.floor(Date.now() / 1000)));
+        },
+      });
+    }
+    return ensureWebhooks(stripe, plan);
   }
 
   /** Q4: tell the platform what happened to one of ITS publishers (mint, rate, retirement).

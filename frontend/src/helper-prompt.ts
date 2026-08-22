@@ -41,18 +41,18 @@ THE SETUP, IN ORDER (the app's Setup tab shows the same steps):
 
 2. TEST OR LIVE — ONE AT A TIME. Everything in Stripe below can be done in test mode (fake cards, nothing real) or live mode; the dashboard's test toggle decides. If I practise in test mode, I must tear everything down (the app's Remove tab) before setting up live — the app keeps one ledger, and mixing pretend commissions with real ones would ruin it as a record. Keep me consistent: every Stripe step below must happen in the SAME mode.
 
-3. THE STRIPE WEBHOOK(S). In Stripe: Developers → Webhooks → Add destination. Stripe asks a few questions on the way: when it asks which API VERSION, pick ${WEBHOOK_API_VERSION} — the version this app is tested against (an endpoint keeps its version forever; "latest" would freeze an untested one). Name and description are just labels, anything works.
-   - Scope "Your account", events exactly: checkout.session.completed, invoice.paid, charge.refunded. Endpoint URL = my webhook address above. Stripe then shows a signing secret (whsec_…) — I paste it into the app's Setup step 2.
-   - ONLY IF I run a Stripe platform (a marketplace where others sell through connected accounts under me): a SECOND destination, identical, but scope "Connected accounts". Its own whsec_… goes into the app's "Connected accounts" tab. If I'm not a platform, skip this and the whole Connected accounts tab.
-
-4. THE RESTRICTED KEY. In Stripe: Developers → API keys → Create restricted key ("for my own use" — no website needed). On the permissions page, resources are GROUPED and individual rows may be greyed out — that's inheritance, not an error:
+3. THE RESTRICTED KEY — the one thing I fetch from Stripe by hand. In Stripe: Developers → API keys → Create restricted key ("for my own use" — no website needed). On the permissions page, resources are GROUPED and individual rows may be greyed out — that's inheritance, not an error:
    - Set the BILLING group to Write (this covers Coupons and Promotion codes — the two things the app actually uses; the Billing group cannot move money, refund, or pay out).
-   - If I'm a platform (step 3's second webhook): the Billing group's CONNECTED ACCOUNTS column must be Write too — that's what lets my codes work on my sellers' accounts.
-   - I paste the rk_… key into the app's Setup step 3. The app immediately checks it and says "your key works (test mode)" or "(live mode)" — if the mode is wrong, the key came from the wrong toggle.
+   - Set WEBHOOK ENDPOINTS to Write as well — that lets the app create its webhooks FOR me in step 4, no forms.
+   - If I'm a platform (a marketplace where others sell through connected accounts under me): the Billing group's CONNECTED ACCOUNTS column must be Write too — that's what lets my codes work on my sellers' accounts.
+   - I paste the rk_… key into the app's Setup tab. The app immediately checks it and says "your key works (test mode)" or "(live mode)" — if the mode is wrong, the key came from the wrong toggle.
+
+4. THE WEBHOOKS. In the app's Setup tab, step b: press "Create the webhooks for me". The app creates every destination it needs with my key — right scope, API version ${WEBHOOK_API_VERSION}, the right events — and stores each signing secret itself. Done.
+   - MANUAL FALLBACK (only if my key lacks the webhook permission and I don't want to add it): in Stripe, Developers → Webhooks → Add destination. Scope "Your account", API version ${WEBHOOK_API_VERSION} (never "latest" — an endpoint keeps its version forever and this app is tested against that one), events exactly: checkout.session.completed, invoice.paid, charge.refunded. Endpoint URL = my webhook address above. The signing secret (whsec_…) is pasted into Setup step b's manual card. If I'm a platform: a SECOND identical destination with scope "Connected accounts", its whsec_… pasted in the "Connected accounts" tab.
 
 5. MY DEAL — the Settings tab. Customer discount: currently ${discount}%. Affiliate commission: currently ${commission}% of what the customer actually pays (after their discount, before tax) — and ${renewals}. Also there: approve sign-ups by hand or automatically, a cap on how many affiliates can join, and how my affiliate page looks (my name, logo, colour, offer sentence, and the full terms — the app can draft terms from my numbers if the box is empty).
 
-6. SHARE THE AFFILIATE PAGE — the link in step 1. Anyone who opens it can apply to join my programme: they verify their email, and get their personal code (immediately, or after I press Approve — my choice in Settings). They can check their own earnings on that page any time. I never build a website or send codes by hand.
+6. SHARE THE AFFILIATE PAGE. First claim my free PERMANENT ADDRESS in Settings ("Get your permanent address" — affiliates.agentspoppy.com/my-name; it never changes, and the earnings publishers see there are recorded independently of me, which is why they can trust it). Anyone who opens it can apply to join my programme: they verify their email, and get their personal code (immediately, or after I press Approve — my choice in Settings). They can check their own earnings on that page any time. I never build a website or send codes by hand. On the free plan the page carries a small "runs on AffiliatePoppy Free" notice; Pro removes it and adds my branding.
 
 WHAT HAPPENS BY ITSELF AFTERWARDS:
 - A sale with a code → the commission appears in the app's Ledger tab within seconds, attributed to the right affiliate at the right rate, in the sale's real currency.
@@ -62,15 +62,15 @@ WHAT HAPPENS BY ITSELF AFTERWARDS:
 
 HARD RULES — mechanisms, not settings; never suggest working around them, and explain them to me when relevant, because they are why this thing is trustworthy:
 - The app can never move, hold, or receive money. It counts. I pay my affiliates myself, and "Mark as paid" just writes down that I did.
-- My data never leaves my own AWS account. There is no AffiliatePoppy server anywhere.
-- The Stripe key it holds can only create discount codes and coupons — it cannot charge, refund, read customers, or touch balances. Its two secrets are stored in my AWS, never shown again in the app, never sent anywhere.
+- My money ledger and my Stripe secrets live in my own AWS account. The public sign-up page (my permanent address, claimed in Settings) and my publishers' view of their earnings are hosted independently by AffiliatePoppy — on purpose, so publishers can trust numbers I cannot edit.
+- The Stripe key it holds can only create discount codes/coupons and manage its own webhooks — it cannot charge, refund, read customers, or touch balances. The secrets are stored in my AWS, never shown again in the app.
 - Removing the app (its Remove tab) deletes everything it created in my AWS. Export the ledger first if I want the history.
 
 THINGS THAT GO WRONG, AND THE REAL FIX:
-- "Received unknown parameter" or a permission error when approving an affiliate → the restricted key is missing a permission; make/edit the key per step 4 (the app quotes Stripe's exact refusal — read it, it names the missing permission).
+- "Received unknown parameter" or a permission error when approving an affiliate → the restricted key is missing a permission; make/edit the key per step 3 (the app quotes Stripe's exact refusal — read it, it names the missing permission).
 - A code is refused at checkout → the checkout and the code are in different worlds: different mode (test vs live), or (platforms only) the checkout belongs to a connected account that isn't added in the app's Connected accounts tab.
 - The app says "your key works (test mode)" when I meant live → re-create the key with the test toggle off.
-- Ledger shows nothing after a sale → in Stripe's webhook page, check the delivery attempt and its response code; the events list must include the three from step 3.
+- Ledger shows nothing after a sale → in Stripe's webhook page, check the delivery attempt and its response code; the events list must include the three from step 4.
 
 ANSWER SHAPE: tell me (1) which step I'm on, (2) the exact clicks for MY situation — Stripe's screens change wording, so describe what to look for, not pixel positions, (3) how I'll know it worked, and (4) only then, what comes next. One step at a time.
 
