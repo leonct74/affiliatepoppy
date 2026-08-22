@@ -101,6 +101,66 @@ export async function ensureWebhooks(stripe: StripeClient, plan: WebhookPlanItem
   return report;
 }
 
+/**
+ * Rotate the signing secrets of the destinations THIS APP created: delete each stamped
+ * endpoint and create a fresh one, storing the new secret in the same motion. Two uses,
+ * both said in the UI: routine secret hygiene, and REPAIR after someone rolled a secret in
+ * Stripe's dashboard (the app cannot detect a stale secret — Stripe never re-reveals one —
+ * so this is the honest recovery). Hand-made destinations are never touched: rolling those
+ * is the merchant's own act in Stripe, and the new secret goes in the manual card.
+ */
+export async function rotateWebhooks(stripe: StripeClient, plan: WebhookPlanItem[]): Promise<EnsureWebhooksReport> {
+  const report: EnsureWebhooksReport = { created: [], skipped: [], problems: [] };
+  if (plan.length === 0) return report;
+
+  let existing: WebhookEndpoint[];
+  try {
+    existing = await stripe.listWebhookEndpoints();
+  } catch (e) {
+    report.problems.push(permissionSentence(e));
+    return report;
+  }
+
+  for (const item of plan) {
+    const label = ROLE_LABEL[item.role];
+    const mine = existing.find((w) => w.metadata?.affiliatepoppy === item.role && w.status !== "disabled");
+    if (!mine) {
+      report.skipped.push(
+        item.stored
+          ? `${label}: set up by hand, so the app can't rotate it — roll the secret in Stripe's dashboard and paste the new whsec_… in the manual card.`
+          : `${label}: nothing to rotate yet.`,
+      );
+      continue;
+    }
+    try {
+      await stripe.deleteWebhookEndpoint(mine.id);
+    } catch (e) {
+      report.problems.push(`${label}: ${permissionSentence(e)}`);
+      continue;
+    }
+    try {
+      const created = await stripe.createWebhookEndpoint({
+        url: item.url,
+        events: WEBHOOK_EVENTS,
+        apiVersion: WEBHOOK_API_VERSION,
+        description: `AffiliatePoppy — ${label}`,
+        role: item.role,
+        connect: item.connect,
+      });
+      if (!created.secret) throw new StripeApiError("Stripe sent no signing secret for the new destination.", 0, "no_secret");
+      await item.store(created.secret);
+      report.created.push(`${label}: rotated — new secret installed.`);
+    } catch (e) {
+      // The old destination is already gone; the merchant must know this role is DOWN
+      // until a re-press succeeds — never bury a half-finished rotation in a quiet log.
+      report.problems.push(
+        `${label}: the old destination was removed but the new one couldn't be finished (${(e as Error).message}) — press the button again to complete it; until then these events aren't being received.`,
+      );
+    }
+  }
+  return report;
+}
+
 /** Stripe's refusal, verbatim, plus the one edit that fixes the common case. */
 function permissionSentence(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e);

@@ -156,6 +156,12 @@ const server = createServer(async (req, res) => {
       return json(res, 200, await program.autoWebhooks(await liveUrl("AffiliatePoppyReceiver")));
     }
 
+    // Fresh signing secrets for the app-created destinations — hygiene, or repair after a
+    // secret was rolled in Stripe's dashboard.
+    if (method === "POST" && parts[0] === "webhooks" && parts[1] === "rotate") {
+      return json(res, 200, await program.rotateWebhooks(await liveUrl("AffiliatePoppyReceiver")));
+    }
+
     // D19c: the UI checked the Pro entitlement with the commerce plane; we persist the answer
     // where the portal Lambda can read it.
     if (method === "PUT" && parts[0] === "plan" && parts.length === 1) {

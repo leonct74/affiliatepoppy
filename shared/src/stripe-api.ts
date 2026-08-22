@@ -92,7 +92,7 @@ export class StripeClient {
   }
 
   private async call<T>(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "DELETE",
     path: string,
     params?: Record<string, string | number | boolean | undefined>,
     idempotencyKey?: string,
@@ -223,6 +223,11 @@ export class StripeClient {
   async listWebhookEndpoints(): Promise<WebhookEndpoint[]> {
     const list = await this.call<{ data?: WebhookEndpoint[] }>("GET", "/webhook_endpoints", { limit: 100 });
     return list.data ?? [];
+  }
+
+  /** Remove one destination — used ONLY on endpoints this app created (the rotate flow). */
+  deleteWebhookEndpoint(id: string): Promise<{ id: string; deleted: boolean }> {
+    return this.call<{ id: string; deleted: boolean }>("DELETE", `/webhook_endpoints/${encodeURIComponent(id)}`);
   }
 
   /**

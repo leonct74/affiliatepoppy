@@ -3,7 +3,7 @@
 // both ways out, and Stripe's permission refusal becoming the exact key edit to make.
 import { describe, expect, it } from "vitest";
 import { StripeApiError, type StripeClient, type WebhookEndpoint } from "../../shared/src/stripe-api";
-import { ensureWebhooks, WEBHOOK_EVENTS, type WebhookPlanItem } from "./webhook-setup";
+import { ensureWebhooks, rotateWebhooks, WEBHOOK_EVENTS, type WebhookPlanItem } from "./webhook-setup";
 
 function fakeStripe(opts: {
   existing?: WebhookEndpoint[];
@@ -126,5 +126,50 @@ describe("ensureWebhooks", () => {
     const report = await ensureWebhooks(stripe, [feed]);
     expect(report.problems[0]).toMatch(/no signing secret/);
     expect(feed.secrets).toEqual([]);
+  });
+});
+
+describe("rotateWebhooks", () => {
+  const withDelete = (opts: Parameters<typeof fakeStripe>[0] & { deleteError?: Error } = {}) => {
+    const base = fakeStripe(opts);
+    const deleted: string[] = [];
+    (base.stripe as unknown as Record<string, unknown>).deleteWebhookEndpoint = async (id: string) => {
+      if (opts.deleteError) throw opts.deleteError;
+      deleted.push(id);
+      return { id, deleted: true };
+    };
+    return { ...base, deleted };
+  };
+
+  it("deletes the stamped destination and installs a fresh secret in one motion", async () => {
+    const h = withDelete({
+      existing: [{ id: "we_old", url: "https://recv.example/", metadata: { affiliatepoppy: "receiver" } }],
+    });
+    const receiver = item("receiver", { stored: true });
+    const report = await rotateWebhooks(h.stripe, [receiver]);
+    expect(h.deleted).toEqual(["we_old"]);
+    expect(receiver.secrets).toEqual(["whsec_receiver"]);
+    expect(report.created).toEqual(["Sales tracking (your account): rotated — new secret installed."]);
+  });
+
+  it("never touches a hand-made setup — it points at Stripe's own roll + the manual card instead", async () => {
+    const h = withDelete({ existing: [{ id: "we_manual", url: "https://recv.example/" }] });
+    const report = await rotateWebhooks(h.stripe, [item("receiver", { stored: true })]);
+    expect(h.deleted).toEqual([]);
+    expect(report.skipped[0]).toMatch(/set up by hand/);
+    expect(report.skipped[0]).toMatch(/manual card/);
+  });
+
+  it("a rotation that deletes but fails to recreate says the role is DOWN and how to finish", async () => {
+    const h = withDelete({
+      existing: [{ id: "we_old", url: "https://recv.example/", metadata: { affiliatepoppy: "receiver" } }],
+      createError: new StripeApiError("boom", 500, "error"),
+    });
+    const receiver = item("receiver", { stored: true });
+    const report = await rotateWebhooks(h.stripe, [receiver]);
+    expect(h.deleted).toEqual(["we_old"]);
+    expect(receiver.secrets).toEqual([]);
+    expect(report.problems[0]).toMatch(/aren't being received/);
+    expect(report.problems[0]).toMatch(/press the button again/);
   });
 });

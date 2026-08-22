@@ -105,6 +105,11 @@ export const api = {
   autoWebhooks: (): Promise<{ created: string[]; skipped: string[]; problems: string[] }> =>
     invoke({ method: "POST", path: "/webhooks/auto" }, 2 * 60_000),
 
+  /** Fresh signing secrets for the app-created destinations (hygiene, or repair after a
+   *  secret was rolled in Stripe's dashboard). */
+  rotateWebhooks: (): Promise<{ created: string[]; skipped: string[]; problems: string[] }> =>
+    invoke({ method: "POST", path: "/webhooks/rotate" }, 2 * 60_000),
+
   /** Persist what the commerce plane said about Pro, so the portal Lambda knows (D19c). */
   setPlan: (pro: boolean): Promise<{ pro: boolean }> =>
     invoke({ method: "PUT", path: "/plan", body: { pro } }),

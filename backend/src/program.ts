@@ -25,7 +25,7 @@ import { dayOf } from "../../shared/src/stripe-events";
 import { PORTAL_BASE, publishPortal, pushPortalUpdate, sendPortalWebhookSecret, type PortalPublishDeps } from "./portal-publish";
 import { activePatch, platformUid, postPublisherPatch, syncPlatformSignups, type SyncReport as PortalSyncReport } from "./portal-sync";
 import { describeSecrets, putSecret, readSecret } from "./secrets";
-import { ensureWebhooks, type EnsureWebhooksReport, type WebhookPlanItem } from "./webhook-setup";
+import { ensureWebhooks, rotateWebhooks, type EnsureWebhooksReport, type WebhookPlanItem } from "./webhook-setup";
 import type { AttributionContext } from "./tags";
 
 /** What syncCodes() did, and what it couldn't — shown to the merchant, never swallowed. */
@@ -86,6 +86,23 @@ export class Program {
    * every refusal comes back as a sentence in the report, never as a thrown wire error.
    */
   async autoWebhooks(receiverUrl: string): Promise<EnsureWebhooksReport> {
+    const planned = await this.webhookPlan(receiverUrl);
+    if ("problems" in planned) return planned;
+    return ensureWebhooks(planned.stripe, planned.plan);
+  }
+
+  /** The rotate flow: fresh signing secrets for the destinations the app created — routine
+   *  hygiene, or repair after a secret was rolled in Stripe's dashboard. */
+  async rotateWebhooks(receiverUrl: string): Promise<EnsureWebhooksReport> {
+    const planned = await this.webhookPlan(receiverUrl);
+    if ("problems" in planned) return planned;
+    return rotateWebhooks(planned.stripe, planned.plan);
+  }
+
+  /** What destinations THIS install currently needs, and where each secret belongs. */
+  private async webhookPlan(
+    receiverUrl: string,
+  ): Promise<{ stripe: StripeClient; plan: WebhookPlanItem[] } | EnsureWebhooksReport> {
     const stripe = await this.stripe();
     if (!stripe) {
       return { created: [], skipped: [], problems: ["Save your Stripe key first (the card above) — the destinations are created with it."] };
@@ -132,7 +149,7 @@ export class Program {
         },
       });
     }
-    return ensureWebhooks(stripe, plan);
+    return { stripe, plan };
   }
 
   /** Q4: tell the platform what happened to one of ITS publishers (mint, rate, retirement).

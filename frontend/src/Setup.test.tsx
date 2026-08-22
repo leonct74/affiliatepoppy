@@ -316,6 +316,21 @@ describe("webhook automation (D20)", () => {
     expect(screen.getByText(/wouldn't let your key manage webhooks/i)).toBeInTheDocument();
   });
 
+  it("rotation is armed-then-confirmed, says what it's FOR, and only fires on the second press", async () => {
+    const rotate = vi.spyOn(api, "rotateWebhooks").mockResolvedValue({
+      created: ["Sales tracking (your account): rotated — new secret installed."],
+      skipped: [],
+      problems: [],
+    });
+    setup();
+    expect(await screen.findByText(/repair the connection if a secret was rolled/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /rotate the signing secrets/i }));
+    expect(rotate).not.toHaveBeenCalled(); // first press arms it
+    await userEvent.click(screen.getByRole("button", { name: /press again to rotate now/i }));
+    expect(rotate).toHaveBeenCalled();
+    expect(await screen.findByText(/rotated — new secret installed/i)).toBeInTheDocument();
+  });
+
   it("marks the one-click path as Recommended, with the manual path reachable beneath it", async () => {
     // Founder (2026-08-22): don't argue for the button — label it. "Recommended" plus a few
     // words on why a webhook exists at all beats a paragraph of justification.

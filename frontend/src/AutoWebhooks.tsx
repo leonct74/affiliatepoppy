@@ -14,12 +14,16 @@ type Report = { created: string[]; skipped: string[]; problems: string[] };
 export function AutoWebhooks(props: { label?: string; onDone: () => Promise<void> }) {
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Rotation invalidates the current secrets, so it never fires on a stray click: the first
+  // press arms it and says what it will do; the second press does it (UX rule 2 — a
+  // confirmation must explain itself, never just sit disabled).
+  const [armRotate, setArmRotate] = useState(false);
 
-  const run = async () => {
+  const run = async (action: () => Promise<Report>) => {
     setError(null);
     setReport(null);
     try {
-      const r = await api.autoWebhooks();
+      const r = await action();
       setReport(r);
       if (r.created.length) await props.onDone();
     } catch (e) {
@@ -30,11 +34,32 @@ export function AutoWebhooks(props: { label?: string; onDone: () => Promise<void
   return (
     <div className="stack" style={{ gap: 8 }}>
       <div className="row">
-        <Button className="btn btn-primary btn-sm" busyLabel="Asking Stripe…" onClick={run}>
+        <Button className="btn btn-primary btn-sm" busyLabel="Asking Stripe…" onClick={() => run(() => api.autoWebhooks())}>
           {props.label ?? "Create the webhooks for me"}
         </Button>
         <span className="muted" style={{ fontSize: 12 }}>
           Uses your saved key. Needs "Webhook Endpoints — Write" on it; otherwise the manual steps below still work.
+        </span>
+      </div>
+      <div className="row">
+        <Button
+          className="btn btn-ghost btn-sm"
+          busyLabel="Rotating…"
+          onClick={async () => {
+            if (!armRotate) {
+              setArmRotate(true);
+              return;
+            }
+            setArmRotate(false);
+            await run(() => api.rotateWebhooks());
+          }}
+        >
+          {armRotate ? "Press again to rotate now" : "Rotate the signing secrets"}
+        </Button>
+        <span className="muted" style={{ fontSize: 12 }}>
+          {armRotate
+            ? "This replaces the secrets of the destinations the app created — new ones are installed in the same step."
+            : "For rotating secrets regularly — or to repair the connection if a secret was rolled in Stripe's dashboard."}
         </span>
       </div>
       {error && <div className="banner err">{error}</div>}
