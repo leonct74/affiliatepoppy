@@ -316,11 +316,15 @@ describe("webhook automation (D20)", () => {
     expect(screen.getByText(/wouldn't let your key manage webhooks/i)).toBeInTheDocument();
   });
 
-  it("keeps the manual path reachable as the fallback, with the key card asking for both permissions", async () => {
+  it("marks the one-click path as Recommended, with the manual path reachable beneath it", async () => {
+    // Founder (2026-08-22): don't argue for the button — label it. "Recommended" plus a few
+    // words on why a webhook exists at all beats a paragraph of justification.
     setup();
-    expect(await screen.findByText("Billing — Write")).toBeInTheDocument();
+    expect(await screen.findByText("Recommended")).toBeInTheDocument();
+    expect(screen.getByText(/how Stripe tells this app about each sale and refund/i)).toBeInTheDocument();
+    expect(screen.getByText(/or do it yourself in stripe/i)).toBeInTheDocument();
+    expect(screen.getByText("Billing — Write")).toBeInTheDocument();
     expect(screen.getByText("Webhook Endpoints — Write")).toBeInTheDocument();
-    expect(screen.getByText(/prefer to do it by hand/i)).toBeInTheDocument();
   });
 });
 

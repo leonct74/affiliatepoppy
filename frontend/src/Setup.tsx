@@ -295,21 +295,23 @@ function StripeConnect(props: {
 
       <div className="card card-2 stack">
         <div className="spread">
-          <strong style={{ fontSize: 13 }}>b. The webhooks — one click, if your key allows it</strong>
+          <strong style={{ fontSize: 13 }}>b. The webhooks</strong>
           <span className={`badge${config?.secrets.webhookSecret.stored ? " ok" : ""}`}>
             <span className="dot" /> {config?.secrets.webhookSecret.stored ? "Saved" : "Needed"}
           </span>
         </div>
         <p className="muted" style={{ margin: 0 }}>
-          Webhooks are how Stripe tells this app about every sale and refund. With the key from step a saved, the
-          app creates them itself — the right scope, the right API version, the right events — and stores each
-          signing secret where it belongs. It also covers the connected-accounts one (once you add sellers) and
-          your public page's independent ledger feed (once you claim your address).
+          A webhook is how Stripe tells this app about each sale and refund — without one, nothing can be counted.
+          Two ways to set it up:
         </p>
+        <div className="row" style={{ gap: 8 }}>
+          <span className="badge ok"><span className="dot" /> Recommended</span>
+          <span className="muted" style={{ fontSize: 12 }}>Let the app create them — one press, configured correctly.</span>
+        </div>
         <AutoWebhooks onDone={props.onSaved} />
         <details>
           <summary className="muted" style={{ cursor: "pointer", fontSize: 12 }}>
-            Prefer to do it by hand (or your key has no webhook permission)? The full manual steps
+            Or do it yourself in Stripe's dashboard — the full manual steps
           </summary>
           <div className="stack" style={{ marginTop: 10 }}>
             <p className="muted" style={{ margin: 0 }}>

@@ -532,13 +532,16 @@ function PortalFeed(props: {
       <strong style={{ fontSize: 13 }}>One more step: feed the page's ledger</strong>
       <p className="muted" style={{ margin: 0 }}>
         Right now your page shows no earnings. One more webhook in your Stripe fixes that: your publishers'
-        earnings get computed straight from Stripe's events, as an independent record they can trust. The button
-        creates it for you — and quietly fixes any Setup-tab webhook that's missing, while it's there:
+        earnings get computed straight from Stripe's events, as an independent record they can trust.
       </p>
+      <div className="row" style={{ gap: 8 }}>
+        <span className="badge ok"><span className="dot" /> Recommended</span>
+        <span className="muted" style={{ fontSize: 12 }}>Let the app create it — one press, configured correctly.</span>
+      </div>
       <AutoWebhooks label="Create the feed webhook for me" onDone={props.onConnected} />
       <details>
         <summary className="muted" style={{ cursor: "pointer", fontSize: 12 }}>
-          Prefer to do it by hand? The manual steps
+          Or do it yourself in Stripe's dashboard — the manual steps
         </summary>
         <div className="stack" style={{ marginTop: 10 }}>
           <p className="muted" style={{ margin: 0 }}>
