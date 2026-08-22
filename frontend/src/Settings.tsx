@@ -378,10 +378,20 @@ function UnlockPro(props: { onUnlocked: () => Promise<void> }) {
  * paid plan is what pays for the hosting), and the poppy keeps the page fed automatically on
  * every Settings save once published.
  */
+/** What the webview keyboard produces, turned into what an address can be: lowercase,
+ *  spaces become hyphens, anything else invalid is dropped as it is typed (live lesson,
+ *  2026-08-21: the field auto-capitalised and the backend's refusal reached the founder). */
+function normalizeSlugInput(raw: string): string {
+  return raw.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").slice(0, 30);
+}
+
+const SLUG_OK = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
+
 function PortalPublish(props: { config: ProgramConfig | null; onPublished: () => Promise<void> }) {
   const [slug, setSlug] = useState("");
   const [error, setError] = useState<string | null>(null);
   const published = props.config?.portal.slug ?? "";
+  const slugValid = SLUG_OK.test(slug);
 
   if (published) {
     return (
@@ -414,12 +424,15 @@ function PortalPublish(props: { config: ProgramConfig | null; onPublished: () =>
           style={{ maxWidth: 220 }}
           value={slug}
           placeholder="your-name"
-          onChange={(e) => setSlug(e.target.value)}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          onChange={(e) => setSlug(normalizeSlugInput(e.target.value))}
         />
         <Button
           className="btn btn-primary btn-sm"
           busyLabel="Claiming the name…"
-          disabled={!slug.trim()}
+          disabled={!slugValid}
           onClick={async () => {
             setError(null);
             try {
@@ -432,6 +445,13 @@ function PortalPublish(props: { config: ProgramConfig | null; onPublished: () =>
         >
           Publish
         </Button>
+        {!slugValid && slug.length > 0 && (
+          <span className="muted" style={{ fontSize: 12 }}>
+            {slug.length < 3
+              ? "At least 3 characters."
+              : "It can't start or end with a hyphen."}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -473,6 +493,9 @@ function PortalFeed(props: {
           type="password"
           value={secret}
           placeholder="whsec_…"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           onChange={(e) => setSecret(e.target.value)}
         />
         <Button className="btn btn-primary btn-sm" busyLabel="Connecting…" disabled={!secret.trim()} onClick={send}>

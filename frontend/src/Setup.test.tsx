@@ -314,6 +314,20 @@ describe("publishing the permanent address (P10)", () => {
     expect(await screen.findByText(/already taken/i)).toBeInTheDocument();
   });
 
+  it("tames the webview keyboard: input is normalised as typed, and only a valid name enables Publish", async () => {
+    showSettings(config());
+    const field = await screen.findByPlaceholderText("your-name");
+    // The webview capitalises and the founder types spaces — both must come out as an address.
+    await userEvent.type(field, "Olly Digital!");
+    expect(field).toHaveValue("olly-digital");
+    expect(field).toHaveAttribute("autocapitalize", "none");
+    expect(screen.getByRole("button", { name: /^publish$/i })).toBeEnabled();
+    await userEvent.clear(field);
+    await userEvent.type(field, "ol");
+    expect(screen.getByRole("button", { name: /^publish$/i })).toBeDisabled();
+    expect(screen.getByText(/at least 3 characters/i)).toBeInTheDocument();
+  });
+
   it("shows the permanent link once published, and stops offering the form", async () => {
     showSettings({ ...config(), portal: { slug: "olly", url: "https://affiliates.agentspoppy.com/olly", feedUrl: "https://agentspoppy.com/api/portal/stripe/olly", feedDay: "" } });
     expect(await screen.findByText("https://affiliates.agentspoppy.com/olly")).toBeInTheDocument();

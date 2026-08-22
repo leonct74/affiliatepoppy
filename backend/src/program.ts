@@ -23,7 +23,7 @@ import {
 import { StripeClient, permissionProblem } from "../../shared/src/stripe-api";
 import { dayOf } from "../../shared/src/stripe-events";
 import { PORTAL_BASE, publishPortal, pushPortalUpdate, sendPortalWebhookSecret, type PortalPublishDeps } from "./portal-publish";
-import { activePatch, platformUid, postPublisherPatch, syncPlatformSignups, type SyncReport } from "./portal-sync";
+import { activePatch, platformUid, postPublisherPatch, syncPlatformSignups, type SyncReport as PortalSyncReport } from "./portal-sync";
 import { putSecret, readSecret } from "./secrets";
 import type { AttributionContext } from "./tags";
 
@@ -88,7 +88,7 @@ export class Program {
 
   /** Q4: one pass of the minting handshake — poll the platform for sign-ups, import them,
    *  mint where allowed, write results back. Called by the server's minute loop. */
-  async syncPlatformPortal(): Promise<SyncReport | null> {
+  async syncPlatformPortal(): Promise<PortalSyncReport | null> {
     const base = this.portalDeps();
     return syncPlatformSignups({
       portalSlug: base.portalSlug,
