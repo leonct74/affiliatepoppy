@@ -530,6 +530,15 @@ developer's figure; refund reverses both.*
   history is DELETED at teardown and the name freed — checked inside the deleting
   transaction, so a racing join flips it to a close — which is what keeps the recommended
   "practise in test mode, tear down, go live" flow from burning the merchant's name.
+  **LIVE-PROVEN + CERTIFIED 2026-08-22:** the founder ran `npm run certify --yes` against his
+  real install (the one live-verified through Q1–Q4, with a real publisher on the page) —
+  footprint of 12 → teardown hook ran → **0 residuals, ✓ CERTIFIED** (cert in
+  `leaves-no-trace.cert.json`, local per .gitignore). The external half executed for real on
+  its first run: `affiliates.agentspoppy.com/affiliates-portal` now serves the
+  "programme has closed" tombstone with publisher sign-in intact (verified live). The name
+  is permanently retired per the no-revival rule — the founder chose to accept that and
+  re-publish under a new name rather than skip the teardown test. The AGENTS.md
+  certify-before-listing gate, which the 2026-08-22 listing briefly ran ahead of, is now met.
 - **Q5 — Web checkout with purchase code.** The portal's upgrade button becomes a real
   checkout: web purchase mints a claim code shown on purchase-complete; the poppy's Settings
   gains "bought on the web? paste your code", which binds the entitlement to the install.
