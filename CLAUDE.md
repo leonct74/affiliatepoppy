@@ -77,7 +77,7 @@ rationale, founder-locked decisions D1–D14, and phases P0–P6: `DESIGN.md`.
 
 - **Explicit founder confirmation before any command that creates/changes/deletes live
   AWS or Stripe resources.** Read-only calls are fine. Live tests run in the founder's
-  test account (see traffic-poppy memory: 675546221165 / eu-west-1) → tear down afterwards
+  test account (the P1 live-test setup) → tear down afterwards
   and verify clean.
 - No "Claude" co-author trailer on commits. No force-push — release tags are the audit
   trail.
@@ -102,7 +102,7 @@ the build log, the decisions taken while implementing (I1–I10), the one real b
 caught, and the live-only risks.
 
 The next step is the one that matters: **ask the founder to approve ONE real deploy** into the
-test account (675546221165 / eu-west-1), then `npm run certify`, then P5 (premium domain) and
+founder's test account, then `npm run certify`, then P5 (premium domain) and
 P6 (dogfood + listing). Nothing here is proven until that deploy happens — every sibling repo
 learned its worst lesson on the first live run, not on the bench.
 

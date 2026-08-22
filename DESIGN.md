@@ -405,8 +405,7 @@ Traps that already cost the family real debugging time:
 **P0 — Scaffold + pipeline + first real deploy.**
 Repo per §3.1; manifest validates; template with table + receiver Lambda (echo handler) +
 portal Lambda (placeholder page); sidecar builds; dev-install into AgentsPoppy; **founder
-approves ONE real deploy** to the test account (675546221165 / eu-west-1, the P1 live-test
-setup); then teardown + `certify` PASSES. *Gate: leaves-no-trace certified on day one, not
+approves ONE real deploy** to the test account (the P1 live-test setup); then teardown + `certify` PASSES. *Gate: leaves-no-trace certified on day one, not
 retrofitted. Every later phase re-runs it.*
 
 **P1 — The money path.**

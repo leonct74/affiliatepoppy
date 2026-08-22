@@ -24,9 +24,10 @@ your website, no cookie is set on anyone, and no customer detail is ever stored.
 - **Cents a month.** Two Lambdas, one table, one sign-in directory, billed per use. $0 while
   nothing happens.
 
-**Status: built and tested; first live deploy pending.** [`DESIGN.md`](DESIGN.md) is the source
-of truth — the product, every decision with its reason, the architecture, and an honest build
-log of what exists and what doesn't yet.
+**Status: live.** Verified end to end on a real programme — real Stripe events, real
+commissions, real publisher signups on the hosted page — and leaves-no-trace certified.
+[`DESIGN.md`](DESIGN.md) is the source of truth — the product, every decision with its
+reason, the architecture, and an honest build log of what exists and what doesn't yet.
 
 ## Repo layout
 
