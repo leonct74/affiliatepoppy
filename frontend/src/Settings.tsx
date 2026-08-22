@@ -400,8 +400,8 @@ function PortalPublish(props: { config: ProgramConfig | null; onPublished: () =>
       <div className="card stack">
         <h2 className="section-title">Your permanent address</h2>
         <p className="muted" style={{ margin: 0 }}>
-          This link never changes — share it instead of the AWS one. The page updates itself every time you save
-          these settings.
+          This is the link you share. It cannot be changed after someone has joined your programme. The page
+          updates itself every time you save these settings.
         </p>
         <div className="row">
           <span className="chip" style={{ overflowWrap: "anywhere" }}>{props.config!.portal.url}</span>
