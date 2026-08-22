@@ -546,6 +546,13 @@ listing + the poppy's own price decided.*
   product page `agentspoppy.com/affiliatepoppy` shipped deliberately without any (2026-08-20)
   — real, unretouched captures once the live programme has content, served as WebP with
   width/height set (the CrewPoppy page's recipe).
+- **Teardown must retire the platform portal too (build before the next certify, 2026-08-23):**
+  today's teardown cleans the merchant's AWS but leaves the published page live on the platform
+  with a broken feed — a stale public page is a trace, even if not in AWS. Plan: the teardown
+  hook calls a token-authed platform unpublish BEFORE forgetting SSM (the token dies with the
+  secrets); the record becomes a "programme closed" tombstone — join disabled, signed-in
+  publishers keep seeing their recorded history (their earnings don't vanish because the
+  merchant left).
 
 1. ~~Name + id~~ — **decided 2026-08-14: AffiliatePoppy / `com.affiliatepoppy.desktop`,
    final.** See the header note.
