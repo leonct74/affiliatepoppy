@@ -22,10 +22,10 @@ import {
 } from "../../shared/src/settings";
 import { StripeClient, permissionProblem } from "../../shared/src/stripe-api";
 import { dayOf } from "../../shared/src/stripe-events";
-import { PORTAL_BASE, publishPortal, pushPortalUpdate, renamePortal, sendPortalWebhookSecret, type PortalPublishDeps } from "./portal-publish";
+import { PORTAL_BASE, closePortal, publishPortal, pushPortalUpdate, renamePortal, sendPortalWebhookSecret, type PortalPublishDeps } from "./portal-publish";
 import { activePatch, platformUid, postPublisherPatch, syncPlatformSignups, type SyncReport as PortalSyncReport } from "./portal-sync";
 import { describeSecrets, putSecret, readSecret } from "./secrets";
-import { ensureWebhooks, rotateWebhooks, type EnsureWebhooksReport, type WebhookPlanItem } from "./webhook-setup";
+import { ensureWebhooks, removeStampedWebhooks, rotateWebhooks, type EnsureWebhooksReport, type WebhookPlanItem } from "./webhook-setup";
 import type { AttributionContext } from "./tags";
 
 /** What syncCodes() did, and what it couldn't — shown to the merchant, never swallowed. */
@@ -182,6 +182,33 @@ export class Program {
       approve: (affId) => this.approve(affId),
       today: () => dayOf(Math.floor(Date.now() / 1000)),
     });
+  }
+
+  /**
+   * Everything OUTSIDE the merchant's AWS that teardown must retire, run FIRST — while the
+   * SSM still holds the credentials teardown is about to forget: the published page (closed
+   * on the platform with the token) and the app-created Stripe destinations (deleted with
+   * the key). Never throws; every outcome is a sentence for the teardown report, and
+   * teardown carries on whatever happens here.
+   */
+  async retireExternal(): Promise<string[]> {
+    const notes: string[] = [];
+    try {
+      const { note } = await closePortal(this.portalDeps());
+      if (note) notes.push(note);
+    } catch (e) {
+      notes.push(`Your public page couldn't be closed (${(e as Error).message}) — run Remove again, or contact support.`);
+    }
+    try {
+      const stripe = await this.stripe();
+      if (stripe) {
+        const swept = await removeStampedWebhooks(stripe);
+        notes.push(...swept.removed, ...swept.problems);
+      }
+    } catch (e) {
+      notes.push(`The webhook destinations in Stripe couldn't be checked (${(e as Error).message}) — delete any AffiliatePoppy ones yourself in Stripe → Webhooks.`);
+    }
+    return notes;
   }
 
   /** A Stripe client using the merchant's stored key, or null when they haven't connected. */

@@ -51,8 +51,8 @@ export function RemovePanel(props: { disabled?: boolean; onRemove: () => Promise
       <div className="spread">
         <p className="muted" style={{ margin: 0, maxWidth: "46ch" }}>
           Deletes everything AffiliatePoppy made in your AWS account, including your affiliate list and
-          their commission history, and removes your Stripe secrets. Your AWS account, your Stripe account and
-          your sales are not touched.
+          their commission history, and removes your Stripe secrets and the webhook destinations the app
+          created. Your AWS account, your Stripe account and your sales are not touched.
         </p>
         <button className="btn btn-danger" disabled={props.disabled} onClick={() => setOpen(true)}>
           Remove…
@@ -68,8 +68,14 @@ export function RemovePanel(props: { disabled?: boolean; onRemove: () => Promise
             <p style={{ margin: 0 }}>This deletes, permanently:</p>
             <ul className="muted" style={{ margin: 0, paddingLeft: 18 }}>
               <li>your affiliates, their codes and every commission recorded for them</li>
+              <li>the webhook destinations the app created in your Stripe</li>
               <li>everything else AffiliatePoppy created to run</li>
             </ul>
+            <p className="muted" style={{ margin: 0 }}>
+              If you claimed a public page, it stays up saying the programme has closed — people who
+              joined keep seeing what they earned, but nobody new can join and the address can't be
+              claimed again.
+            </p>
             <p style={{ margin: 0 }}>
               <strong>This can't be undone.</strong> You can set AffiliatePoppy up again later, but the commission
               history will be gone — export it from the Ledger tab first if you need it.

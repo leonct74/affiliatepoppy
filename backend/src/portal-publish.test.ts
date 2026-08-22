@@ -6,7 +6,7 @@
 // background update never breaks the merchant's own save.
 
 import { describe, expect, it } from "vitest";
-import { publishPortal, pushPortalUpdate, renamePortal, sendPortalWebhookSecret, type PortalPublishDeps } from "./portal-publish";
+import { closePortal, publishPortal, pushPortalUpdate, renamePortal, sendPortalWebhookSecret, type PortalPublishDeps } from "./portal-publish";
 
 function deps(over: Partial<PortalPublishDeps> = {}, replies: { status: number; body?: unknown }[] = []) {
   const calls: { url: string; body: Record<string, unknown> }[] = [];
@@ -129,6 +129,63 @@ describe("the ledger-feed secret (Q3)", () => {
     badToken.state.slug = "olly";
     badToken.state.token = "apt_x";
     await expect(sendPortalWebhookSecret(badToken.d, "whsec_Abc123456789")).rejects.toThrow(/didn't recognise/);
+  });
+});
+
+describe("closing the page at teardown", () => {
+  it("presents the token while it still exists, and reports the page's new state in words", async () => {
+    const { d, calls, state } = deps({}, [{ status: 200, body: { closed: true, slug: "olly" } }]);
+    state.slug = "olly";
+    state.token = "apt_x";
+    const out = await closePortal(d);
+    expect(calls[0]!.url).toContain("/api/portal/close");
+    expect(calls[0]!.body).toEqual({ slug: "olly", token: "apt_x" });
+    expect(out.done).toBe(true);
+    expect(out.note).toMatch(/programme has closed/);
+    expect(out.note).toMatch(/keep seeing what they earned/);
+  });
+
+  it("nothing published — or storage already gone from an earlier pass — is SUCCESS, silently", async () => {
+    const idle = deps();
+    expect(await closePortal(idle.d)).toEqual({ done: true, note: "" });
+    const gone = deps({
+      portalSlug: async () => {
+        throw new Error("Requested resource not found");
+      },
+    });
+    expect(await closePortal(gone.d)).toEqual({ done: true, note: "" });
+    expect(idle.calls).toEqual([]); // no network for a page that was never claimed
+    expect(gone.calls).toEqual([]);
+  });
+
+  it("never throws: an unreachable platform becomes a sentence that says the page is STILL UP", async () => {
+    const { d, state } = deps({
+      fetchImpl: (async () => {
+        throw new Error("network down");
+      }) as typeof fetch,
+    });
+    state.slug = "olly";
+    state.token = "apt_x";
+    const out = await closePortal(d);
+    expect(out.done).toBe(false);
+    expect(out.note).toMatch(/still up/);
+    expect(out.note).toMatch(/affiliates\.agentspoppy\.com\/olly/);
+  });
+
+  it("a 404 counts as closed — teardown re-runs must not fail on work already done", async () => {
+    const { d, state } = deps({}, [{ status: 404, body: { error: "not_found" } }]);
+    state.slug = "olly";
+    state.token = "apt_x";
+    expect((await closePortal(d)).done).toBe(true);
+  });
+
+  it("an unrecognised token says so, and that the page needs support to come down", async () => {
+    const { d, state } = deps({}, [{ status: 403, body: { error: "bad_token" } }]);
+    state.slug = "olly";
+    state.token = "apt_bad";
+    const out = await closePortal(d);
+    expect(out.done).toBe(false);
+    expect(out.note).toMatch(/contact support/);
   });
 });
 

@@ -3,7 +3,7 @@
 // both ways out, and Stripe's permission refusal becoming the exact key edit to make.
 import { describe, expect, it } from "vitest";
 import { StripeApiError, type StripeClient, type WebhookEndpoint } from "../../shared/src/stripe-api";
-import { ensureWebhooks, rotateWebhooks, WEBHOOK_EVENTS, type WebhookPlanItem } from "./webhook-setup";
+import { ensureWebhooks, removeStampedWebhooks, rotateWebhooks, WEBHOOK_EVENTS, type WebhookPlanItem } from "./webhook-setup";
 
 function fakeStripe(opts: {
   existing?: WebhookEndpoint[];
@@ -197,5 +197,41 @@ describe("rotateWebhooks", () => {
     expect(receiver.secrets).toEqual([]);
     expect(report.problems[0]).toMatch(/aren't being received/);
     expect(report.problems[0]).toMatch(/press the button again/);
+  });
+});
+
+describe("removeStampedWebhooks (teardown's sweep)", () => {
+  it("removes ONLY stamped destinations — hand-made ones stay, and failures name the manual fix", async () => {
+    const deleted: string[] = [];
+    const stripe = {
+      async listWebhookEndpoints() {
+        return [
+          { id: "we_ours", url: "https://recv.example/", metadata: { affiliatepoppy: "receiver" } },
+          { id: "we_feed", url: "https://agentspoppy.com/api/portal/stripe/olly", metadata: { affiliatepoppy: "feed" } },
+          { id: "we_manual", url: "https://recv.example/" }, // the merchant's own — untouchable
+        ];
+      },
+      async deleteWebhookEndpoint(id: string) {
+        if (id === "we_feed") throw new StripeApiError("boom", 500, "error");
+        deleted.push(id);
+        return { id, deleted: true };
+      },
+    } as unknown as StripeClient;
+    const report = await removeStampedWebhooks(stripe);
+    expect(deleted).toEqual(["we_ours"]);
+    expect(report.removed).toEqual(["Sales tracking (your account): removed from Stripe."]);
+    expect(report.problems[0]).toMatch(/Public page ledger feed/);
+    expect(report.problems[0]).toMatch(/delete it yourself in Stripe/);
+  });
+
+  it("never throws — a listing refusal becomes the permission sentence", async () => {
+    const stripe = {
+      async listWebhookEndpoints() {
+        throw new StripeApiError("This API key does not have access to webhook_endpoints", 403, "permission");
+      },
+    } as unknown as StripeClient;
+    const report = await removeStampedWebhooks(stripe);
+    expect(report.removed).toEqual([]);
+    expect(report.problems[0]).toContain("does not have access");
   });
 });

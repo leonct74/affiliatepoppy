@@ -139,6 +139,49 @@ export async function sendPortalWebhookSecret(deps: PortalPublishDeps, rawSecret
 }
 
 /**
+ * Teardown's unpublish (2026-08-23): tell the platform the programme is over, BEFORE the
+ * token is forgotten with the rest of the secrets. The page stays up as a "programme
+ * closed" record — publishers keep seeing what they earned; joining and the feed stop.
+ *
+ * Never throws: teardown must finish even with the platform unreachable, so every outcome
+ * comes back as a sentence for the teardown report. A missing slug/token — or a table an
+ * earlier run already deleted — means there is nothing to close, which is success.
+ */
+export async function closePortal(deps: PortalPublishDeps): Promise<{ done: boolean; note: string }> {
+  let slug = "";
+  let token = "";
+  try {
+    [slug, token] = await Promise.all([deps.portalSlug(), deps.readToken()]);
+  } catch {
+    return { done: true, note: "" }; // storage already gone — an earlier teardown pass handled this
+  }
+  if (!slug || !token) return { done: true, note: "" }; // never published
+
+  const page = `affiliates.agentspoppy.com/${slug}`;
+  const doFetch = deps.fetchImpl ?? fetch;
+  let res: Response;
+  try {
+    res = await doFetch(`${PORTAL_BASE}/api/portal/close`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ slug, token }),
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (e) {
+    return { done: false, note: `Your public page at ${page} couldn't be closed (${(e as Error).message}) — it is still up. Run Remove again, or contact support.` };
+  }
+  if (res.ok || res.status === 404) {
+    // 404 = the platform never heard of it (or a previous pass already closed and this
+    // install's record moved on) — either way, nothing of ours is left standing.
+    return { done: true, note: `Your public page at ${page} now says the programme has closed. People who joined keep seeing what they earned.` };
+  }
+  if (res.status === 403) {
+    return { done: false, note: `The platform didn't recognise this programme's token, so the page at ${page} couldn't be closed — contact support to have it taken down.` };
+  }
+  return { done: false, note: `The platform refused to close the page at ${page} (status ${res.status}) — it is still up. Run Remove again, or contact support.` };
+}
+
+/**
  * Push the current branding/deal to the published page. Called after every Settings save;
  * best-effort BY DESIGN — a platform hiccup must never fail the merchant's own save. The
  * next save (or publish) tries again.

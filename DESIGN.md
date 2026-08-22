@@ -506,6 +506,24 @@ developer's figure; refund reverses both.*
   publishers see "ended — your earnings stay recorded"); a missed write-back reconciles on
   the next pass instead of re-minting. The portal shows "your code is being prepared"
   honestly in between.
+- **Q4a — Teardown retires the world outside AWS too. ✅ BUILT 2026-08-22** (was the
+  "teardown must retire the platform portal" open item). The teardown hook now runs
+  `retireExternal()` FIRST — while SSM still holds the credentials it is about to forget:
+  (1) `closePortal` POSTs `/api/portal/close` with the token; the platform marks the
+  merchant `closed` (webhookSecret dropped, joining and every merchant-authed write refused,
+  `verifyMerchantToken` → null) and the page becomes "programme closed" — publishers keep
+  signing in and seeing their recorded history. Follows rename tombstones (token survives a
+  rename), treats 404 and missing slug/token/table as success (idempotent re-runs), and
+  NEVER throws — an unreachable platform becomes a sentence in the teardown report saying
+  the page is still up. (2) `removeStampedWebhooks` deletes every `affiliatepoppy=<role>`
+  destination from the merchant's Stripe — hand-made ones stay theirs. The Remove tab shows
+  the external outcomes afterwards ("Outside your AWS account"), and its blast-radius copy
+  names both. **NO REVIVAL, decided here:** a closed slug is never re-registerable —
+  whoever re-claimed it would inherit the old programme's publisher list (identity hijack);
+  a merchant who reinstalls picks a new name, and reviving an old one is a manual support
+  act. Deliberately NOT touched at teardown: the affiliates' promotion codes in Stripe —
+  killing live discount codes under a business that may be migrating is destruction, not
+  cleanup (open question for the founder below).
 - **Q5 — Web checkout with purchase code.** The portal's upgrade button becomes a real
   checkout: web purchase mints a claim code shown on purchase-complete; the poppy's Settings
   gains "bought on the web? paste your code", which binds the entitlement to the install.
@@ -546,13 +564,12 @@ listing + the poppy's own price decided.*
   product page `agentspoppy.com/affiliatepoppy` shipped deliberately without any (2026-08-20)
   — real, unretouched captures once the live programme has content, served as WebP with
   width/height set (the CrewPoppy page's recipe).
-- **Teardown must retire the platform portal too (build before the next certify, 2026-08-23):**
-  today's teardown cleans the merchant's AWS but leaves the published page live on the platform
-  with a broken feed — a stale public page is a trace, even if not in AWS. Plan: the teardown
-  hook calls a token-authed platform unpublish BEFORE forgetting SSM (the token dies with the
-  secrets); the record becomes a "programme closed" tombstone — join disabled, signed-in
-  publishers keep seeing their recorded history (their earnings don't vanish because the
-  merchant left).
+- ~~Teardown must retire the platform portal too~~ — **BUILT 2026-08-22, see Q4a.** Teardown
+  now closes the published page (token-authed, before SSM is forgotten) and sweeps the
+  app-created Stripe webhook destinations. Remaining question for the founder: should
+  teardown also DEACTIVATE the affiliates' promotion codes in Stripe? Current behaviour:
+  no — codes keep working (a removed app must not break a live business's checkout links),
+  but that means discounts keep being given with nobody counting commissions.
 
 1. ~~Name + id~~ — **decided 2026-08-14: AffiliatePoppy / `com.affiliatepoppy.desktop`,
    final.** See the header note.

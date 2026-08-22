@@ -182,6 +182,41 @@ export async function rotateWebhooks(stripe: StripeClient, plan: WebhookPlanItem
   return report;
 }
 
+export interface RemoveWebhooksReport {
+  removed: string[];
+  problems: string[];
+}
+
+/**
+ * Teardown's sweep (2026-08-23): delete every destination THIS APP created — recognised by
+ * the metadata stamp, exactly like ensure/rotate — so a removed install leaves nothing in
+ * the merchant's Stripe pointing at a Lambda that no longer exists or a feed that closed.
+ * Hand-made destinations are never touched: the merchant built those, the merchant keeps
+ * them. Idempotent, and never throws — teardown carries on whatever Stripe says.
+ */
+export async function removeStampedWebhooks(stripe: StripeClient): Promise<RemoveWebhooksReport> {
+  const report: RemoveWebhooksReport = { removed: [], problems: [] };
+  let existing: WebhookEndpoint[];
+  try {
+    existing = await stripe.listWebhookEndpoints();
+  } catch (e) {
+    report.problems.push(permissionSentence(e));
+    return report;
+  }
+  for (const w of existing) {
+    const role = w.metadata?.affiliatepoppy;
+    if (!role) continue; // not stamped = not ours to delete
+    const label = ROLE_LABEL[role as WebhookRole] ?? role;
+    try {
+      await stripe.deleteWebhookEndpoint(w.id);
+      report.removed.push(`${label}: removed from Stripe.`);
+    } catch (e) {
+      report.problems.push(`${label}: couldn't be removed (${(e as Error).message}) — delete it yourself in Stripe → Webhooks.`);
+    }
+  }
+  return report;
+}
+
 /** Stripe's refusal, verbatim, plus the one edit that fixes the common case. */
 function permissionSentence(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e);

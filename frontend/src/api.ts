@@ -37,8 +37,9 @@ export const api = {
   deploy: (): Promise<{ operation: string; stackName: string }> =>
     invoke({ method: "POST", path: "/deploy" }),
 
-  /** Removes everything AffiliatePoppy created. Waits for AWS to finish. */
-  teardown: (): Promise<{ ok: true; removed: string[] }> =>
+  /** Removes everything AffiliatePoppy created. Waits for AWS to finish. `external` reports
+   *  the world outside AWS: the public page closing and the Stripe destinations' removal. */
+  teardown: (): Promise<{ ok: true; removed: string[]; external?: string[] }> =>
     invoke({ method: "POST", path: "/teardown" }, 15 * 60_000),
 
   config: (): Promise<ProgramConfig> => invoke({ method: "GET", path: "/config" }),

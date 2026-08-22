@@ -51,6 +51,9 @@ export function App() {
   const [err, setErr] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [section, setSection] = useState<SectionKey>("affiliates");
+  /** What the last Remove did OUTSIDE AWS (page closed, Stripe destinations swept) — shown
+   *  on the Remove tab afterwards, because it names things the user might otherwise check. */
+  const [removalNotes, setRemovalNotes] = useState<string[]>([]);
   const pollRef = useRef<number | null>(null);
 
   /**
@@ -370,7 +373,8 @@ export function App() {
           <RemovePanel
             disabled={status.inProgress}
             onRemove={async () => {
-              await api.teardown();
+              const result = await api.teardown();
+              setRemovalNotes(result.external ?? []);
               await refresh();
               setConfig(null);
               setAffiliates([]);
@@ -382,6 +386,16 @@ export function App() {
             <p className="muted" style={{ margin: 0 }}>
               There's nothing to remove — AffiliatePoppy hasn't created anything in your AWS account yet.
             </p>
+          </div>
+        )}
+        {removalNotes.length > 0 && (
+          <div className="card card-2">
+            <h2 className="section-title">Outside your AWS account</h2>
+            {removalNotes.map((note, i) => (
+              <p key={i} className="muted" style={{ margin: i ? "8px 0 0" : 0 }}>
+                {note}
+              </p>
+            ))}
           </div>
         )}
       </div>

@@ -273,8 +273,12 @@ const server = createServer(async (req, res) => {
     }
 
     // The teardown hook the host POSTs at the start of teardown. MUST be idempotent.
+    // The world outside AWS goes FIRST — closing the published page needs the portal token
+    // and sweeping the Stripe destinations needs the key, and teardown() forgets both
+    // immediately. Best-effort by design: whatever these report, the AWS teardown proceeds.
     if (method === "POST" && parts[0] === "teardown" && parts.length === 1) {
-      return json(res, 200, { ok: true, ...(await teardown(aws)) });
+      const external = await program.retireExternal();
+      return json(res, 200, { ok: true, ...(await teardown(aws)), external });
     }
 
     return json(res, 404, { error: `No route for ${method} /${parts.join("/")}` });
