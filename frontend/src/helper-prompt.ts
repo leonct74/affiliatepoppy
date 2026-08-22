@@ -64,8 +64,9 @@ WHAT HAPPENS BY ITSELF AFTERWARDS:
 HARD RULES — mechanisms, not settings; never suggest working around them, and explain them to me when relevant, because they are why this thing is trustworthy:
 - The app can never move, hold, or receive money. It counts. I pay my affiliates myself, and "Mark as paid" just writes down that I did.
 - My money ledger and my Stripe secrets live in my own AWS account. The public sign-up page (my permanent address, claimed in Settings) and my publishers' view of their earnings are hosted independently by AffiliatePoppy — on purpose, so publishers can trust numbers I cannot edit.
+- The hosting is NEUTRAL (affiliates.agentspoppy.com/terms, accepted at publishing and at joining): AffiliatePoppy hosts the page and the record, nothing more. The programme is mine — who joins, each partner's rate, ending a partnership, and paying what I owe are between me and my publishers; neither side has a claim against AffiliatePoppy, AgentsPoppy or Olly Digital about the other's conduct.
 - The Stripe key it holds can only create discount codes/coupons and manage its own webhooks — it cannot charge, refund, read customers, or touch balances. The secrets are stored in my AWS, never shown again in the app.
-- Removing the app (its Remove tab) deletes everything it created in my AWS. Export the ledger first if I want the history.
+- Removing the app (its Remove tab) deletes everything it created in my AWS, and cleans up after itself everywhere else: the discount codes stop working, the coupons and webhook destinations it created in Stripe are deleted, and my public page closes (people who joined keep seeing what they earned; if nobody ever joined, the page is taken down and the name freed). Export the ledger first if I want the history.
 
 THINGS THAT GO WRONG, AND THE REAL FIX:
 - "Received unknown parameter" or a permission error when approving an affiliate → the restricted key is missing a permission; make/edit the key per step 3 (the app quotes Stripe's exact refusal — read it, it names the missing permission).

@@ -518,12 +518,19 @@ developer's figure; refund reverses both.*
   the page is still up. (2) `removeStampedWebhooks` deletes every `affiliatepoppy=<role>`
   destination from the merchant's Stripe — hand-made ones stay theirs. The Remove tab shows
   the external outcomes afterwards ("Outside your AWS account"), and its blast-radius copy
-  names both. **NO REVIVAL, decided here:** a closed slug is never re-registerable —
-  whoever re-claimed it would inherit the old programme's publisher list (identity hijack);
-  a merchant who reinstalls picks a new name, and reviving an old one is a manual support
-  act. Deliberately NOT touched at teardown: the affiliates' promotion codes in Stripe —
-  killing live discount codes under a business that may be migrating is destruction, not
-  cleanup (open question for the founder below).
+  names everything. (3) **Codes and coupons die with the programme — founder ruling,
+  2026-08-22:** *"after the user tears down the poppy, no live coupon should be around"*
+  (while installed, retiring an affiliate in the app is how a code goes off). Teardown
+  deactivates every promotion code the app minted (own account + every partner's) and
+  deletes every coupon it created: the ids the table knows, plus anything carrying the
+  `metadata[affiliatepoppy]=coupon` stamp coupons now get at creation (catches coupons a
+  discount change replaced, whose ids the table forgot; pre-stamp installs are covered by
+  the known ids). **NO REVIVAL, refined:** a page WITH history (any signup, ref or sub
+  recorded) closes forever — whoever re-claimed the name would inherit the old programme's
+  publisher list (identity hijack); reviving one is a manual support act. A page with NO
+  history is DELETED at teardown and the name freed — checked inside the deleting
+  transaction, so a racing join flips it to a close — which is what keeps the recommended
+  "practise in test mode, tear down, go live" flow from burning the merchant's name.
 - **Q5 — Web checkout with purchase code.** The portal's upgrade button becomes a real
   checkout: web purchase mints a claim code shown on purchase-complete; the poppy's Settings
   gains "bought on the web? paste your code", which binds the entitlement to the install.

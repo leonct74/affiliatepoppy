@@ -204,9 +204,77 @@ export class Program {
       if (stripe) {
         const swept = await removeStampedWebhooks(stripe);
         notes.push(...swept.removed, ...swept.problems);
+        notes.push(...(await this.sweepStripeCodes(stripe)));
       }
     } catch (e) {
       notes.push(`The webhook destinations in Stripe couldn't be checked (${(e as Error).message}) — delete any AffiliatePoppy ones yourself in Stripe → Webhooks.`);
+    }
+    return notes;
+  }
+
+  /**
+   * Founder ruling (2026-08-22): "after teardown, no live coupon should be around." Switch
+   * off every promotion code the app minted — the merchant's account and every partner's —
+   * and delete every coupon it created: the ids the table still knows, plus anything
+   * carrying the app's metadata stamp (coupons an earlier discount change replaced). While
+   * the app is INSTALLED, retiring an affiliate in the app is how a code goes off — this
+   * runs only at teardown. Idempotent ("no such" = already done) and never throws.
+   */
+  private async sweepStripeCodes(stripe: StripeClient): Promise<string[]> {
+    let profiles: AffiliateProfile[];
+    let state: { couponId: string; partners: Partner[] };
+    try {
+      [profiles, state] = await Promise.all([this.ledger.listAffiliates(), this.ledger.stripeState()]);
+    } catch {
+      return []; // the table is already gone — an earlier pass swept these
+    }
+    let codesOff = 0;
+    let couponsGone = 0;
+    const problems: string[] = [];
+    const off = async (client: StripeClient, id: string) => {
+      try {
+        await client.deactivatePromotionCode(id);
+        codesOff++;
+      } catch (e) {
+        if (!/No such promotion code/i.test((e as Error).message)) problems.push((e as Error).message);
+      }
+    };
+    for (const p of profiles) {
+      if (p.promotionCodeId) await off(stripe, p.promotionCodeId);
+      for (const [account, id] of Object.entries(p.promotionCodeIds ?? {})) await off(stripe.forAccount(account), id);
+    }
+    const drop = async (client: StripeClient, id: string) => {
+      try {
+        await client.deleteCoupon(id);
+        couponsGone++;
+      } catch (e) {
+        if (!/No such coupon/i.test((e as Error).message)) problems.push((e as Error).message);
+      }
+    };
+    const dropped = new Set<string>();
+    if (state.couponId) {
+      await drop(stripe, state.couponId);
+      dropped.add(state.couponId);
+    }
+    for (const partner of state.partners) {
+      if (partner.couponId) await drop(stripe.forAccount(partner.account), partner.couponId);
+    }
+    try {
+      // The stamped sweep catches what the table forgot; installs from before the stamp
+      // existed are covered by the known ids above.
+      for (const coupon of await stripe.listCoupons()) {
+        if (coupon.metadata?.affiliatepoppy && !dropped.has(coupon.id)) await drop(stripe, coupon.id);
+      }
+    } catch {
+      /* listing refused — the known ids above are already handled */
+    }
+    const notes: string[] = [];
+    if (codesOff) notes.push(`Affiliate codes: ${codesOff} switched off in Stripe — they no longer work at checkout.`);
+    if (couponsGone) notes.push(`Discount coupons: ${couponsGone} removed from Stripe.`);
+    if (problems.length) {
+      notes.push(
+        `${problems.length} of the codes or coupons couldn't be cleaned up ("${problems[0]}") — check Stripe → Coupons and Promotion codes yourself.`,
+      );
     }
     return notes;
   }

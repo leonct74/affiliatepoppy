@@ -64,6 +64,7 @@ export interface Coupon {
   percent_off?: number | null;
   duration?: string;
   valid?: boolean;
+  metadata?: Record<string, string>;
 }
 
 export interface PromotionCode {
@@ -159,6 +160,10 @@ export class StripeClient {
         // the commission on them is our ledger's job, not the coupon's (DESIGN.md §4.3).
         duration: "once",
         name,
+        // The same stamp the webhook destinations carry: it marks the coupon as this app's
+        // work, so teardown's sweep can find EVERY coupon it ever made — including ones a
+        // later discount change replaced and whose id the table no longer holds.
+        "metadata[affiliatepoppy]": "coupon",
       },
       idempotencyKey,
     );
@@ -166,6 +171,17 @@ export class StripeClient {
 
   getCoupon(couponId: string): Promise<Coupon> {
     return this.call<Coupon>("GET", `/coupons/${encodeURIComponent(couponId)}`);
+  }
+
+  /** Teardown only: a deleted coupon can never be redeemed again. */
+  deleteCoupon(couponId: string): Promise<{ id: string; deleted: boolean }> {
+    return this.call<{ id: string; deleted: boolean }>("DELETE", `/coupons/${encodeURIComponent(couponId)}`);
+  }
+
+  /** The account's coupons (first 100) — teardown sweeps the stamped ones. */
+  async listCoupons(): Promise<Coupon[]> {
+    const list = await this.call<{ data?: Coupon[] }>("GET", "/coupons", { limit: 100 });
+    return list.data ?? [];
   }
 
   /** One affiliate's code. `code` is what their audience types. */

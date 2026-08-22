@@ -51,8 +51,9 @@ export function RemovePanel(props: { disabled?: boolean; onRemove: () => Promise
       <div className="spread">
         <p className="muted" style={{ margin: 0, maxWidth: "46ch" }}>
           Deletes everything AffiliatePoppy made in your AWS account, including your affiliate list and
-          their commission history, and removes your Stripe secrets and the webhook destinations the app
-          created. Your AWS account, your Stripe account and your sales are not touched.
+          their commission history, and removes your Stripe secrets. In your Stripe it switches off the
+          discount codes and deletes the coupons and webhook destinations the app created — nothing else
+          there, and none of your past sales, is touched.
         </p>
         <button className="btn btn-danger" disabled={props.disabled} onClick={() => setOpen(true)}>
           Remove…
@@ -68,13 +69,17 @@ export function RemovePanel(props: { disabled?: boolean; onRemove: () => Promise
             <p style={{ margin: 0 }}>This deletes, permanently:</p>
             <ul className="muted" style={{ margin: 0, paddingLeft: 18 }}>
               <li>your affiliates, their codes and every commission recorded for them</li>
-              <li>the webhook destinations the app created in your Stripe</li>
+              <li>
+                in your Stripe: the discount codes stop working at checkout, and the coupons and webhook
+                destinations the app created are deleted
+              </li>
               <li>everything else AffiliatePoppy created to run</li>
             </ul>
             <p className="muted" style={{ margin: 0 }}>
-              If you claimed a public page, it stays up saying the programme has closed — people who
-              joined keep seeing what they earned, but nobody new can join and the address can't be
-              claimed again.
+              If you claimed a public page and people joined through it, the page stays up saying the
+              programme has closed — they keep seeing what they earned, but nobody new can join and the
+              address can't be claimed again. If nobody ever joined, the page is taken down and the name
+              is freed.
             </p>
             <p style={{ margin: 0 }}>
               <strong>This can't be undone.</strong> You can set AffiliatePoppy up again later, but the commission

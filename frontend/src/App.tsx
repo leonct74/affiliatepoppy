@@ -423,6 +423,18 @@ export function App() {
           </dl>
         </div>
       )}
+      {/* Founder rule (2026-08-22), for every first-party poppy: the app is a tool acting in
+          the user's own accounts, provided as-is — its records are theirs to review, and
+          malfunctions or wrong use are not something Olly Digital answers for. */}
+      <p className="muted" style={{ fontSize: 11.5, marginTop: 12 }}>
+        AffiliatePoppy runs in your own AWS and Stripe accounts and is provided &ldquo;as is&rdquo; under
+        the{" "}
+        <a href="https://agentspoppy.com/terms" target="_blank" rel="noopener noreferrer">
+          AgentsPoppy Terms
+        </a>
+        . Its ledger and reports are working records for you to review — paying your affiliates, and what
+        you decide on those numbers, stays with you.
+      </p>
     </div>
   );
 }

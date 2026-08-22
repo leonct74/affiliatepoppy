@@ -145,6 +145,16 @@ describe("closing the page at teardown", () => {
     expect(out.note).toMatch(/keep seeing what they earned/);
   });
 
+  it("a page nobody ever joined comes down entirely — and the note says the name is free again", async () => {
+    // The platform frees names with no history, so test-mode → teardown → live keeps the address.
+    const { d, state } = deps({}, [{ status: 200, body: { closed: true, slug: "olly", freed: true } }]);
+    state.slug = "olly";
+    state.token = "apt_x";
+    const out = await closePortal(d);
+    expect(out.done).toBe(true);
+    expect(out.note).toMatch(/free to claim again/);
+  });
+
   it("nothing published — or storage already gone from an earlier pass — is SUCCESS, silently", async () => {
     const idle = deps();
     expect(await closePortal(idle.d)).toEqual({ done: true, note: "" });

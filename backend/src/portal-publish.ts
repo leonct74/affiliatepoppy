@@ -170,10 +170,18 @@ export async function closePortal(deps: PortalPublishDeps): Promise<{ done: bool
   } catch (e) {
     return { done: false, note: `Your public page at ${page} couldn't be closed (${(e as Error).message}) — it is still up. Run Remove again, or contact support.` };
   }
-  if (res.ok || res.status === 404) {
-    // 404 = the platform never heard of it (or a previous pass already closed and this
-    // install's record moved on) — either way, nothing of ours is left standing.
-    return { done: true, note: `Your public page at ${page} now says the programme has closed. People who joined keep seeing what they earned.` };
+  if (res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { freed?: boolean };
+    // freed = nobody ever joined, so the platform deleted the page and released the name —
+    // the test-mode → teardown → live flow keeps its address.
+    return body.freed
+      ? { done: true, note: `Your public page at ${page} was taken down — nobody had joined, so the name is free to claim again.` }
+      : { done: true, note: `Your public page at ${page} now says the programme has closed. People who joined keep seeing what they earned.` };
+  }
+  if (res.status === 404) {
+    // The platform never heard of it (or a previous pass already handled it) — either way,
+    // nothing of ours is left standing.
+    return { done: true, note: `Your public page at ${page} was already gone.` };
   }
   if (res.status === 403) {
     return { done: false, note: `The platform didn't recognise this programme's token, so the page at ${page} couldn't be closed — contact support to have it taken down.` };
