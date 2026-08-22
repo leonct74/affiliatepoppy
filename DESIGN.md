@@ -581,10 +581,30 @@ listing + the poppy's own price decided.*
   width/height set (the CrewPoppy page's recipe).
 - ~~Teardown must retire the platform portal too~~ — **BUILT 2026-08-22, see Q4a.** Teardown
   now closes the published page (token-authed, before SSM is forgotten) and sweeps the
-  app-created Stripe webhook destinations. Remaining question for the founder: should
-  teardown also DEACTIVATE the affiliates' promotion codes in Stripe? Current behaviour:
-  no — codes keep working (a removed app must not break a live business's checkout links),
-  but that means discounts keep being given with nobody counting commissions.
+  app-created Stripe webhook destinations. The promo-code question was ruled the same day
+  (founder: *"after the user tears down the poppy, no live coupon should be around"*) and
+  built into the same sweep — see Q4a point (3).
+- **Closed-programme retention: purge publisher data 12 months after closure (founder,
+  2026-08-22 — build before the platform has real merchant volume).** *"After closing a
+  program, the publisher data is deleted after 12 months, otherwise the database risks
+  becoming too big."* The plan:
+  - A scheduled pass over `portalMerchants` where `closed == true` and
+    `closedAt < now − 365 days` (the `closedAt` field already exists, written at close):
+    delete `signups/*` (with their `entries` subcollections), `refs/*`, `subs/*`, and
+    finally the merchant tombstone doc itself.
+  - Deleting the doc **returns the name to the pool** — and that is now SAFE, because the
+    purge is precisely the removal of what the no-revival rule protects (the publisher list
+    a re-claimant would otherwise inherit). No-revival becomes "no revival for 12 months".
+  - Copy must tell the truth once this exists: the closed page's "everything you earned
+    stays recorded here" gains "for 12 months", and the hosting terms at
+    `affiliates.agentspoppy.com/terms` state the retention window. (Also a good GDPR
+    answer: publisher emails are personal data; indefinite retention after a programme
+    ends is the wrong default anyway.)
+  - Rename tombstones (`movedTo`) are NOT covered — they redirect to a living programme
+    and stay as long as it does; only closure starts the clock.
+  - Mechanism candidate: a token-guarded API route on agentspoppy-web hit by a daily
+    Cloud Scheduler job (same pattern available to the commerce plane) — decided at build
+    time, not here.
 
 1. ~~Name + id~~ — **decided 2026-08-14: AffiliatePoppy / `com.affiliatepoppy.desktop`,
    final.** See the header note.
