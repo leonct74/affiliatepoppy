@@ -565,9 +565,23 @@ developer's figure; refund reverses both.*
 - **Q5 — Web checkout with purchase code.** The portal's upgrade button becomes a real
   checkout: web purchase mints a claim code shown on purchase-complete; the poppy's Settings
   gains "bought on the web? paste your code", which binds the entitlement to the install.
-- **Q6 — Cutover + dogfood.** Poppy Setup/step-4/Affiliates surfaces show the friendly link
-  when published; the founder's own programme moves onto it (D14); payment-workflow PDF and
-  helper prompt updated; screenshots.
+- **Q6 — Cutover + dogfood.** What remains is USE, not building:
+  - ~~Poppy Setup/step-4/Affiliates surfaces show the friendly link when published~~ —
+    **DONE 2026-08-22** (founder: "it still show the random lamda link"). Setup, Getting
+    Started, Settings and Affiliates all read `config.portal.url` and fall back to the AWS
+    Function URL only when no address has been claimed. The raw Lambda URL survives only in
+    the Technical details panel, where listing the real resource is the point.
+  - ~~helper prompt updated~~ — **DONE 2026-08-22**: it teaches the ledger feed, the
+    changeable address, the rotate flow and the teardown's full cleanup.
+  - **The founder's own programme moves onto it (D14)** — AgentsPoppy becomes AffiliatePoppy's
+    first real customer: install against the platform's own Stripe, add the receiver as a
+    second webhook there, real affiliates, real commissions. NOT yet done.
+  - **Payment-workflow PDF** brought in line with what the product actually does. NOT done.
+  - **Screenshots** (also blocks the catalogue listing, §11) — real captures once the live
+    programme has content. NOT done.
+  - **Worth doing first (2026-08-22):** the `/buy/<intentId>` code path — an affiliate's code
+    redeemed at a REAL AgentsPoppy purchase, crediting a real commission — has never been
+    exercised end to end. Test-mode run before real affiliates are pointed at it.
 
 **P6 — Dogfood + listing.**
 Founder installs in his own AWS; agentspoppy-web one-liner (§7) ships; platform webhook
