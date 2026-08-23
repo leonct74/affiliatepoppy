@@ -168,13 +168,19 @@ export function Settings(props: { config: ProgramConfig | null; onSaved: () => P
           </label>
           <label className="field">
             <span>Accent colour</span>
-            <input
-              className="input"
-              type="color"
-              value={branding.accentColor}
-              disabled={!pro}
-              onChange={(e) => setBranding({ ...branding, accentColor: e.target.value })}
-            />
+            {/* The swatch AND the value: the control shows the colour, the chip names it, so a
+                change is visible without hunting for the preview further down. */}
+            <div className="row" style={{ gap: 8, alignItems: "center" }}>
+              <input
+                className="input"
+                style={{ maxWidth: 76 }}
+                type="color"
+                value={branding.accentColor}
+                disabled={!pro}
+                onChange={(e) => setBranding({ ...branding, accentColor: e.target.value })}
+              />
+              <span className="chip">{branding.accentColor}</span>
+            </div>
             {/* It used to change one hairline at the top of a card, and the founder reasonably
                 saw nothing at all (2026-08-22). It now drives the page's actual controls — so
                 say which ones, or the field is a mystery. */}

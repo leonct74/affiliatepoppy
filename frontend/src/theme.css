@@ -77,6 +77,16 @@ label.field > span { display: block; font-size: 12px; color: var(--poppy-muted-2
 }
 textarea.input { font-family: var(--poppy-font-mono); font-size: 13px; min-height: 72px; resize: vertical; }
 .input:focus, .select:focus, textarea.input:focus { outline: 2px solid var(--poppy-accent); outline-offset: -1px; border-color: transparent; }
+/* A colour picker must BE the colour it holds (founder, 2026-08-22: "it doesn't update the
+   rectangle under 'accent colour', so the user might not realise the colour has changed").
+   By default `.input` paints its own dark background with padding, leaving the browser's swatch
+   as a small inset square that reads as chrome, not as a value. Here the swatch fills the whole
+   control, so choosing a colour visibly changes the control itself. */
+.input[type="color"] { padding: 3px; height: 36px; cursor: pointer; }
+.input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.input[type="color"]::-webkit-color-swatch { border: none; border-radius: 5px; }
+.input[type="color"]::-moz-color-swatch { border: none; border-radius: 5px; }
+
 /* A locked field must LOOK locked (founder, 2026-08-20: "difficult to see which field is
    locked and which not"): dimmed, hatched, and the cursor says no. */
 .input:disabled, .select:disabled, textarea.input:disabled {
