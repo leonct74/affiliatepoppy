@@ -175,6 +175,12 @@ export function Settings(props: { config: ProgramConfig | null; onSaved: () => P
               disabled={!pro}
               onChange={(e) => setBranding({ ...branding, accentColor: e.target.value })}
             />
+            {/* It used to change one hairline at the top of a card, and the founder reasonably
+                saw nothing at all (2026-08-22). It now drives the page's actual controls — so
+                say which ones, or the field is a mystery. */}
+            <small className="muted" style={{ fontSize: 12 }}>
+              Colours the Join button, the links and your partners&rsquo; code box on your page.
+            </small>
           </label>
         </div>
         <LogoField branding={branding} onChange={setBranding} onError={setError} disabled={!pro} />
