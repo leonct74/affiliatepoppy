@@ -30,7 +30,7 @@ const status = (over: Partial<DeploymentStatus> = {}): DeploymentStatus => ({
 });
 
 const config = (over: Partial<ProgramConfig> = {}): ProgramConfig => ({
-  settings: { discountPct: 5, commissionPct: 10, firstPaymentOnly: false, autoApprove: false, maxAffiliates: 1000 },
+  settings: { discountPct: 5, commissionPct: 10, firstPaymentOnly: false, autoApprove: false, maxAffiliates: 1000, notifyEmail: "" },
   branding: { merchantName: "Olly Digital", accentColor: "#bccf9e", logoDataUri: "", offerCopy: "", termsText: "" },
   stripe: { couponId: "", lastEventAt: 0, livemode: false, partners: [] },
   offer: "Earn 10% of every sale you bring in.",

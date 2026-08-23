@@ -32,6 +32,8 @@ export interface ProgramSettings {
   firstPaymentOnly: boolean;
   autoApprove: boolean;
   maxAffiliates: number;
+  /** Where to email the merchant when someone applies. Empty = no notifications. */
+  notifyEmail: string;
 }
 
 export interface PortalBranding {

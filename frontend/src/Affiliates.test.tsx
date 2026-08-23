@@ -27,7 +27,7 @@ const affiliate = (over: Partial<Affiliate> = {}): Affiliate => ({
 });
 
 const config = {
-  settings: { discountPct: 5, commissionPct: 10, firstPaymentOnly: false, autoApprove: false, maxAffiliates: 1000 },
+  settings: { discountPct: 5, commissionPct: 10, firstPaymentOnly: false, autoApprove: false, maxAffiliates: 1000, notifyEmail: "" },
 } as ProgramConfig;
 
 beforeEach(() => vi.restoreAllMocks());

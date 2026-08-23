@@ -13,7 +13,7 @@
 export interface PortalPublishDeps {
   planPro(): Promise<boolean>;
   config(): Promise<{
-    settings: { discountPct: number; commissionPct: number; firstPaymentOnly: boolean; autoApprove: boolean };
+    settings: { discountPct: number; commissionPct: number; firstPaymentOnly: boolean; autoApprove: boolean; notifyEmail?: string };
     branding: { merchantName: string; accentColor: string; logoDataUri: string; offerCopy: string; termsText: string };
   }>;
   portalSlug(): Promise<string>;
@@ -37,6 +37,8 @@ function payload(cfg: Awaited<ReturnType<PortalPublishDeps["config"]>>, pro: boo
     },
     // D20: every plan publishes; the platform renders the free-plan notice from this.
     plan: pro ? "pro" : "free",
+    // Where to tell the merchant somebody applied — "" turns it off, which is why it always rides.
+    notifyEmail: cfg.settings.notifyEmail ?? "",
   };
 }
 

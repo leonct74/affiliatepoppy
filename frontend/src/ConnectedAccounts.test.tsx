@@ -15,7 +15,7 @@ const status: DeploymentStatus = {
   updateAvailable: false, receiverUrl: "https://abc.lambda-url.eu-west-1.on.aws/",
 };
 const config = (over: Partial<ProgramConfig["stripe"]> = {}, connect?: { stored: boolean; hint: string }): ProgramConfig => ({
-  settings: { discountPct: 5, commissionPct: 10, firstPaymentOnly: false, autoApprove: false, maxAffiliates: 1000 },
+  settings: { discountPct: 5, commissionPct: 10, firstPaymentOnly: false, autoApprove: false, maxAffiliates: 1000, notifyEmail: "" },
   branding: { merchantName: "Olly", accentColor: "#bccf9e", logoDataUri: "", offerCopy: "", termsText: "" },
   stripe: { couponId: "co_1", lastEventAt: 0, livemode: false, partners: [], ...over },
   offer: "",

@@ -18,7 +18,7 @@ const status: DeploymentStatus = {
   portalUrl: "https://portal.lambda-url.eu-west-1.on.aws/",
 };
 const config: ProgramConfig = {
-  settings: { discountPct: 7, commissionPct: 12, firstPaymentOnly: false, autoApprove: false, maxAffiliates: 1000 },
+  settings: { discountPct: 7, commissionPct: 12, firstPaymentOnly: false, autoApprove: false, maxAffiliates: 1000, notifyEmail: "" },
   branding: { merchantName: "Olly", accentColor: "#bccf9e", logoDataUri: "", offerCopy: "", termsText: "" },
   stripe: { couponId: "co_1", lastEventAt: 0, livemode: false, partners: [] },
   offer: "",

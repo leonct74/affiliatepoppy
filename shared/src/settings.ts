@@ -17,6 +17,10 @@ export interface ProgramSettings {
   autoApprove: boolean;
   /** Hard ceiling on enrolled affiliates, so a bot flood can't run up the merchant's bill. */
   maxAffiliates: number;
+  /** Where to email the merchant when someone applies to join (2026-08-22). Empty = don't.
+   *  Held here rather than derived from anything: the platform has no other address for a
+   *  programme, and a merchant may well want a shared inbox rather than a personal one. */
+  notifyEmail: string;
 }
 
 /** How the affiliate-facing pages look and what they say (D10 — white label). */
@@ -49,6 +53,7 @@ export const DEFAULT_SETTINGS: ProgramSettings = {
   firstPaymentOnly: false,
   autoApprove: false,
   maxAffiliates: 1000,
+  notifyEmail: "",
 };
 
 export const DEFAULT_BRANDING: PortalBranding = {
@@ -82,6 +87,9 @@ export function sanitizeSettings(input: unknown): ProgramSettings {
     firstPaymentOnly: bool(raw.firstPaymentOnly, DEFAULT_SETTINGS.firstPaymentOnly),
     autoApprove: bool(raw.autoApprove, DEFAULT_SETTINGS.autoApprove),
     maxAffiliates: Math.round(clampNumber(raw.maxAffiliates, 1, 100_000, DEFAULT_SETTINGS.maxAffiliates)),
+    // Deliberately loose, and never a hard refusal: an address we can't parse simply means no
+    // notifications, which must not block the merchant from saving everything else.
+    notifyEmail: typeof raw.notifyEmail === "string" && raw.notifyEmail.trim().length <= 254 ? raw.notifyEmail.trim() : "",
   };
 }
 

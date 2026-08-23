@@ -145,6 +145,29 @@ export function Settings(props: { config: ProgramConfig | null; onSaved: () => P
           A limit stops an automated flood of sign-ups running up your AWS bill. Anyone who arrives after it's reached
           is told the programme is full, politely.
         </p>
+        {/* Founder, 2026-08-22: the owner should hear about a new partner rather than having to
+            keep checking. Optional, and a shared inbox is often the right answer — which is why
+            it is asked for rather than guessed from anything. */}
+        <label className="field">
+          <span>Email me when someone applies (optional)</span>
+          <input
+            className="input"
+            style={{ maxWidth: 320 }}
+            type="email"
+            inputMode="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="partners@yourcompany.com"
+            value={settings.notifyEmail ?? ""}
+            onChange={(e) => setSettings({ ...settings, notifyEmail: e.target.value })}
+          />
+          <small className="muted" style={{ fontSize: 12 }}>
+            {settings.autoApprove
+              ? "We'll let you know when a new partner joins. Leave it empty for no emails."
+              : "We'll tell you as soon as someone is waiting for your approval — they can't share their code until you press Approve. Leave it empty for no emails."}
+          </small>
+        </label>
       </div>
 
       <div className="card stack">
