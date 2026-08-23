@@ -539,6 +539,29 @@ developer's figure; refund reverses both.*
   is permanently retired per the no-revival rule — the founder chose to accept that and
   re-publish under a new name rather than skip the teardown test. The AGENTS.md
   certify-before-listing gate, which the 2026-08-22 listing briefly ran ahead of, is now met.
+- **Q4b — Renaming a programme MOVES its publishers. ✅ BUILT + LIVE-PROVEN 2026-08-22.**
+  The rename used to be refused outright once anybody had joined ("has_publishers"), because
+  Firestore subcollections do NOT travel with their parent document — a rename would have
+  rewritten the merchant doc and orphaned every publisher, their entries, refs and subs at the
+  old path. The founder hit the trap on his own install (one retired TEST signup froze his
+  typo'd address `affilites-personal-portal` permanently) and ruled: *"fix it properly"*.
+  `renamePortalMerchant` now migrates, in an order chosen for safety: (1) reserve the new name
+  in a transaction marked `migrating:true` — a racing claim must never end up owning a record
+  we then pour someone else's publishers into, and an interrupted run resumes its own
+  reservation by matching tokenHash; (2) copy signups + their entries + refs + subs with a
+  bulkWriter while the OLD address is still canonical, so a failure leaves everyone untouched
+  (every write AWAITED — the first draft fired them and forgot, which would have surfaced as
+  an unhandled rejection AFTER the pointer moved); (3) one transaction flips canonical and
+  writes the `movedTo` tombstone; (4) best-effort recursiveDelete of the originals. A crash
+  between (3) and the reply no longer strands the poppy on a tombstone: a retry from the old
+  slug returns the success it missed. The page holds a "one moment" state while `migrating`.
+  **Related hole closed:** the Stripe ledger-feed intake now resolves through
+  `resolveLivePortalMerchant`, so events arriving at the old address (the webhook URL contains
+  the slug and still names it until the merchant re-presses the button) are FOLLOWED rather
+  than dropped — previously every commission in that window was lost. Only "name already
+  taken" can refuse a rename now. **First production run verified the same day:** the old slug
+  is a clean tombstone with its subcollections swept, the new slug carries the publisher with
+  their code intact.
 - **Q5 — Web checkout with purchase code.** The portal's upgrade button becomes a real
   checkout: web purchase mints a claim code shown on purchase-complete; the poppy's Settings
   gains "bought on the web? paste your code", which binds the entitlement to the install.
