@@ -1,6 +1,6 @@
 {
   "name": "affiliate-poppy",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Affiliate programs that run entirely in your own AWS — an AgentsPoppy extension.",
   "type": "module",
