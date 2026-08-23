@@ -250,7 +250,7 @@ function Row(props: {
             <span className="muted" style={{ fontSize: 12 }}>
               Commission: {a.pctOverride ?? props.defaultPct}%{a.pctOverride !== undefined ? " (just for them)" : ""}
             </span>
-            <button className="btn btn-sm btn-ghost" onClick={() => setEditingRate(true)}>
+            <button className="btn btn-sm btn-link" onClick={() => setEditingRate(true)}>
               Change
             </button>
             {a.status !== "retired" && a.code && (

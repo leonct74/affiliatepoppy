@@ -530,7 +530,7 @@ function PortalFeed(props: {
           from Stripe's events — independently of this app.
         </p>
         <div className="row">
-          <button className="btn btn-sm btn-ghost" onClick={() => setRotating(true)}>
+          <button className="btn btn-sm btn-link" onClick={() => setRotating(true)}>
             Replace the signing secret
           </button>
         </div>
@@ -610,7 +610,7 @@ function PortalRename(props: { current: string; onRenamed: () => Promise<void> }
   if (!open) {
     return (
       <div className="row">
-        <button className="btn btn-sm btn-ghost" onClick={() => setOpen(true)}>
+        <button className="btn btn-sm btn-link" onClick={() => setOpen(true)}>
           Change the address
         </button>
       </div>

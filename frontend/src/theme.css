@@ -56,6 +56,15 @@ body {
 .btn-danger:hover { background: color-mix(in srgb, var(--poppy-danger) 16%, var(--poppy-surface-2)); }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--poppy-muted-2); padding: 6px 8px; }
 .btn-ghost:hover { background: var(--poppy-surface-2); }
+/* For an action that must be FOUND, not merely available — the only doorway into a feature.
+   A ghost button (transparent, muted grey) reads as decoration: the founder could not see
+   "Change the address" at all (2026-08-22). Underlined and in the accent, it reads as a thing
+   you can press. Use btn-ghost for secondary/cancel actions, btn-link for doorways. */
+.btn-link {
+  background: transparent; border-color: transparent; color: var(--poppy-accent);
+  padding: 6px 4px; text-decoration: underline; text-underline-offset: 3px;
+}
+.btn-link:hover { background: transparent; text-decoration-thickness: 2px; }
 .btn-sm { padding: 5px 10px; font-size: 13px; }
 
 /* Inputs */
