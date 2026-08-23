@@ -1,7 +1,7 @@
 {
   "id": "com.affiliatepoppy.desktop",
   "name": "AffiliatePoppy",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Run an affiliate program from your own AWS — coupon-code attribution straight from your Stripe, no cookies on anyone's website, and a hosted signup page for your partners.",
   "icon": "frontend/affiliatepoppy-icon.png",
   "bugsUrl": "https://github.com/leonct74/affiliatepoppy/issues",
