@@ -56,6 +56,7 @@ import {
   type PortalBranding,
   type ProgramSettings,
 } from "./settings";
+import { AFFILIATE_STATES, sanitizeChannels } from "./ledger";
 import type { AffiliateProfile, LedgerEntry, Payout, Totals } from "./ledger";
 import { sanitizePlacements, type Placement } from "./placements";
 import { sanitizePartners, type Partner } from "./partners";
@@ -544,6 +545,7 @@ export class DynamoLedger {
                 code: S(profile.code),
                 promotionCodeId: S(profile.promotionCodeId),
                 createdDay: S(profile.createdDay),
+                ...(profile.channels ? { channels: S(sanitizeChannels(profile.channels)) } : {}),
                 ...(typeof profile.pctOverride === "number" ? { pctOverride: N(profile.pctOverride) } : {}),
               },
               ConditionExpression: "attribute_not_exists(sk)",
@@ -607,7 +609,9 @@ export class DynamoLedger {
   /** Patch a profile's mutable fields (status, code, override) without touching the rest. */
   async updateAffiliate(
     affId: string,
-    patch: Partial<Pick<AffiliateProfile, "status" | "code" | "promotionCodeId" | "promotionCodeIds" | "pctOverride">>,
+    patch: Partial<
+      Pick<AffiliateProfile, "status" | "code" | "promotionCodeId" | "promotionCodeIds" | "pctOverride" | "channels">
+    >,
   ): Promise<void> {
     const sets: string[] = [];
     const removes: string[] = [];
@@ -625,6 +629,10 @@ export class DynamoLedger {
     if (patch.promotionCodeId !== undefined) {
       sets.push("promotionCodeId = :promo");
       values[":promo"] = S(patch.promotionCodeId);
+    }
+    if (patch.channels !== undefined) {
+      sets.push("channels = :channels");
+      values[":channels"] = S(sanitizeChannels(patch.channels));
     }
     if (patch.promotionCodeIds !== undefined) {
       sets.push("promotionCodeIds = :promos");
@@ -668,16 +676,23 @@ function ledgerItem(entry: LedgerEntry): Record<string, AttributeValue> {
 }
 
 function readAffiliate(affId: string, item: Record<string, AttributeValue>): AffiliateProfile {
-  const status = item.status?.S;
+  const status = item.status?.S ?? "";
   return {
     affId,
     email: item.email?.S ?? "",
     displayName: item.displayName?.S ?? "",
-    status: status === "active" || status === "retired" ? status : "pending",
+    // Anything unrecognised reads as "pending", which is the safe default — but the list must
+    // hold EVERY state the app can write. When it didn't, declining someone wrote "declined"
+    // to the row and read it back as "pending": the action looked like it had done nothing
+    // (founder, 2026-08-23). A round-trip test now guards this list.
+    status: (AFFILIATE_STATES as readonly string[]).includes(status)
+      ? (status as AffiliateProfile["status"])
+      : "pending",
     code: item.code?.S ?? "",
     promotionCodeId: item.promotionCodeId?.S ?? "",
     promotionCodeIds: readPromoIds(item.promotionCodeIds?.S),
     createdDay: item.createdDay?.S ?? "",
+    ...(item.channels?.S ? { channels: item.channels.S } : {}),
     // Stored as JSON and re-sanitised on read, so a row written by an older build (no field)
     // or a hand-edited one still yields a clean list.
     placements: sanitizePlacements(item.placements?.S ? safeParse(item.placements.S) : []),

@@ -30,14 +30,22 @@ export interface LedgerEntry {
   account?: string;
 }
 
+/** Every state an affiliate can be in: pending → waiting on the merchant · active → has a
+ *  working code · retired → partnership ended, earnings kept · declined → the merchant turned
+ *  the application down (2026-08-22). "declined" is a state rather than a delete so the
+ *  applicant gets an ANSWER instead of waiting forever, and so the same person can't silently
+ *  re-appear in the queue.
+ *
+ *  This array is the single source of truth: the store reads a stored status back through it,
+ *  so adding a state here is all it takes for that state to survive a round-trip. */
+export const AFFILIATE_STATES = ["pending", "active", "retired", "declined"] as const;
+
+export type AffiliateStatus = (typeof AFFILIATE_STATES)[number];
+
 /** An affiliate as the money path needs them. */
 export interface AffiliateRecord {
   affId: string;
-  /** pending → waiting on the merchant · active → has a working code · retired → partnership
-   *  ended, earnings kept · declined → the merchant turned the application down (2026-08-22).
-   *  "declined" is a state rather than a delete so the applicant gets an ANSWER instead of
-   *  waiting forever, and so the same person can't silently re-appear in the queue. */
-  status: "pending" | "active" | "retired" | "declined";
+  status: AffiliateStatus;
   /** This affiliate's own commission rate, when the merchant set one (D9). */
   pctOverride?: number;
 }
@@ -78,4 +86,10 @@ export interface Payout {
   amountCents: number;
   day: string;
   note: string;
+}
+
+/** The applicant's own words about where they'd share the code — clamped, never interpreted.
+ *  One clamp, applied on every path that writes it, so a long paste can't bloat a row. */
+export function sanitizeChannels(value: unknown): string {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, 200) : "";
 }

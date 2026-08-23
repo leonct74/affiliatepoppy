@@ -9,6 +9,7 @@
 // quiet is a mint failure — that is a publisher stuck on "being prepared", so it is
 // collected and surfaced in the sync report.
 
+import { sanitizeChannels } from "../../shared/src/ledger";
 import type { AffiliateProfile } from "../../shared/src/ledger";
 import { PORTAL_BASE } from "./portal-publish";
 
@@ -65,6 +66,9 @@ export interface PortalSyncDeps extends PortalPatchDeps {
   affiliate(affId: string): Promise<AffiliateProfile | undefined>;
   countAffiliates(): Promise<number>;
   createAffiliate(profile: AffiliateProfile): Promise<void>;
+  /** Backfill on an already-imported affiliate — today only what they said at sign-up, which
+   *  older rows were imported without. */
+  updateAffiliate(affId: string, patch: { channels: string }): Promise<void>;
   /** The poppy's own approve path — issues the code, mints on partners, posts back. */
   approve(affId: string): Promise<AffiliateProfile>;
   today(): string;
@@ -124,7 +128,7 @@ export async function syncPlatformSignups(deps: PortalSyncDeps): Promise<SyncRep
         affId,
         email: s.email,
         displayName: s.name || s.email.split("@")[0] || "publisher",
-        ...(s.channels ? { channels: s.channels } : {}),
+        ...(s.channels ? { channels: sanitizeChannels(s.channels) } : {}),
         status: "pending",
         code: "",
         promotionCodeId: "",
@@ -134,6 +138,22 @@ export async function syncPlatformSignups(deps: PortalSyncDeps): Promise<SyncRep
       report.imported++;
       profile = await deps.affiliate(affId);
       if (!profile) continue;
+    }
+
+    // Whatever they told us at sign-up arrives with every poll, so a row imported before the
+    // question existed picks it up on the next pass rather than staying blank forever.
+    const channels = sanitizeChannels(s.channels);
+    if (channels && channels !== (profile.channels ?? "")) {
+      await deps.updateAffiliate(affId, { channels });
+      profile = { ...profile, channels };
+    }
+
+    // Turned down here. Say so to the platform (in case an earlier write-back was missed) and
+    // never mint — not even under auto-approve, which would otherwise undo the merchant's
+    // decision the minute after they made it.
+    if (profile.status === "declined") {
+      await postPublisherPatch(deps, s.uid, { status: "declined" });
+      continue;
     }
 
     // Already minted here but the platform still lists them — an earlier write-back was

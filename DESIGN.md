@@ -692,6 +692,28 @@ wire shape is ours to choose and identical for every merchant, whatever their ac
 to. `stripe-api.test.ts` asserts the header and the exact form body. (Webhook parsing was
 untouched — it reads `discounts[].promotion_code`, which survived the change.)
 
+**The hand-written row mapper, twice in one build (founder, 2026-08-23: "I declined one user
+but nothing happened").** `readAffiliate` narrowed a stored status with
+`status === "active" || status === "retired" ? status : "pending"`. Declining wrote
+`"declined"` to DynamoDB correctly, told the platform correctly — and then every read turned it
+back into `"pending"`, so the applicant vanished from nowhere and reappeared in the queue. The
+same pass shipped `channels` (what an applicant says at sign-up) into the type, the sync, the
+UI and the notification email, but into neither `createAffiliate`'s Item nor `readAffiliate` —
+so it was never stored at all.
+
+Both are the same failure: **a field added to the type but to only one side of the map**, and
+both fail silently, which is the worst way to fail. Three defences, all in this repo now:
+
+- `AFFILIATE_STATES` in `shared/src/ledger.ts` is the single source of truth — the status type
+  is derived from it and the reader tests membership against it, so adding a state is one edit.
+- `backend/src/ledger-store.test.ts` round-trips **every** state and the free-text field through
+  a fake DynamoDB. Adding a state without teaching the store fails there.
+- `portal-sync` backfills `channels` on every poll, so rows imported by the older build heal
+  themselves rather than staying blank forever.
+
+The rule for anything stored in that table: **write the round-trip test with the field, not
+after it.** A UI that reads a field the store never wrote looks identical to a UI that works.
+
 ### 12.3 What is built
 
 - **P0** — repo, workspaces, embedded-template deploy pipeline (content-addressed template +

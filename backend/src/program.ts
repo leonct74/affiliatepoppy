@@ -179,6 +179,7 @@ export class Program {
       affiliate: (affId) => this.ledger.affiliate(affId),
       countAffiliates: async () => (await this.ledger.listAffiliates()).length,
       createAffiliate: (profile) => this.ledger.createAffiliate(profile),
+      updateAffiliate: (affId, patch) => this.ledger.updateAffiliate(affId, patch),
       approve: (affId) => this.approve(affId),
       today: () => dayOf(Math.floor(Date.now() / 1000)),
     });

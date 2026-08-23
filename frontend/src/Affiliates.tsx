@@ -45,12 +45,18 @@ export function Affiliates(props: {
     (a.code ?? "").toLowerCase().includes(q) ||
     (a.channels ?? "").toLowerCase().includes(q);
 
+  const searching = q.length > 0;
   const pending = props.affiliates.filter((a) => a.status === "pending" && matches(a));
   // Declined applications stay OUT of the way until asked for — they are not partners, and a
-  // merchant who turned someone down shouldn't have to scroll past them forever.
+  // merchant who turned someone down shouldn't have to scroll past them forever. A SEARCH is
+  // the exception: someone looking for a person by name means everyone, or the box lies.
   const active = props.affiliates.filter(
-    (a) => a.status !== "pending" && (showDeclined ? a.status === "declined" : a.status !== "declined") && matches(a),
+    (a) =>
+      a.status !== "pending" &&
+      matches(a) &&
+      (searching || (showDeclined ? a.status === "declined" : a.status !== "declined")),
   );
+  const shown = pending.length + active.length;
 
   const run = async (work: () => Promise<unknown>) => {
     setError(null);
@@ -82,6 +88,40 @@ export function Affiliates(props: {
         </div>
       )}
       {error && <div className="banner err">{error}</div>}
+
+      {props.affiliates.length > 0 && (
+        <div className="card stack">
+          <div className="spread" style={{ gap: 12, flexWrap: "wrap" }}>
+            <span className="row" style={{ gap: 18, flexWrap: "wrap" }}>
+              <Count label="Waiting" value={counts.waiting} accent={counts.waiting > 0} />
+              <Count label="Active" value={counts.active} />
+              <Count label="Retired" value={counts.retired} />
+              <Count label="Declined" value={counts.declined} />
+            </span>
+            {/* Always here, whatever the size of the list — a control that appears only once
+                the list is long is a control nobody knows exists by the time they need it. */}
+            <input
+              className="input"
+              style={{ maxWidth: 260 }}
+              type="search"
+              placeholder="Find anyone — name, email, code"
+              aria-label="Find an affiliate"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          {searching && (
+            <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+              {shown === 0
+                ? `Nobody matches "${query}" — this searches names, emails, codes and what people said at sign-up.`
+                : `${shown} of ${props.affiliates.length} match "${query}".`}
+            </p>
+          )}
+        </div>
+      )}
 
       {pending.length > 0 && (
         <div className="card stack">
@@ -123,52 +163,29 @@ export function Affiliates(props: {
         </div>
       )}
 
-      {props.affiliates.length > 0 && (
-        <div className="card row" style={{ gap: 18, flexWrap: "wrap" }}>
-          <Count label="Waiting" value={counts.waiting} accent={counts.waiting > 0} />
-          <Count label="Active" value={counts.active} />
-          <Count label="Retired" value={counts.retired} />
-          <Count label="Declined" value={counts.declined} />
-        </div>
-      )}
-
       <div className="card stack">
         <div className="spread">
           <h2 className="section-title" style={{ margin: 0 }}>
-            {showDeclined ? "Declined applications" : "Your affiliates"}
+            {showDeclined && !searching ? "Declined applications" : "Your affiliates"}
           </h2>
-          <span className="row" style={{ gap: 8 }}>
-            {props.affiliates.length > 6 && (
-              <input
-                className="input"
-                style={{ maxWidth: 220 }}
-                type="search"
-                placeholder="Find by name, email or code"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            )}
-            {counts.declined > 0 && (
-              <button className="btn btn-sm btn-link" onClick={() => setShowDeclined((v) => !v)}>
-                {showDeclined ? "Back to affiliates" : `Declined (${counts.declined})`}
-              </button>
-            )}
-          </span>
+          {counts.declined > 0 && !searching && (
+            <button className="btn btn-sm btn-link" onClick={() => setShowDeclined((v) => !v)}>
+              {showDeclined ? "Back to affiliates" : `Declined (${counts.declined})`}
+            </button>
+          )}
         </div>
-        {q && (
-          <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-            {pending.length + active.length === 0
-              ? `Nobody matches "${query}".`
-              : `${pending.length + active.length} of ${props.affiliates.length} match "${query}".`}
-          </p>
-        )}
 
         {active.length === 0 && pending.length === 0 && (
           <p className="muted" style={{ margin: 0 }}>
-            Nobody has joined yet. Share the link from the Setup tab — that's all it takes.
+            {searching
+              ? `Nobody here matches "${query}".`
+              : showDeclined
+                ? "You haven't turned anyone down."
+                : counts.waiting > 0
+                  ? "Everyone who has joined is still waiting for you, above."
+                  : counts.declined > 0
+                    ? "Nobody is in the programme — every application so far was turned down."
+                    : "Nobody has joined yet. Share the link from the Setup tab — that's all it takes."}
           </p>
         )}
 

@@ -175,3 +175,51 @@ describe("the sign-up link on the list (the link is the product)", () => {
     expect(screen.getByText(/share it anywhere/i)).toBeInTheDocument();
   });
 });
+
+describe("turning an application down", () => {
+  it("asks first, then declines — and says plainly that nothing is destroyed", async () => {
+    const decline = vi.spyOn(api, "decline").mockResolvedValue({ affiliate: affiliate({ status: "declined" }) });
+    show([affiliate({ status: "pending", code: "", displayName: "Maria" })]);
+    await userEvent.click(screen.getByRole("button", { name: /^decline$/i }));
+    expect(screen.getByText(/decline maria\?/i)).toBeInTheDocument();
+    expect(screen.getByText(/still approve them/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /decline the application/i }));
+    expect(decline).toHaveBeenCalledWith("aff-oliver");
+  });
+
+  it("moves them out of the queue and behind their own toggle — they are not partners", () => {
+    show([affiliate({ status: "declined", code: "", displayName: "Maria" })]);
+    expect(screen.queryByText(/waiting for you/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Maria")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /declined \(1\)/i })).toBeInTheDocument();
+  });
+});
+
+describe("finding one person among many (founder, 2026-08-23)", () => {
+  it("offers the search from the first affiliate — not once the list is already unusable", () => {
+    show([affiliate()]);
+    expect(screen.getByRole("searchbox", { name: /find an affiliate/i })).toBeInTheDocument();
+  });
+
+  it("finds anyone by name, email, code or what they said at sign-up — including the declined", async () => {
+    show([
+      affiliate({ affId: "a1", displayName: "Oliver" }),
+      affiliate({ affId: "a2", displayName: "Maria", email: "maria@example.com", code: "MARIA22", status: "declined" }),
+      affiliate({ affId: "a3", displayName: "Sam", email: "sam@example.com", code: "SAM99", channels: "YouTube" }),
+    ]);
+    const box = screen.getByRole("searchbox", { name: /find an affiliate/i });
+
+    await userEvent.type(box, "maria");
+    expect(screen.getByText(/1 of 3 match/i)).toBeInTheDocument();
+    expect(screen.getByText("Maria")).toBeInTheDocument(); // declined, and still findable
+    expect(screen.queryByText("Oliver")).not.toBeInTheDocument();
+
+    await userEvent.clear(box);
+    await userEvent.type(box, "youtube");
+    expect(screen.getByText("Sam")).toBeInTheDocument();
+
+    await userEvent.clear(box);
+    await userEvent.type(box, "zzz");
+    expect(screen.getByText(/nobody matches "zzz"/i)).toBeInTheDocument();
+  });
+});

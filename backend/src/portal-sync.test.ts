@@ -22,7 +22,7 @@ function profileOf(over: Partial<AffiliateProfile> = {}): AffiliateProfile {
 }
 
 function harness(opts: {
-  signups?: Array<{ uid: string; email: string; name: string; status: string }>;
+  signups?: Array<{ uid: string; email: string; name: string; status: string; channels?: string }>;
   autoApprove?: boolean;
   maxAffiliates?: number;
   existing?: AffiliateProfile[];
@@ -31,6 +31,7 @@ function harness(opts: {
 }) {
   const calls: { url: string; body: Record<string, unknown> }[] = [];
   const created: AffiliateProfile[] = [];
+  const patched: Array<{ affId: string; channels: string }> = [];
   const approved: string[] = [];
   const profiles = new Map<string, AffiliateProfile>((opts.existing ?? []).map((p) => [p.affId, p]));
 
@@ -51,6 +52,11 @@ function harness(opts: {
       created.push(p);
       profiles.set(p.affId, p);
     },
+    updateAffiliate: async (affId, patch) => {
+      patched.push({ affId, ...patch });
+      const existing = profiles.get(affId);
+      if (existing) profiles.set(affId, { ...existing, ...patch });
+    },
     approve: async (affId) => {
       if (opts.approveFails) throw new Error("Stripe said no");
       approved.push(affId);
@@ -60,7 +66,7 @@ function harness(opts: {
     },
     today: () => "2026-08-21",
   };
-  return { deps, calls, created, approved };
+  return { deps, calls, created, approved, patched };
 }
 
 const SIGNUP = { uid: "u1", email: "p@example.com", name: "Olly", status: "pending" };
@@ -159,5 +165,33 @@ describe("the write-back and the pure bits", () => {
       pctOverride: 15,
     });
     expect(activePatch(profileOf()).pctOverride).toBeNull();
+  });
+});
+
+describe("what the applicant said, and what the merchant decided", () => {
+  it("carries the sign-up answer onto the affiliate, and backfills a row imported before we asked", async () => {
+    const withChannels = { ...SIGNUP, channels: "YouTube and a newsletter" };
+
+    const fresh = harness({ signups: [withChannels] });
+    await syncPlatformSignups(fresh.deps);
+    expect(fresh.created[0]?.channels).toBe("YouTube and a newsletter");
+
+    // The same publisher, imported by an older build that never stored the answer.
+    const older = harness({ signups: [withChannels], existing: [profileOf()] });
+    await syncPlatformSignups(older.deps);
+    expect(older.patched).toEqual([{ affId: "pp_u1", channels: "YouTube and a newsletter" }]);
+  });
+
+  it("never mints for someone the merchant declined — not even under auto-approve", async () => {
+    const h = harness({
+      signups: [SIGNUP],
+      autoApprove: true,
+      existing: [profileOf({ status: "declined" })],
+    });
+    const report = await syncPlatformSignups(h.deps);
+    expect(report?.minted).toBe(0);
+    expect(h.approved).toEqual([]);
+    // ...and the platform is told again, so the applicant's page answers them either way.
+    expect(h.calls.filter((c) => c.url.includes("/publisher")).map((c) => c.body.status)).toEqual(["declined"]);
   });
 });
