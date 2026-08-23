@@ -80,13 +80,23 @@ describe("renaming the address", () => {
     expect(out.url).toBe("https://affiliates.agentspoppy.com/olly-digital");
   });
 
-  it("the platform's refusals become sentences — especially the one that protects publishers", async () => {
-    const busy = deps({}, [{ status: 409, body: { error: "has_publishers" } }]);
-    busy.state.slug = "olly";
-    busy.state.token = "apt_x";
-    await expect(renamePortal(busy.d, "new-name")).rejects.toThrow(/already joined through this address/);
-    expect(busy.state.slug).toBe("olly"); // nothing moved locally
+  it("reports how many records travelled with the page", async () => {
+    // The publishers MOVE now (2026-08-22) — a rename that silently left them behind was the
+    // reason renames used to be refused once anybody had joined.
+    const { d, state } = deps({}, [{ status: 200, body: { slug: "olly-digital", moved: 7 } }]);
+    state.slug = "olly";
+    state.token = "apt_x";
+    expect((await renamePortal(d, "olly-digital")).moved).toBe(7);
+  });
 
+  it("a reserved name says RESERVED, not that the spelling is wrong", async () => {
+    const { d, state } = deps({}, [{ status: 422, body: { error: "reserved_slug" } }]);
+    state.slug = "olly";
+    state.token = "apt_x";
+    await expect(renamePortal(d, "portal")).rejects.toThrow(/reserved by the platform/);
+  });
+
+  it("the platform's refusals become sentences", async () => {
     const taken = deps({}, [{ status: 409, body: { error: "slug_taken" } }]);
     taken.state.slug = "olly";
     taken.state.token = "apt_x";

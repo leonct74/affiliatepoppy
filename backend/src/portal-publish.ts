@@ -73,13 +73,14 @@ export async function publishPortal(deps: PortalPublishDeps, rawSlug: string): P
 }
 
 /**
- * Change the programme's address. The platform allows it only while nobody has joined —
- * publishers' links and logins live under the address — and leaves the old one redirecting
- * forever. The token is unchanged; locally only the slug moves, and the feed marker resets
- * because the feed webhook's URL contains the address (one press of the webhook button
- * moves it).
+ * Change the programme's address. The platform MOVES the publishers, their earnings and their
+ * Stripe references across, and leaves the old address redirecting forever — so links already
+ * shared keep working and nobody is orphaned. The token is unchanged; locally only the slug
+ * moves, and the feed marker resets because the feed webhook's URL contains the address (one
+ * press of the webhook button moves it; until then the platform follows the redirect, so no
+ * commission is lost in between).
  */
-export async function renamePortal(deps: PortalPublishDeps, rawSlug: string): Promise<{ slug: string; url: string }> {
+export async function renamePortal(deps: PortalPublishDeps, rawSlug: string): Promise<{ slug: string; url: string; moved: number }> {
   const newSlug = rawSlug.trim().toLowerCase();
   if (!newSlug) throw new Error("Type the new name first.");
   const [slug, token] = await Promise.all([deps.portalSlug(), deps.readToken()]);
@@ -96,10 +97,7 @@ export async function renamePortal(deps: PortalPublishDeps, rawSlug: string): Pr
   } catch (e) {
     throw new Error(`Couldn't reach agentspoppy.com (${(e as Error).message}). Nothing changed — try again.`);
   }
-  const body = (await res.json().catch(() => ({}))) as { error?: string; slug?: string; url?: string };
-  if (res.status === 409 && body.error === "has_publishers") {
-    throw new Error("People have already joined through this address — changing it now would break the links they're sharing, so it stays.");
-  }
+  const body = (await res.json().catch(() => ({}))) as { error?: string; slug?: string; url?: string; moved?: number };
   if (res.status === 409) throw new Error(`"${newSlug}" is already taken — pick another name.`);
   if (res.status === 422 && body.error === "reserved_slug") {
     throw new Error(`"${newSlug}" is reserved by the platform — pick another name.`);
@@ -108,7 +106,11 @@ export async function renamePortal(deps: PortalPublishDeps, rawSlug: string): Pr
   if (res.status === 403) throw new Error("The platform didn't recognise this programme's token — if you rebuilt your storage, publish again first.");
   if (!res.ok || !body.slug) throw new Error("The portal service refused the request — try again in a moment.");
   await deps.savePortalSlug(body.slug); // resets the feed marker on purpose — the feed URL moved
-  return { slug: body.slug, url: body.url ?? `https://affiliates.agentspoppy.com/${body.slug}` };
+  return {
+    slug: body.slug,
+    url: body.url ?? `https://affiliates.agentspoppy.com/${body.slug}`,
+    moved: typeof body.moved === "number" ? body.moved : 0,
+  };
 }
 
 /**

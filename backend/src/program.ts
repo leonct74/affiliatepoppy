@@ -70,8 +70,8 @@ export class Program {
     return publishPortal(this.portalDeps(), slug);
   }
 
-  /** Change the address (only while nobody joined; the old one redirects forever). */
-  async renamePortal(slug: string): Promise<{ slug: string; url: string }> {
+  /** Change the address: publishers move with it, the old one redirects forever. */
+  async renamePortal(slug: string): Promise<{ slug: string; url: string; moved: number }> {
     return renamePortal(this.portalDeps(), slug);
   }
 

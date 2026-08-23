@@ -401,8 +401,9 @@ function PortalPublish(props: { config: ProgramConfig | null; onPublished: () =>
       <div className="card stack">
         <h2 className="section-title">Your permanent address</h2>
         <p className="muted" style={{ margin: 0 }}>
-          This is the link you share. It cannot be changed after someone has joined your programme. The page
-          updates itself every time you save these settings.
+          This is the link you share. The page updates itself every time you save these settings. You can
+          change the address later — your partners and their earnings move with it, and the old link keeps
+          working forever.
         </p>
         <div className="row">
           <span className="chip" style={{ overflowWrap: "anywhere" }}>{props.config!.portal.url}</span>
@@ -619,8 +620,10 @@ function PortalRename(props: { current: string; onRenamed: () => Promise<void> }
   return (
     <div className="stack" style={{ gap: 8 }}>
       <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-        Possible while nobody has joined yet. The old address keeps working — it forwards to the new one. If the
-        ledger feed was connected, press its button again afterwards (the feed follows the address).
+        Your partners, their codes and their earnings move across with the page. The old address keeps
+        working — it forwards to the new one, forever. If the ledger feed was connected, press its button
+        again afterwards so Stripe posts to the new address (until you do, we follow the forward, so
+        nothing is lost).
       </p>
       {error && <div className="banner err">{error}</div>}
       <div className="row">
