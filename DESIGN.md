@@ -471,6 +471,23 @@ developer's figure; refund reverses both.*
   the `/`→`/portal` landing rewrite got re-matched by the slug rule as `/portal/portal`; the
   slug pattern now excludes the literal `portal`. (2) A Firestore hiccup on a merchant page
   renders "try again in a minute", never a raw 500 — only a confirmed miss 404s.
+  *Identity, corrected live (founder, 2026-08-23 — "he got in the portal active for a
+  different user; I'm using the same browser"):* every programme shares ONE origin, so a
+  browser holds one publisher session for all of them, and the page used to open that
+  session's dashboard on sight. On a shared, borrowed or demoed computer that hands the
+  previous visitor's code and earnings to whoever opens the public link next. Two rules now,
+  pure and tested in `src/lib/portal/session.ts` on the platform:
+  (a) **a session this browser remembered is not the person looking at the screen** — a
+  restored session is offered ("signed in as x@y.z — continue, or use a different account"),
+  and only a sign-in or account creation ON the page claims it. The claim is per-tab, plus a
+  15-minute browser-wide stamp so a first sign-up survives the verification link opening in a
+  new tab;
+  (b) **joining is an act, never a side-effect** — the old code POSTed a signup for any
+  verified visitor who merely OPENED a programme page they hadn't joined, enrolling them in
+  someone's business without asking (and minting them a code under autoApprove). A signed-in
+  non-member now gets an offer card that names the merchant, asks where they'd share the
+  code, and carries the hosting terms.
+
   *Founder action before live publishers:* add `affiliates.agentspoppy.com` to Firebase Auth
   → Settings → Authorized domains (sign-up/sign-in runs there now), and if the web API key
   has HTTP-referrer restrictions, allow the subdomain there too.
