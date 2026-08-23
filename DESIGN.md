@@ -487,6 +487,11 @@ developer's figure; refund reverses both.*
   someone's business without asking (and minting them a code under autoApprove). A signed-in
   non-member now gets an offer card that names the merchant, asks where they'd share the
   code, and carries the hosting terms.
+  (c) **what the applicant typed must outlive the tab they typed it in** — the "where would
+  you share the code?" answer was held per-tab, but the application can only be sent after
+  email verification, whose link opens a NEW tab: the answer reached neither the owner's email
+  nor the approval queue. It is now a browser-scoped draft (per programme, one hour), offered
+  back prefilled and cleared once the application lands.
 
   *Founder action before live publishers:* add `affiliates.agentspoppy.com` to Firebase Auth
   → Settings → Authorized domains (sign-up/sign-in runs there now), and if the web API key
