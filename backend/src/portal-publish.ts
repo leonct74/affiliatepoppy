@@ -59,6 +59,9 @@ export async function publishPortal(deps: PortalPublishDeps, rawSlug: string): P
   }
   const body = (await res.json().catch(() => ({}))) as { token?: string; url?: string; error?: string };
   if (res.status === 409) throw new Error(`"${slug}" is already taken — pick another name.`);
+  if (res.status === 422 && body.error === "reserved_slug") {
+    throw new Error(`"${slug}" is reserved by the platform — pick another name.`);
+  }
   if (res.status === 422) throw new Error("That name can't be used: lowercase letters, digits and hyphens, 3–30 characters.");
   if (!res.ok || !body.token) throw new Error("The portal service refused the request — try again in a moment.");
 
@@ -98,6 +101,9 @@ export async function renamePortal(deps: PortalPublishDeps, rawSlug: string): Pr
     throw new Error("People have already joined through this address — changing it now would break the links they're sharing, so it stays.");
   }
   if (res.status === 409) throw new Error(`"${newSlug}" is already taken — pick another name.`);
+  if (res.status === 422 && body.error === "reserved_slug") {
+    throw new Error(`"${newSlug}" is reserved by the platform — pick another name.`);
+  }
   if (res.status === 422) throw new Error("That name can't be used: lowercase letters, digits and hyphens, 3–30 characters.");
   if (res.status === 403) throw new Error("The platform didn't recognise this programme's token — if you rebuilt your storage, publish again first.");
   if (!res.ok || !body.slug) throw new Error("The portal service refused the request — try again in a moment.");

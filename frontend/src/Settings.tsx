@@ -583,11 +583,28 @@ function PortalFeed(props: {
  * address forwards to the new one forever, so "permanent" survives the rename. After a
  * rename the ledger feed follows with one press (its webhook URL contains the address).
  */
+/**
+ * Why the "Move to this name" button is off — a SENTENCE, never a grey button with no reason
+ * (founder, 2026-08-22: "it is crap, I can't change it" — the name he typed failed the pattern
+ * and nothing on screen said so). Returns null when the name is good to go.
+ */
+export function slugProblem(slug: string, current: string): string | null {
+  if (!slug) return null; // nothing typed yet — an empty field explains itself
+  if (slug === current) return "That's already your address — type a different one.";
+  if (slug.length < 3) return "A bit longer — at least 3 characters.";
+  if (slug.startsWith("-") || slug.endsWith("-")) {
+    return "It can't start or end with a hyphen (a space at the end becomes one — try deleting it).";
+  }
+  if (!SLUG_OK.test(slug)) return "Lowercase letters, digits and hyphens only, 3–30 characters.";
+  return null;
+}
+
 function PortalRename(props: { current: string; onRenamed: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [slug, setSlug] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const slugValid = SLUG_OK.test(slug) && slug !== props.current;
+  const problem = slugProblem(slug, props.current);
+  const slugValid = slug.length > 0 && !problem;
 
   if (!open) {
     return (
@@ -639,6 +656,16 @@ function PortalRename(props: { current: string; onRenamed: () => Promise<void> }
           Keep it
         </button>
       </div>
+      {problem && (
+        <span className="muted" style={{ fontSize: 12 }}>
+          {problem}
+        </span>
+      )}
+      {slugValid && (
+        <span className="muted" style={{ fontSize: 12 }}>
+          Your page becomes <span className="chip">affiliates.agentspoppy.com/{slug}</span>
+        </span>
+      )}
     </div>
   );
 }
