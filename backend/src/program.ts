@@ -624,6 +624,23 @@ export class Program {
     return (await this.ledger.affiliate(affId))!;
   }
 
+  /**
+   * Turn down an application (2026-08-22). Deliberately NOT a delete: the applicant is told,
+   * rather than left waiting on a page forever, and the record stops them reappearing in the
+   * queue. Nothing is created in Stripe, so there is nothing to undo — someone declined by
+   * mistake can simply be approved afterwards.
+   */
+  async decline(affId: string): Promise<AffiliateProfile> {
+    const profile = await this.ledger.affiliate(affId);
+    if (!profile) throw new Error("That affiliate isn't in your programme.");
+    if (profile.code) {
+      throw new Error("They already have a working code — use Retire instead, which switches the code off and keeps what they earned.");
+    }
+    await this.ledger.updateAffiliate(affId, { status: "declined" });
+    await this.postPlatformPatch(affId, { status: "declined" });
+    return (await this.ledger.affiliate(affId))!;
+  }
+
   /** Set (or clear, with null) one affiliate's own commission rate — D9. */
   async setRate(affId: string, pct: number | null): Promise<AffiliateProfile> {
     const clean =

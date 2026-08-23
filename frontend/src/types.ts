@@ -96,7 +96,9 @@ export interface Affiliate {
   affId: string;
   email: string;
   displayName: string;
-  status: "pending" | "active" | "retired";
+  status: "pending" | "active" | "retired" | "declined";
+  /** Their own words about where they would share the code. Optional. */
+  channels?: string;
   code: string;
   promotionCodeId: string;
   createdDay: string;

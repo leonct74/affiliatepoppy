@@ -23,8 +23,34 @@ export function Affiliates(props: {
 }) {
   const [error, setError] = useState<string | null>(null);
   const [retiring, setRetiring] = useState<Affiliate | null>(null);
-  const pending = props.affiliates.filter((a) => a.status === "pending");
-  const active = props.affiliates.filter((a) => a.status !== "pending");
+  const [declining, setDeclining] = useState<Affiliate | null>(null);
+  // Founder, 2026-08-22: with many affiliates the list alone is unusable — a count strip says
+  // where the programme stands at a glance, and the filter finds one person without scrolling.
+  const [query, setQuery] = useState("");
+  const [showDeclined, setShowDeclined] = useState(false);
+
+  const counts = {
+    waiting: props.affiliates.filter((a) => a.status === "pending").length,
+    active: props.affiliates.filter((a) => a.status === "active").length,
+    retired: props.affiliates.filter((a) => a.status === "retired").length,
+    declined: props.affiliates.filter((a) => a.status === "declined").length,
+  };
+
+  // Name, email or code — whichever the merchant happens to remember.
+  const q = query.trim().toLowerCase();
+  const matches = (a: Affiliate) =>
+    !q ||
+    a.displayName.toLowerCase().includes(q) ||
+    a.email.toLowerCase().includes(q) ||
+    (a.code ?? "").toLowerCase().includes(q) ||
+    (a.channels ?? "").toLowerCase().includes(q);
+
+  const pending = props.affiliates.filter((a) => a.status === "pending" && matches(a));
+  // Declined applications stay OUT of the way until asked for — they are not partners, and a
+  // merchant who turned someone down shouldn't have to scroll past them forever.
+  const active = props.affiliates.filter(
+    (a) => a.status !== "pending" && (showDeclined ? a.status === "declined" : a.status !== "declined") && matches(a),
+  );
 
   const run = async (work: () => Promise<unknown>) => {
     setError(null);
@@ -74,28 +100,71 @@ export function Affiliates(props: {
                 <div className="muted" style={{ fontSize: 12 }}>
                   {a.email} · applied {a.createdDay}
                 </div>
+                {a.channels && (
+                  <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                    Would share it on: <span style={{ color: "var(--poppy-text)" }}>{a.channels}</span>
+                  </div>
+                )}
               </div>
-              <Button
-                className="btn btn-primary btn-sm"
-                busyLabel="Creating code…"
-                onClick={() => run(() => api.approve(a.affId))}
-              >
-                Approve
-              </Button>
+              <span className="row" style={{ gap: 8 }}>
+                <Button
+                  className="btn btn-primary btn-sm"
+                  busyLabel="Creating code…"
+                  onClick={() => run(() => api.approve(a.affId))}
+                >
+                  Approve
+                </Button>
+                <button className="btn btn-sm btn-link" onClick={() => setDeclining(a)}>
+                  Decline
+                </button>
+              </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {props.affiliates.length > 0 && (
+        <div className="card row" style={{ gap: 18, flexWrap: "wrap" }}>
+          <Count label="Waiting" value={counts.waiting} accent={counts.waiting > 0} />
+          <Count label="Active" value={counts.active} />
+          <Count label="Retired" value={counts.retired} />
+          <Count label="Declined" value={counts.declined} />
         </div>
       )}
 
       <div className="card stack">
         <div className="spread">
           <h2 className="section-title" style={{ margin: 0 }}>
-            Your affiliates
+            {showDeclined ? "Declined applications" : "Your affiliates"}
           </h2>
-          <span className="muted" style={{ fontSize: 12 }}>
-            {active.length} active
+          <span className="row" style={{ gap: 8 }}>
+            {props.affiliates.length > 6 && (
+              <input
+                className="input"
+                style={{ maxWidth: 220 }}
+                type="search"
+                placeholder="Find by name, email or code"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            )}
+            {counts.declined > 0 && (
+              <button className="btn btn-sm btn-link" onClick={() => setShowDeclined((v) => !v)}>
+                {showDeclined ? "Back to affiliates" : `Declined (${counts.declined})`}
+              </button>
+            )}
           </span>
         </div>
+        {q && (
+          <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+            {pending.length + active.length === 0
+              ? `Nobody matches "${query}".`
+              : `${pending.length + active.length} of ${props.affiliates.length} match "${query}".`}
+          </p>
+        )}
 
         {active.length === 0 && pending.length === 0 && (
           <p className="muted" style={{ margin: 0 }}>
@@ -113,6 +182,17 @@ export function Affiliates(props: {
           />
         ))}
       </div>
+
+      {declining && (
+        <DeclineDialog
+          affiliate={declining}
+          onCancel={() => setDeclining(null)}
+          onConfirm={async () => {
+            await run(() => api.decline(declining.affId));
+            setDeclining(null);
+          }}
+        />
+      )}
 
       {retiring && (
         <RetireDialog
@@ -155,6 +235,7 @@ function Row(props: {
             <strong>{a.displayName}</strong>
             {a.affId.startsWith("pp_") && <span className="badge">via your public page</span>}
             {a.status === "retired" && <span className="badge">Retired</span>}
+            {a.status === "declined" && <span className="badge">Declined</span>}
           </div>
           <div className="muted" style={{ fontSize: 12 }}>
             {a.email}
@@ -270,6 +351,59 @@ function Row(props: {
  * names the blast radius (AGENTS.md §4) — and, just as importantly, names what is NOT
  * destroyed: the money they have already earned.
  */
+/** One number in the count strip — where the programme stands, without reading the list. */
+function Count(props: { label: string; value: number; accent?: boolean }) {
+  return (
+    <div>
+      <div
+        style={{
+          fontSize: 22,
+          fontWeight: 650,
+          fontVariantNumeric: "tabular-nums",
+          color: props.accent ? "var(--poppy-accent)" : "var(--poppy-text)",
+        }}
+      >
+        {props.value}
+      </div>
+      <div className="muted" style={{ fontSize: 12 }}>
+        {props.label}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Turning down an application. Softer ceremony than RetireDialog on purpose: nothing exists in
+ * Stripe yet and nothing is destroyed, so type-to-confirm would be theatre. It still says what
+ * the applicant will be told, because they WILL be told — silence would be worse than a no.
+ */
+function DeclineDialog(props: { affiliate: Affiliate; onCancel: () => void; onConfirm: () => Promise<void> }) {
+  const a = props.affiliate;
+  return (
+    <div className="scrim" onClick={props.onCancel}>
+      <div className="modal stack" onClick={(e) => e.stopPropagation()}>
+        <strong>Decline {a.displayName}?</strong>
+        <p className="muted" style={{ margin: 0 }}>
+          No code is created and nothing is charged. On their page they&rsquo;ll see that you
+          aren&rsquo;t able to take them on &mdash; better than leaving them waiting indefinitely.
+        </p>
+        <p className="muted" style={{ margin: 0 }}>
+          They move to <strong>Declined</strong>, out of your list. You can still approve them
+          later if you change your mind.
+        </p>
+        <div className="row">
+          <Button className="btn btn-danger" busyLabel="Declining…" onClick={props.onConfirm}>
+            Decline the application
+          </Button>
+          <button className="btn" onClick={props.onCancel}>
+            Keep them waiting
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RetireDialog(props: { affiliate: Affiliate; onCancel: () => void; onConfirm: () => Promise<void> }) {
   const [typed, setTyped] = useState("");
   const a = props.affiliate;

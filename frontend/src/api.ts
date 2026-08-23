@@ -71,6 +71,10 @@ export const api = {
   retire: (affId: string): Promise<{ affiliate: Affiliate }> =>
     invoke({ method: "POST", path: `/affiliates/${encodeURIComponent(affId)}/retire` }, 60_000),
 
+  /** Turn down an application. Nothing is created in Stripe, so approving later still works. */
+  decline: (affId: string): Promise<{ affiliate: Affiliate }> =>
+    invoke({ method: "POST", path: `/affiliates/${encodeURIComponent(affId)}/decline` }, 60_000),
+
   /** Set (or clear, with null) one affiliate's own commission rate. */
   setRate: (affId: string, pct: number | null): Promise<{ affiliate: Affiliate }> =>
     invoke({ method: "PUT", path: `/affiliates/${encodeURIComponent(affId)}/rate`, body: { pct } }),

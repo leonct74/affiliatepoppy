@@ -87,7 +87,7 @@ export async function syncPlatformSignups(deps: PortalSyncDeps): Promise<SyncRep
   const [slug, token] = await Promise.all([deps.portalSlug(), deps.readToken()]);
   if (!slug || !token) return null;
 
-  let signups: Array<{ uid: string; email: string; name: string; status: string }>;
+  let signups: Array<{ uid: string; email: string; name: string; status: string; channels?: string }>;
   try {
     const doFetch = deps.fetchImpl ?? fetch;
     const res = await doFetch(`${PORTAL_BASE}/api/portal/poll`, {
@@ -124,6 +124,7 @@ export async function syncPlatformSignups(deps: PortalSyncDeps): Promise<SyncRep
         affId,
         email: s.email,
         displayName: s.name || s.email.split("@")[0] || "publisher",
+        ...(s.channels ? { channels: s.channels } : {}),
         status: "pending",
         code: "",
         promotionCodeId: "",

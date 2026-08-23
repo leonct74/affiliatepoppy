@@ -33,7 +33,11 @@ export interface LedgerEntry {
 /** An affiliate as the money path needs them. */
 export interface AffiliateRecord {
   affId: string;
-  status: "pending" | "active" | "retired";
+  /** pending → waiting on the merchant · active → has a working code · retired → partnership
+   *  ended, earnings kept · declined → the merchant turned the application down (2026-08-22).
+   *  "declined" is a state rather than a delete so the applicant gets an ANSWER instead of
+   *  waiting forever, and so the same person can't silently re-appear in the queue. */
+  status: "pending" | "active" | "retired" | "declined";
   /** This affiliate's own commission rate, when the merchant set one (D9). */
   pctOverride?: number;
 }
@@ -48,6 +52,9 @@ export interface AffiliateProfile extends AffiliateRecord {
   /** The same code, minted on each participating connected account: acct id → promo id (P7). */
   promotionCodeIds?: Record<string, string>;
   createdDay: string;
+  /** What they said at sign-up about where they'd share the code — optional, their own words
+   *  (2026-08-22). Shown beside the Approve button, because it is what the decision rests on. */
+  channels?: string;
   /**
    * Where they say they share their code — optional, declared by them, a favour to the
    * merchant (shared/src/placements.ts). Empty for most affiliates, and that is fine.

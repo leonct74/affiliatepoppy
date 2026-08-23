@@ -208,6 +208,9 @@ const server = createServer(async (req, res) => {
           const body = (await readBody(req)) ?? {};
           return json(res, 200, { affiliate: await program.approve(affId, str(body.code) || undefined) });
         }
+        if (method === "POST" && parts[2] === "decline") {
+          return json(res, 200, { affiliate: await program.decline(affId) });
+        }
         if (method === "POST" && parts[2] === "retire") {
           return json(res, 200, { affiliate: await program.retire(affId) });
         }
