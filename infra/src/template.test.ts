@@ -152,11 +152,54 @@ describe("the portal — the page affiliates use", () => {
 describe("no secret is ever written into the stack", () => {
   it("passes only non-secret parameters — a Stripe key would live in CloudFormation history forever", () => {
     const parameters = Object.keys(template.Parameters ?? {});
-    expect(parameters.sort()).toEqual(["AttrAccountId", "AttrConnectionId", "LambdaCodeBucket", "LambdaCodeKey"]);
+    expect(parameters.sort()).toEqual([
+      "AttrAccountId",
+      "AttrConnectionId",
+      "LambdaCodeBucket",
+      "LambdaCodeKey",
+      "PermissionsBoundaryArn",
+    ]);
     // The template may name WHERE a secret lives, but must never carry its value.
     const serialised = JSON.stringify(template);
     expect(serialised).toContain(SSM_WEBHOOK_SECRET); // the parameter path, by name
     expect(serialised).not.toMatch(/whsec_|rk_live|sk_live|rk_test|sk_test/);
+  });
+});
+
+describe("the AgentsPoppy permissions boundary (broker-role-v2 step 2)", () => {
+  const roles = Object.entries(R).filter(([, r]) => r.Type === "AWS::IAM::Role");
+
+  it("takes the boundary as an optional parameter, defaulting to none", () => {
+    // A hard-coded ARN would break every deploy in an account that doesn't have the policy
+    // yet: IAM refuses CreateRole outright when the named boundary doesn't exist.
+    const param = (template.Parameters as Record<string, { Type: string; Default?: string }>).PermissionsBoundaryArn!;
+    expect(param.Type).toBe("String");
+    expect(param.Default).toBe("");
+  });
+
+  it("applies it only when one was passed", () => {
+    expect((template.Conditions as Record<string, unknown>).HasPermissionsBoundary).toEqual({
+      "Fn::Not": [{ "Fn::Equals": [{ Ref: "PermissionsBoundaryArn" }, ""] }],
+    });
+  });
+
+  it("caps EVERY role in the stack — a role added later must not slip through", () => {
+    expect(roles.map(([name]) => name).sort()).toEqual(["PortalRole", "ReceiverRole"]);
+    for (const [name, role] of roles) {
+      expect(role.Properties.PermissionsBoundary, `${name} must be capped by the boundary`).toEqual({
+        "Fn::If": ["HasPermissionsBoundary", { Ref: "PermissionsBoundaryArn" }, { Ref: "AWS::NoValue" }],
+      });
+    }
+  });
+
+  it("caps, never grants — no execution policy is touched by it", () => {
+    // The safety argument for shipping this at all: the boundary is a ceiling on the role, so
+    // the policies the Lambdas actually run on are the same with it and without it, and no
+    // Lambda can lose a permission by gaining one.
+    for (const [name, role] of roles) {
+      expect(JSON.stringify(role.Properties.Policies), `${name}'s own policy must not mention the boundary`)
+        .not.toContain("PermissionsBoundary");
+    }
   });
 });
 
@@ -247,6 +290,18 @@ describe("the template stays in lockstep with the manifest's declared scope", ()
     if ((table.Properties.TimeToLiveSpecification as { Enabled?: boolean })?.Enabled) {
       expect(actionsOf("dynamodb")).toContain("UpdateTimeToLive");
       expect(actionsOf("dynamodb")).toContain("DescribeTimeToLive");
+    }
+  });
+
+  it("grants the boundary permissions the template's PermissionsBoundary actually needs", () => {
+    // Attaching a boundary to a role that already exists is PutRolePermissionsBoundary, and
+    // CloudFormation calls DeleteRolePermissionsBoundary when an update flips the parameter
+    // back to empty — so a template carrying the property without both grants fails the
+    // update in the merchant's account and then fails its rollback the same way.
+    const bounded = Object.values(R).some((r) => r.Type === "AWS::IAM::Role" && r.Properties.PermissionsBoundary);
+    if (bounded) {
+      expect(actionsOf("iam")).toContain("PutRolePermissionsBoundary");
+      expect(actionsOf("iam")).toContain("DeleteRolePermissionsBoundary");
     }
   });
 

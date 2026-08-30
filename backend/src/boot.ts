@@ -16,6 +16,13 @@ export interface BackendBootstrap {
    * but it is part of the contract and the place any future local file must go.
    */
   dataDir?: string;
+  /**
+   * The AgentsPoppy permissions boundary to cap every IAM role our stack creates
+   * (broker-role-v2 step 2). Present ONLY when the host has confirmed the account's
+   * AgentsPoppyBoundary policy exists — naming a policy that doesn't exist makes IAM refuse
+   * CreateRole — so its absence means "deploy unbounded", never "strip the boundary".
+   */
+  permissionsBoundaryArn?: string;
   account: { accountId: string; region: string };
 }
 
@@ -42,7 +49,27 @@ export function readBootstrap(): BackendBootstrap {
   if (!boot.connectionId || !boot.credentialsUrl || !boot.account?.accountId) {
     throw new Error("AGENTSPOPPY_BOOTSTRAP is missing required fields (connectionId/credentialsUrl/account).");
   }
+  boot.permissionsBoundaryArn = confirmedBoundaryArn(boot.permissionsBoundaryArn);
   return boot;
+}
+
+/** An IAM managed-policy ARN: arn:<partition>:iam::<12-digit account>:policy/<name>. */
+const IAM_POLICY_ARN = /^arn:aws[a-z-]*:iam::\d{12}:policy\/.+/;
+
+/**
+ * The boundary ARN, or undefined for anything that isn't one.
+ *
+ * A truthy-string check is not enough: whitespace or a malformed value would be passed
+ * straight through as the CFN parameter, making the template's HasPermissionsBoundary
+ * condition TRUE and failing every CreateRole in the stack — a rolled-back deploy instead of
+ * the graceful unbounded one the optional-by-construction design promises. Anything that
+ * doesn't look like a policy ARN reads as "not confirmed", which preserves whatever the stack
+ * already carries (see stack.ts::boundaryParameterValue) and never strips a live boundary.
+ */
+function confirmedBoundaryArn(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const arn = value.trim();
+  return IAM_POLICY_ARN.test(arn) ? arn : undefined;
 }
 
 interface ScopedCredentialsDTO {

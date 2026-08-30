@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { brokerCredentialsProvider, type BackendBootstrap } from "./boot";
+import { brokerCredentialsProvider, readBootstrap, type BackendBootstrap } from "./boot";
 
 const boot: BackendBootstrap = {
   connectionId: "conn-1",
@@ -97,5 +97,64 @@ describe("brokerCredentialsProvider", () => {
     const c = await provider();
     expect(c.accessKeyId).toBe("ASIAEXAMPLE");
     expect(i).toBe(3);
+  });
+});
+
+describe("readBootstrap and the permissions boundary (broker-role-v2 step 2)", () => {
+  const base = {
+    connectionId: "conn-1",
+    credentialsUrl: "http://127.0.0.1:9999/c",
+    account: { accountId: "111122223333", region: "eu-west-1" },
+  };
+  const read = (extra: Record<string, unknown>) => {
+    process.env.AGENTSPOPPY_BOOTSTRAP = JSON.stringify({ ...base, ...extra });
+    try {
+      return readBootstrap();
+    } finally {
+      delete process.env.AGENTSPOPPY_BOOTSTRAP;
+    }
+  };
+
+  it("carries the ARN the host confirmed", () => {
+    const arn = "arn:aws:iam::111122223333:policy/AgentsPoppyBoundary";
+    expect(read({ permissionsBoundaryArn: arn }).permissionsBoundaryArn).toBe(arn);
+  });
+
+  it("accepts a non-commercial partition (aws-cn, aws-us-gov)", () => {
+    for (const arn of [
+      "arn:aws-cn:iam::111122223333:policy/AgentsPoppyBoundary",
+      "arn:aws-us-gov:iam::111122223333:policy/path/AgentsPoppyBoundary",
+    ]) {
+      expect(read({ permissionsBoundaryArn: arn }).permissionsBoundaryArn).toBe(arn);
+    }
+  });
+
+  it("trims a padded ARN rather than passing whitespace into CreateRole", () => {
+    const arn = "arn:aws:iam::111122223333:policy/AgentsPoppyBoundary";
+    expect(read({ permissionsBoundaryArn: `  ${arn}\n` }).permissionsBoundaryArn).toBe(arn);
+  });
+
+  it("reads anything that isn't an IAM policy ARN as 'not confirmed'", () => {
+    // A truthy-string check was not enough: whitespace or a malformed value would make the
+    // template's HasPermissionsBoundary condition TRUE and fail every CreateRole in the stack —
+    // a rolled-back deploy instead of the graceful unbounded one the design promises. And
+    // "not confirmed" is the safe reading, since it preserves whatever the stack already has.
+    for (const value of [
+      undefined,
+      "",
+      "   ",
+      "\t\n",
+      "AgentsPoppyBoundary",
+      "arn:aws:iam::111122223333:role/AgentsPoppyBoundary",
+      "arn:aws:iam::11112222:policy/AgentsPoppyBoundary",
+      "arn:aws:iam::111122223333:policy/",
+      "not an arn at all",
+      null,
+      0,
+      {},
+      ["arn:aws:iam::111122223333:policy/AgentsPoppyBoundary"],
+    ]) {
+      expect(read({ permissionsBoundaryArn: value }).permissionsBoundaryArn, JSON.stringify(value)).toBeUndefined();
+    }
   });
 });

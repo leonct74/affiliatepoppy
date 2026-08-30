@@ -194,10 +194,57 @@ export interface DeployResult {
 }
 
 /**
+ * The `PermissionsBoundaryArn` the template's roles are capped by on THIS deploy
+ * (broker-role-v2 step 2). Precedence, fail-safe in both directions:
+ *
+ *  - the host CONFIRMED the boundary policy exists (it sent the ARN in the bootstrap) → use
+ *    it; naming it only when confirmed is what stops CreateRole failing on a missing policy;
+ *  - the stack is one deploy() is about to DELETE and recreate → nothing to preserve (below);
+ *  - otherwise PRESERVE whatever the deployed stack already carries. "Absent from the
+ *    bootstrap" also covers a transient host-side read, and a code update must never strip an
+ *    applied boundary because of a hiccup;
+ *  - nothing deployed yet → empty, i.e. unbounded, which is the only thing that works before
+ *    the account has the policy.
+ *
+ * Pure, and takes the stack the deploy already described — the boundary is not worth a second
+ * DescribeStacks. NB the caller must pass `null` ONLY for a stack that positively does not
+ * exist: a stack we merely failed to read is not "no boundary" (see deploy()).
+ */
+export function boundaryParameterValue(confirmedArn: string | undefined, deployed: Stack | null): string {
+  if (confirmedArn) return confirmedArn;
+  // A dead stack is deleted and recreated below, so it has no live roles left to protect —
+  // preserving its ARN buys no safety and costs a lot: it names an UNCONFIRMED policy in a
+  // fresh CreateRole. If that policy is absent, IAM refuses, the create rolls back carrying
+  // the same bad ARN, the user retries, and it fails again — a self-perpetuating outage.
+  if (deployed?.StackStatus && RECREATE_STATUSES.has(deployed.StackStatus)) return "";
+  return deployed?.Parameters?.find((p) => p.ParameterKey === BOUNDARY_PARAM)?.ParameterValue ?? "";
+}
+
+/** The template parameter carrying the boundary — see infra/src/template.ts. */
+const BOUNDARY_PARAM = "PermissionsBoundaryArn";
+
+/**
+ * Statuses a stack cannot be updated out of: deploy() deletes and recreates instead. Shared
+ * with boundaryParameterValue so "this stack is about to die" can never mean two things.
+ */
+const RECREATE_STATUSES = new Set(["ROLLBACK_COMPLETE", "REVIEW_IN_PROGRESS"]);
+
+/** What we say when we could not read the stack — see the catch in deploy(). */
+export const STACK_READ_FAILED =
+  "Couldn't read your AffiliatePoppy stack in AWS, so we stopped rather than risk changing it blindly.";
+
+/**
  * Create or update the stack. Returns as soon as AWS accepts the request — the work runs in
  * the background (AGENTS.md §5); poll getStatus for completion.
+ *
+ * `permissionsBoundaryArn` comes from the bootstrap and is only ever set when the host has
+ * confirmed the boundary policy is in the account (boundaryParameterValue).
  */
-export async function deploy(ctx: AwsCtx, attribution: AttributionContext): Promise<DeployResult> {
+export async function deploy(
+  ctx: AwsCtx,
+  attribution: AttributionContext,
+  permissionsBoundaryArn?: string,
+): Promise<DeployResult> {
   const { cfn, s3, region, accountId } = ctx;
   // The stack MUST carry attribution or AgentsPoppy can neither show nor tear down what we
   // made — so refuse rather than deploy an untrackable footprint.
@@ -216,6 +263,22 @@ export async function deploy(ctx: AwsCtx, attribution: AttributionContext): Prom
   await ensureDeployBucket(s3, bucket, region, attrTags);
   await uploadLambdaCode(s3, bucket, lambdaCodeKey, lambdaZipBase64);
 
+  // Described before the parameters are built: the boundary's "preserve what's deployed"
+  // fallback reads this same stack, and the create/update branches below need it anyway.
+  //
+  // describe() returns null ONLY for a positive "does not exist"; every other failure throws,
+  // and must. "No stack" and "couldn't read the stack" answering alike would send
+  // CloudFormation an empty PermissionsBoundaryArn on an existing stack, which STRIPS the
+  // boundary off every role in it — a security ceiling removed by a throttle or a dropped
+  // connection, with nothing shown to the user. So a read failure aborts, in plain words.
+  let existing: Stack | null;
+  try {
+    existing = await describe(cfn, stackName);
+  } catch (e) {
+    throw new Error(`${STACK_READ_FAILED} Try again in a moment. (${(e as Error).message})`);
+  }
+  const status = existing?.StackStatus;
+
   const Parameters = [
     { ParameterKey: "LambdaCodeBucket", ParameterValue: bucket },
     { ParameterKey: "LambdaCodeKey", ParameterValue: lambdaCodeKey },
@@ -224,6 +287,10 @@ export async function deploy(ctx: AwsCtx, attribution: AttributionContext): Prom
     // id, so its grant can only be tag-scoped: these two are load-bearing.
     { ParameterKey: "AttrAccountId", ParameterValue: attribution.accountId },
     { ParameterKey: "AttrConnectionId", ParameterValue: attribution.connectionId },
+    // Always an explicit value, never UsePreviousValue: that fails on the first update after
+    // the template gains a parameter, which is exactly the update every existing stack is
+    // about to take.
+    { ParameterKey: BOUNDARY_PARAM, ParameterValue: boundaryParameterValue(permissionsBoundaryArn, existing) },
   ];
   const args = {
     StackName: stackName,
@@ -233,12 +300,9 @@ export async function deploy(ctx: AwsCtx, attribution: AttributionContext): Prom
     Tags,
   };
 
-  const existing = await describe(cfn, stackName);
-  const status = existing?.StackStatus;
-
   // A previous failed create leaves ROLLBACK_COMPLETE: it can't be updated, and creating over
   // it fails until it's fully gone. Delete, wait, recreate.
-  if (status === "ROLLBACK_COMPLETE" || status === "REVIEW_IN_PROGRESS") {
+  if (status && RECREATE_STATUSES.has(status)) {
     await cfn.send(new DeleteStackCommand({ StackName: stackName }));
     await waitUntilStackDeleteComplete({ client: cfn, maxWaitTime: 300 }, { StackName: stackName });
     await cfn.send(new CreateStackCommand(args));

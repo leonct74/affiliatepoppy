@@ -66,9 +66,29 @@ export interface CfnTemplate {
   AWSTemplateFormatVersion: string;
   Description: string;
   Parameters?: Record<string, unknown>;
+  Conditions?: Record<string, unknown>;
   Resources: Record<string, unknown>;
   Outputs: Record<string, unknown>;
 }
+
+/**
+ * The AgentsPoppy permissions boundary, applied to every IAM role in this stack
+ * (broker-role-v2 step 2). The boundary CAPS what a role can ever do — it grants nothing —
+ * so the two execution policies below are unaffected either way and no Lambda can lose a
+ * permission by gaining it.
+ *
+ * It is a PARAMETER rather than a hard-coded ARN because naming a policy that isn't in the
+ * account yet makes IAM refuse CreateRole outright: the host passes the ARN only once it has
+ * confirmed the policy exists, and an empty value (the default) deploys unbounded, which is
+ * the correct behaviour for a pre-boundary AgentsPoppy setup.
+ */
+const BOUNDARY_PARAM = "PermissionsBoundaryArn";
+const BOUNDARY_CONDITION = "HasPermissionsBoundary";
+
+/** The `PermissionsBoundary` property every AWS::IAM::Role here carries — set, or absent. */
+const permissionsBoundary = {
+  "Fn::If": [BOUNDARY_CONDITION, { Ref: BOUNDARY_PARAM }, { Ref: "AWS::NoValue" }],
+};
 
 /**
  * Build the template. Pure — same input, same bytes — so the content-addressed hash the
@@ -99,6 +119,15 @@ export function buildTemplate(): CfnTemplate {
       // is — it must be tag-scoped, which makes being born tagged load-bearing, not cosmetic.
       AttrAccountId: { Type: "String", Description: "agentspoppy:account tag value." },
       AttrConnectionId: { Type: "String", Description: "agentspoppy:connection tag value." },
+      [BOUNDARY_PARAM]: {
+        Type: "String",
+        Default: "",
+        Description:
+          "ARN of a managed policy to attach as the permissions boundary on every IAM role this stack creates (AgentsPoppy's AgentsPoppyBoundary). Empty = no boundary.",
+      },
+    },
+    Conditions: {
+      [BOUNDARY_CONDITION]: { "Fn::Not": [{ "Fn::Equals": [{ Ref: BOUNDARY_PARAM }, ""] }] },
     },
     Resources: {
       LedgerTable: {
@@ -132,6 +161,7 @@ export function buildTemplate(): CfnTemplate {
         Type: "AWS::IAM::Role",
         Properties: {
           RoleName: RECEIVER_ROLE_NAME,
+          PermissionsBoundary: permissionsBoundary,
           AssumeRolePolicyDocument: {
             Version: "2012-10-17",
             Statement: [
@@ -300,6 +330,7 @@ export function buildTemplate(): CfnTemplate {
         Type: "AWS::IAM::Role",
         Properties: {
           RoleName: PORTAL_ROLE_NAME,
+          PermissionsBoundary: permissionsBoundary,
           AssumeRolePolicyDocument: {
             Version: "2012-10-17",
             Statement: [

@@ -375,13 +375,37 @@ name-scoped `AffiliatePoppy*` / `affiliatepoppy-*` or tagged-as-self:
 - `cloudformation` — Create/Update/Delete/Describe on `stack/AffiliatePoppy*`
 - `dynamodb` — table lifecycle + CRUD on `table/AffiliatePoppy*`
 - `lambda` — function lifecycle + Function URL config on `function:AffiliatePoppy*`
-- `iam` — role lifecycle + PassRole on `role/AffiliatePoppy*`
+- `iam` — role lifecycle + PassRole + permissions-boundary attach/detach on
+  `role/AffiliatePoppy*` (see "The AgentsPoppy permissions boundary" below)
 - `logs` — log-group lifecycle on `/aws/lambda/AffiliatePoppy*`
 - `s3` — deploy bucket `affiliatepoppy-deploy-*` (+ objects)
 - `cognito-idp` — pool lifecycle **tagged-as-self** + CreateUserPoolClient/CreateGroup on
   `userpool/*` (the vm-poppy DR3/UserPoolTags lessons apply verbatim)
 - `ssm` — Get/Put/DeleteParameter on `parameter/affiliatepoppy/*`
 - premium only: `acm` + `cloudfront` tagged-as-self (copy TrafficPoppy's grants)
+
+**The AgentsPoppy permissions boundary** (`agentspoppy/docs/specs/broker-role-v2.md` step 2).
+A name-scoped grant to create roles is, on its own, enough to mint an account administrator:
+create `AffiliatePoppyX`, write `*:*` on it, pass it to a Lambda. AgentsPoppy closes that with
+a managed policy, `AgentsPoppyBoundary`, that CAPS every role a poppy creates. We attach it:
+
+- the template takes `PermissionsBoundaryArn` (default `""`) with a `HasPermissionsBoundary`
+  condition, and both roles carry `PermissionsBoundary: Fn::If(…, Ref, AWS::NoValue)`. It is a
+  parameter, not a hard-coded ARN, because IAM refuses `CreateRole` outright when the named
+  boundary isn't in the account — so a hard-coded one would break every merchant who hasn't
+  re-applied AgentsPoppy's setup yet;
+- the backend passes the ARN from the bootstrap when the host sends one (it does so ONLY
+  having confirmed the policy exists), otherwise the value the deployed stack already carries,
+  otherwise empty. Never `UsePreviousValue` — that fails on the first update after a template
+  gains a parameter, which is the update every existing stack takes next;
+- the manifest's `iam` grant therefore needs `PutRolePermissionsBoundary` (attaching to roles
+  that already exist) and `DeleteRolePermissionsBoundary` (CloudFormation's call when an update
+  flips the parameter back to empty). **That supersedes the connection, so every merchant is
+  asked to approve AffiliatePoppy's AWS access once more.** The rating is unchanged — the
+  assessor aggregates by service+scope and `iam` was already high/scoped.
+
+A boundary caps; it never grants. The two execution policies are identical with and without
+one, so no Lambda can lose a permission by gaining a ceiling.
 
 Traps that already cost the family real debugging time:
 - **Packed-policy budget (vm-poppy DR5):** declare ONLY actions the backend actually

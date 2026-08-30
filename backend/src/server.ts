@@ -108,7 +108,7 @@ const server = createServer(async (req, res) => {
     // Start (or update) the deploy. Returns as soon as AWS accepts it — the work carries on in
     // the background whatever the UI does.
     if (method === "POST" && parts[0] === "deploy" && parts.length === 1) {
-      return json(res, 200, await deploy(aws, attribution));
+      return json(res, 200, await deploy(aws, attribution, boot.permissionsBoundaryArn));
     }
 
     // ── the programme's settings, branding and Stripe connection ──────────────────────
