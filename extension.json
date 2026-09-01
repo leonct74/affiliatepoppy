@@ -1,14 +1,14 @@
 {
   "id": "com.affiliatepoppy.desktop",
   "name": "AffiliatePoppy",
-  "version": "0.1.3",
-  "description": "Run an affiliate program from your own AWS \u2014 coupon-code attribution straight from your Stripe, no cookies on anyone's website, and a hosted signup page for your partners.",
+  "version": "0.1.4",
+  "description": "Run an affiliate program from your own AWS — coupon-code attribution straight from your Stripe, no cookies on anyone's website, and a hosted signup page for your partners.",
   "icon": "frontend/affiliatepoppy-icon.png",
   "bugsUrl": "https://github.com/leonct74/affiliatepoppy/issues",
   "permissionSet": {
     "id": "affiliatepoppy-backend",
     "name": "AffiliatePoppy backend",
-    "description": "Deploys and removes its own CloudFormation stack (named AffiliatePoppyStack): a DynamoDB table for your affiliates and commissions, two Lambdas behind their own web addresses (one that listens to your Stripe, one that serves your affiliates' signup page), a sign-in directory for those affiliates, and a least-privilege execution role for each Lambda. It also keeps your two Stripe secrets in your account's own encrypted parameter store. Every change and delete is limited to things named AffiliatePoppy* (and an affiliatepoppy-deploy-* code bucket, and parameters under /affiliatepoppy) \u2014 it cannot touch anything else in your account. No account or organisation access.",
+    "description": "Deploys and removes its own CloudFormation stack (named AffiliatePoppyStack): a DynamoDB table for your affiliates and commissions, two Lambdas behind their own web addresses (one that listens to your Stripe, one that serves your affiliates' signup page), a sign-in directory for those affiliates, and a least-privilege execution role for each Lambda. It also keeps your two Stripe secrets in your account's own encrypted parameter store. Every change and delete is limited to things named AffiliatePoppy* (and an affiliatepoppy-deploy-* code bucket, and parameters under /affiliatepoppy) — it cannot touch anything else in your account. No account or organisation access.",
     "requiredTags": [
       "agentspoppy:account",
       "agentspoppy:app",
@@ -146,7 +146,7 @@
           "CreateUserPoolClient"
         ],
         "resourceScope": "arn:aws:cognito-idp:*:*:userpool/*",
-        "reason": "A user-pool client is a child resource with no tags of its own \u2014 it can only be created against the pool it belongs to, which we tag as ours."
+        "reason": "A user-pool client is a child resource with no tags of its own — it can only be created against the pool it belongs to, which we tag as ours."
       }
     ],
     "limits": null,
