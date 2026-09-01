@@ -157,6 +157,18 @@
       "infrastructure": "websites"
     }
   },
+  "compliance": {
+    "dataHandled": "Affiliate, commission and payout records, stored only in your own AWS account. Your Stripe API keys live in your own encrypted parameter store and never reach the developer.",
+    "subprocessors": [
+      {
+        "name": "api.stripe.com",
+        "operator": "Stripe",
+        "purpose": "coupon and payment events for affiliate attribution, read from your own Stripe account",
+        "dataShared": "requests made under your own Stripe API keys — payment data stays between you and Stripe, and none of it reaches the developer"
+      }
+    ],
+    "securityContact": "support@agentspoppy.com"
+  },
   "frontend": {
     "entry": "frontend/index.html"
   },
