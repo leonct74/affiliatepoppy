@@ -93,8 +93,19 @@ async function main() {
   const hash = createHash("sha256");
   for (const name of HANDLERS) hash.update(built[name]);
   const lambdaCodeKey = `lambdas-${hash.digest("hex").slice(0, 16)}.zip`;
-  // Fixed mtime (HEAD commit time) → byte-identical archive on any machine at the same commit.
-  const epoch = Number(process.env.SOURCE_DATE_EPOCH || git(["log", "-1", "--format=%ct"]) || 0);
+  // Fixed mtime — and it must depend on NOTHING but SOURCE_DATE_EPOCH.
+  //
+  // This used to fall back to `git log -1 --format=%ct`, HEAD's committer date. That is stable
+  // for a given commit, which is exactly what hid it: a rebuild at the same commit reproduced
+  // the bytes, so the obvious check passed. But the date moves on every new commit, so the same
+  // source shipped different bytes depending on when it was packed relative to the release
+  // commit. v0.1.4's published package is stamped 43 minutes BEFORE its own release tag — so checking
+  // out that tag and rebuilding cannot reproduce the published sha256 the catalogue pins.
+  //
+  // The stamp carries no information anyway: entry names are fixed and the code is already
+  // identified by the content-addressed key above. Default 0 → the writer's 1980-01-01 floor,
+  // the same convention the outer package zip uses (agentspoppy pack-extension.mjs).
+  const epoch = Number(process.env.SOURCE_DATE_EPOCH ?? 0);
   const lambdaZip = deterministicZip(
     HANDLERS.map((name) => ({ name: `${name}.js`, data: built[name] })),
     epoch,
